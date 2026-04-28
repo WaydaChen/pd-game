@@ -818,6 +818,79 @@ function switchTab(tab) {
 
 function playAgain(){G.myScore=0;G.oppScore=0;G.round=0;G.history=[];startGame();}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// ── ROOM MODE (老師建立房間後學生用 ?room=CODE 進入) ─────────────────
+const ROOM_CODE = new URLSearchParams(location.search).get('room');
+let ROOM_SUBMITTED = false;
+
+async function initRoomMode() {
+  if (!ROOM_CODE) return;
+  try {
+    const res = await fetch('/api/rooms/' + encodeURIComponent(ROOM_CODE));
+    if (!res.ok) {
+      alert('找不到房間 ' + ROOM_CODE + '，請確認代碼。');
+      return;
+    }
+    const data = await res.json();
+    const s = data.settings || {};
+    // 套用老師設定到 cfg
+    setRoundsType(s.rounds_type || 'multi');
+    if (s.round_count) setRoundCount(s.round_count);
+    setKnowRounds(s.know_rounds !== false);
+    setKnowOpponent(s.know_opponent !== false);
+
+    // 隱藏實驗設定卡片（學生不能改）+ 鎖定為對抗 AI
+    const cards = document.querySelectorAll('#screen-login .card');
+    // cards: [學生登入, 實驗設定, 報酬矩陣]
+    if (cards[1]) cards[1].style.display = 'none';
+    // 隱藏對戰模式選擇 + 房間代碼欄位
+    const modeFG = document.getElementById('input-mode').closest('.fg');
+    if (modeFG) modeFG.style.display = 'none';
+    document.getElementById('input-mode').value = 'vs-ai';
+    document.getElementById('room-code-group').style.display = 'none';
+
+    // 在登入頁顯示房間資訊
+    const heroP = document.querySelector('#screen-login .hero p');
+    if (heroP) heroP.innerHTML = `<span style="color:var(--accent2)">房間 ${ROOM_CODE}</span><br>${s.title || '老師已設定實驗條件'}`;
+    document.getElementById('header-info').textContent = '房間 ' + ROOM_CODE;
+  } catch (e) {
+    alert('連線房間失敗：' + e.message);
+  }
+}
+
+async function submitToRoom() {
+  if (!ROOM_CODE || ROOM_SUBMITTED) return;
+  ROOM_SUBMITTED = true;
+  try {
+    await fetch('/api/rooms/' + encodeURIComponent(ROOM_CODE) + '/results', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        sid: G.sid, name: G.name,
+        my_score: G.myScore, opp_score: G.oppScore,
+        history: G.history.map(h => ({
+          round: h.round, my_choice: h.myChoice, opp_choice: h.oppChoice,
+          my_pts: h.myPts, opp_pts: h.oppPts,
+        })),
+      })
+    });
+  } catch(e) {}
+}
+
+// 包裝原 showFinalResult 以提交結果到房間
+const _origShowFinalResult = showFinalResult;
+showFinalResult = function() {
+  _origShowFinalResult.apply(this, arguments);
+  submitToRoom();
+};
+
+// 在房間模式下，再玩一局也應重新提交（清除 flag）
+const _origPlayAgain = playAgain;
+playAgain = function() {
+  ROOM_SUBMITTED = false;
+  _origPlayAgain.apply(this, arguments);
+};
+
+initRoomMode();
 </script>
 </body>
 </html>

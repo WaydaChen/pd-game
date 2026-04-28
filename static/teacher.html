@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>老師後台 — 囚犯困境</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+:root{
+  --bg:#0d0e14;--bg2:#13141c;--bg3:#1a1c27;
+  --surface:#1e2030;--surface2:#252840;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.16);
+  --text:#e8e9f0;--text2:#9a9db8;--text3:#5c5f7a;
+  --accent:#7c6af7;--accent2:#a594ff;
+  --red:#f06060;--green:#4ecb8a;--amber:#f0b429;--blue:#4a9eff;
+  --r:12px;--rs:8px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans TC',sans-serif;font-weight:300;min-height:100vh;}
+header{background:var(--bg2);border-bottom:1px solid var(--border);padding:.9rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+.logo{font-family:'Noto Serif TC',serif;font-size:1.05rem;font-weight:700;color:var(--accent2);}
+.container{max-width:980px;margin:0 auto;padding:2rem 1.5rem;}
+.screen{display:none;}.screen.active{display:block;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.4rem;margin-bottom:1.2rem;}
+.card-title{font-family:'Noto Serif TC',serif;font-size:1rem;font-weight:600;margin-bottom:.65rem;}
+.hero{text-align:center;padding:1rem 0 1.5rem;}
+.hero h1{font-family:'Noto Serif TC',serif;font-size:1.7rem;font-weight:700;margin-bottom:.4rem;background:linear-gradient(135deg,#a594ff,#7c6af7,#4a9eff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.hero p{color:var(--text2);font-size:.9rem;}
+.fg{display:flex;flex-direction:column;gap:.4rem;margin-bottom:.9rem;}
+label{font-size:.78rem;color:var(--text2);font-weight:500;}
+input[type=text]{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:.65rem .9rem;color:var(--text);font-size:.92rem;outline:none;}
+input:focus{border-color:var(--accent);}
+.toggle-group{display:flex;gap:6px;flex-wrap:wrap;}
+.toggle-btn{flex:1;min-width:80px;padding:.5rem .4rem;border-radius:var(--rs);border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:.8rem;cursor:pointer;text-align:center;transition:all .18s;}
+.toggle-btn.active{border-color:var(--accent);background:rgba(124,106,247,.15);color:var(--accent2);}
+.setting-row{display:flex;flex-direction:column;gap:.4rem;margin-bottom:.9rem;}
+.setting-label{font-size:.78rem;color:var(--text2);font-weight:500;}
+.btn{padding:.7rem 1.4rem;border-radius:var(--rs);font-size:.92rem;font-weight:500;cursor:pointer;border:none;transition:all .2s;width:100%;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:var(--accent2);}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);}
+.btn-ghost:hover{border-color:var(--border2);color:var(--text);}
+.room-code{font-size:3rem;font-weight:700;letter-spacing:.4em;color:var(--accent2);text-align:center;padding:1.2rem;background:var(--bg3);border-radius:var(--rs);border:1px dashed var(--border2);font-variant-numeric:tabular-nums;}
+.url-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:.7rem .9rem;font-family:monospace;font-size:.85rem;word-break:break-all;color:var(--accent2);}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.8rem;}
+.stat{background:var(--bg3);border-radius:var(--rs);padding:.9rem;text-align:center;}
+.stat .lbl{font-size:.72rem;color:var(--text3);margin-bottom:.3rem;}
+.stat .val{font-size:1.6rem;font-weight:700;color:var(--accent2);}
+.stat .val.green{color:var(--green);}.stat .val.amber{color:var(--amber);}.stat .val.blue{color:var(--blue);}
+table{width:100%;border-collapse:collapse;font-size:.85rem;}
+th,td{padding:.55rem .5rem;text-align:left;border-bottom:1px solid var(--border);}
+th{color:var(--text2);font-weight:500;font-size:.76rem;background:var(--bg3);}
+tr:hover td{background:rgba(255,255,255,.02);}
+.badge{padding:.18rem .55rem;border-radius:20px;font-size:.7rem;font-weight:700;}
+.badge.c{background:rgba(78,203,138,.15);color:var(--green);}
+.badge.b{background:rgba(240,96,96,.15);color:var(--red);}
+.flex-between{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;}
+.text-xs{font-size:.73rem;color:var(--text3);}
+.alert{padding:.7rem .9rem;border-radius:var(--rs);font-size:.82rem;border:1px solid;margin-bottom:1rem;}
+.alert.info{background:rgba(74,158,255,.08);border-color:rgba(74,158,255,.25);color:var(--blue);}
+.alert.err{background:rgba(240,96,96,.08);border-color:rgba(240,96,96,.25);color:var(--red);}
+.history-mini{display:flex;gap:2px;}
+.history-mini span{width:14px;height:14px;border-radius:3px;display:inline-block;}
+.history-mini .c{background:var(--green);}.history-mini .b{background:var(--red);}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:.4rem;animation:pulse-dot 2s ease-in-out infinite;}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">⚖️ 囚犯困境 — 老師後台</div>
+  <div id="header-info" class="text-xs"></div>
+</header>
+
+<div class="container">
+
+<!-- ══ SETUP ══ -->
+<div class="screen active" id="screen-setup">
+  <div class="hero">
+    <h1>建立課堂房間</h1>
+    <p>設定實驗條件，產生房號讓學生加入</p>
+  </div>
+
+  <div class="card">
+    <p class="card-title">📝 房間資訊</p>
+    <div class="fg"><label>實驗標題</label><input type="text" id="input-title" placeholder="例：經濟學原理 第3週實驗" value="囚犯困境課堂實驗"></div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">🔬 實驗設定</p>
+
+    <div class="setting-row">
+      <div class="setting-label">回合數類型</div>
+      <div class="toggle-group">
+        <button class="toggle-btn" id="t-single" onclick="setRoundsType('single')">單回合</button>
+        <button class="toggle-btn active" id="t-multi" onclick="setRoundsType('multi')">多回合</button>
+      </div>
+    </div>
+
+    <div class="setting-row" id="rounds-count-row">
+      <div class="setting-label">總回合數</div>
+      <div class="toggle-group">
+        <button class="toggle-btn" id="t-r3" onclick="setRoundCount(3)">3</button>
+        <button class="toggle-btn active" id="t-r5" onclick="setRoundCount(5)">5</button>
+        <button class="toggle-btn" id="t-r10" onclick="setRoundCount(10)">10</button>
+      </div>
+    </div>
+
+    <div class="setting-row" id="know-rounds-row">
+      <div class="setting-label">玩家是否知道總回合數？</div>
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="t-kr-yes" onclick="setKnowRounds(true)">知道</button>
+        <button class="toggle-btn" id="t-kr-no" onclick="setKnowRounds(false)">不知道</button>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-label">是否知道對方是誰？</div>
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="t-ko-yes" onclick="setKnowOpponent(true)">記名</button>
+        <button class="toggle-btn" id="t-ko-no" onclick="setKnowOpponent(false)">匿名</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" onclick="createRoom()">建立房間 →</button>
+</div>
+
+<!-- ══ DASHBOARD ══ -->
+<div class="screen" id="screen-dashboard">
+  <div class="card" style="text-align:center;">
+    <p class="text-xs" style="margin-bottom:.4rem;">房間代碼</p>
+    <div class="room-code" id="d-code">----</div>
+    <p class="text-xs" style="margin-top:.7rem;margin-bottom:.4rem;">學生連結（複製給學生）</p>
+    <div class="url-box" id="d-url" onclick="copyURL()" style="cursor:pointer;">—</div>
+    <p class="text-xs" style="margin-top:.4rem;">點擊複製</p>
+  </div>
+
+  <div class="alert info"><span class="live-dot"></span>每 5 秒自動更新 — 學生交卷後即時顯示</div>
+
+  <div class="card">
+    <p class="card-title">📊 即時統計</p>
+    <div class="stats-grid">
+      <div class="stat"><div class="lbl">交卷人數</div><div class="val" id="s-count">0</div></div>
+      <div class="stat"><div class="lbl">合作率</div><div class="val green" id="s-coop">0%</div></div>
+      <div class="stat"><div class="lbl">平均學生分數</div><div class="val amber" id="s-avg-my">0</div></div>
+      <div class="stat"><div class="lbl">平均對手分數</div><div class="val blue" id="s-avg-opp">0</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="flex-between" style="margin-bottom:.8rem;">
+      <p class="card-title" style="margin:0;">👥 學生明細</p>
+      <button class="btn btn-ghost" style="width:auto;padding:.4rem .9rem;font-size:.8rem;" onclick="exportCSV()">匯出 CSV</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table id="t-students">
+        <thead><tr>
+          <th>#</th><th>姓名</th><th>學號</th><th>得分</th><th>對手</th><th>合作次數</th><th>選擇序列</th><th>交卷時間</th>
+        </tr></thead>
+        <tbody><tr><td colspan="8" class="text-xs" style="text-align:center;padding:1.5rem;">尚無學生交卷</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <button class="btn btn-ghost" onclick="location.reload()">建立另一個房間</button>
+</div>
+
+<script>
+const cfg = { rounds_type:'multi', round_count:5, know_rounds:true, know_opponent:true };
+let roomCode = '', teacherToken = '', refreshTimer = null;
+
+function setRoundsType(v){
+  cfg.rounds_type=v;
+  ['single','multi'].forEach(k=>document.getElementById('t-'+k).classList.toggle('active',k===v));
+  const hide=v==='single';
+  document.getElementById('rounds-count-row').style.display=hide?'none':'flex';
+  document.getElementById('know-rounds-row').style.display=hide?'none':'flex';
+}
+function setRoundCount(n){
+  cfg.round_count=n;
+  [3,5,10].forEach(k=>document.getElementById('t-r'+k).classList.toggle('active',k===n));
+}
+function setKnowRounds(v){
+  cfg.know_rounds=v;
+  document.getElementById('t-kr-yes').classList.toggle('active',v);
+  document.getElementById('t-kr-no').classList.toggle('active',!v);
+}
+function setKnowOpponent(v){
+  cfg.know_opponent=v;
+  document.getElementById('t-ko-yes').classList.toggle('active',v);
+  document.getElementById('t-ko-no').classList.toggle('active',!v);
+}
+
+async function createRoom(){
+  const title=document.getElementById('input-title').value.trim()||'囚犯困境課堂實驗';
+  try{
+    const res=await fetch('/api/teacher/rooms',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({...cfg, title})
+    });
+    if(!res.ok) throw new Error('建立失敗');
+    const data=await res.json();
+    roomCode=data.code; teacherToken=data.teacher_token;
+    sessionStorage.setItem('pd_room_'+roomCode, teacherToken);
+    showDashboard();
+  }catch(e){alert('建立房間失敗：'+e.message);}
+}
+
+function showDashboard(){
+  document.getElementById('screen-setup').classList.remove('active');
+  document.getElementById('screen-dashboard').classList.add('active');
+  document.getElementById('d-code').textContent=roomCode;
+  const url=`${location.origin}/?room=${roomCode}`;
+  document.getElementById('d-url').textContent=url;
+  document.getElementById('header-info').textContent=`房間 ${roomCode}`;
+  refresh(); refreshTimer=setInterval(refresh,5000);
+}
+
+function copyURL(){
+  const url=document.getElementById('d-url').textContent;
+  navigator.clipboard.writeText(url).then(()=>{
+    const el=document.getElementById('d-url');
+    const orig=el.textContent;
+    el.textContent='✓ 已複製！';
+    setTimeout(()=>el.textContent=orig,1200);
+  });
+}
+
+async function refresh(){
+  try{
+    const res=await fetch(`/api/teacher/rooms/${roomCode}?token=${encodeURIComponent(teacherToken)}`);
+    if(!res.ok) return;
+    const data=await res.json();
+    document.getElementById('s-count').textContent=data.stats.count;
+    document.getElementById('s-coop').textContent=Math.round(data.stats.cooperation_rate*100)+'%';
+    document.getElementById('s-avg-my').textContent=data.stats.avg_my_score;
+    document.getElementById('s-avg-opp').textContent=data.stats.avg_opp_score;
+    renderStudents(data.submissions);
+  }catch(e){}
+}
+
+function renderStudents(subs){
+  const tbody=document.querySelector('#t-students tbody');
+  if(!subs.length){
+    tbody.innerHTML='<tr><td colspan="8" class="text-xs" style="text-align:center;padding:1.5rem;">尚無學生交卷</td></tr>';
+    return;
+  }
+  // sort by score desc
+  const sorted=[...subs].sort((a,b)=>b.my_score-a.my_score);
+  tbody.innerHTML=sorted.map((s,i)=>{
+    const coop=s.history.filter(h=>h.my_choice==='cooperate').length;
+    const seq=s.history.map(h=>`<span class="${h.my_choice==='cooperate'?'c':'b'}"></span>`).join('');
+    const time=new Date(s.submitted_at*1000).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
+    return `<tr>
+      <td>${medal}</td>
+      <td>${escapeHtml(s.name)}</td>
+      <td>${escapeHtml(s.sid)}</td>
+      <td><strong style="color:var(--accent2)">${s.my_score}</strong></td>
+      <td>${s.opp_score}</td>
+      <td>${coop}/${s.history.length}</td>
+      <td><div class="history-mini">${seq}</div></td>
+      <td class="text-xs">${time}</td>
+    </tr>`;
+  }).join('');
+}
+
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function exportCSV(){
+  fetch(`/api/teacher/rooms/${roomCode}?token=${encodeURIComponent(teacherToken)}`).then(r=>r.json()).then(data=>{
+    const rows=[['姓名','學號','總分','對手分','合作次數','總回合','選擇序列','交卷時間']];
+    data.submissions.forEach(s=>{
+      const coop=s.history.filter(h=>h.my_choice==='cooperate').length;
+      const seq=s.history.map(h=>h.my_choice==='cooperate'?'C':'D').join('');
+      const time=new Date(s.submitted_at*1000).toLocaleString('zh-TW');
+      rows.push([s.name,s.sid,s.my_score,s.opp_score,coop,s.history.length,seq,time]);
+    });
+    const csv='\ufeff'+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`pd-room-${roomCode}-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+  });
+}
+
+// Restore session if reload (same tab)
+window.addEventListener('load',()=>{
+  setRoundsType('multi');
+});
+</script>
+</body>
+</html>
