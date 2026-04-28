@@ -19,7 +19,7 @@
 body{background:var(--bg);color:var(--text);font-family:'Noto Sans TC',sans-serif;font-weight:300;min-height:100vh;}
 header{background:var(--bg2);border-bottom:1px solid var(--border);padding:.9rem 2rem;display:flex;align-items:center;justify-content:space-between;}
 .logo{font-family:'Noto Serif TC',serif;font-size:1.05rem;font-weight:700;color:var(--accent2);}
-.container{max-width:980px;margin:0 auto;padding:2rem 1.5rem;}
+.container{max-width:1080px;margin:0 auto;padding:2rem 1.5rem;}
 .screen{display:none;}.screen.active{display:block;}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.4rem;margin-bottom:1.2rem;}
 .card-title{font-family:'Noto Serif TC',serif;font-size:1rem;font-weight:600;margin-bottom:.65rem;}
@@ -35,11 +35,14 @@ input:focus{border-color:var(--accent);}
 .toggle-btn.active{border-color:var(--accent);background:rgba(124,106,247,.15);color:var(--accent2);}
 .setting-row{display:flex;flex-direction:column;gap:.4rem;margin-bottom:.9rem;}
 .setting-label{font-size:.78rem;color:var(--text2);font-weight:500;}
-.btn{padding:.7rem 1.4rem;border-radius:var(--rs);font-size:.92rem;font-weight:500;cursor:pointer;border:none;transition:all .2s;width:100%;}
+.btn{padding:.7rem 1.4rem;border-radius:var(--rs);font-size:.92rem;font-weight:500;cursor:pointer;border:none;transition:all .2s;width:100%;font-family:'Noto Sans TC',sans-serif;}
 .btn-primary{background:var(--accent);color:#fff;}
 .btn-primary:hover{background:var(--accent2);}
 .btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);}
 .btn-ghost:hover{border-color:var(--border2);color:var(--text);}
+.btn-green{background:var(--green);color:#0d0e14;}
+.btn-green:hover{filter:brightness(1.1);}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;}
 .room-code{font-size:3rem;font-weight:700;letter-spacing:.4em;color:var(--accent2);text-align:center;padding:1.2rem;background:var(--bg3);border-radius:var(--rs);border:1px dashed var(--border2);font-variant-numeric:tabular-nums;}
 .url-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:.7rem .9rem;font-family:monospace;font-size:.85rem;word-break:break-all;color:var(--accent2);}
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.8rem;}
@@ -51,19 +54,20 @@ table{width:100%;border-collapse:collapse;font-size:.85rem;}
 th,td{padding:.55rem .5rem;text-align:left;border-bottom:1px solid var(--border);}
 th{color:var(--text2);font-weight:500;font-size:.76rem;background:var(--bg3);}
 tr:hover td{background:rgba(255,255,255,.02);}
-.badge{padding:.18rem .55rem;border-radius:20px;font-size:.7rem;font-weight:700;}
-.badge.c{background:rgba(78,203,138,.15);color:var(--green);}
-.badge.b{background:rgba(240,96,96,.15);color:var(--red);}
 .flex-between{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;}
 .text-xs{font-size:.73rem;color:var(--text3);}
 .alert{padding:.7rem .9rem;border-radius:var(--rs);font-size:.82rem;border:1px solid;margin-bottom:1rem;}
 .alert.info{background:rgba(74,158,255,.08);border-color:rgba(74,158,255,.25);color:var(--blue);}
-.alert.err{background:rgba(240,96,96,.08);border-color:rgba(240,96,96,.25);color:var(--red);}
+.alert.warn{background:rgba(240,180,41,.08);border-color:rgba(240,180,41,.25);color:var(--amber);}
 .history-mini{display:flex;gap:2px;}
 .history-mini span{width:14px;height:14px;border-radius:3px;display:inline-block;}
 .history-mini .c{background:var(--green);}.history-mini .b{background:var(--red);}
 .live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:.4rem;animation:pulse-dot 2s ease-in-out infinite;}
 @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
+.chip{display:inline-block;padding:.35rem .8rem;border-radius:20px;font-size:.78rem;background:var(--bg3);border:1px solid var(--border);margin:.15rem;}
+.phase-tag{display:inline-block;padding:.25rem .7rem;border-radius:20px;font-size:.75rem;font-weight:500;}
+.phase-tag.lobby{background:rgba(240,180,41,.12);color:var(--amber);border:1px solid rgba(240,180,41,.3);}
+.phase-tag.playing{background:rgba(78,203,138,.12);color:var(--green);border:1px solid rgba(78,203,138,.3);}
 </style>
 </head>
 <body>
@@ -84,6 +88,18 @@ tr:hover td{background:rgba(255,255,255,.02);}
   <div class="card">
     <p class="card-title">📝 房間資訊</p>
     <div class="fg"><label>實驗標題</label><input type="text" id="input-title" placeholder="例：經濟學原理 第3週實驗" value="囚犯困境課堂實驗"></div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">🎮 對戰模式</p>
+    <div class="setting-row">
+      <div class="setting-label">學生對手</div>
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="m-ai" onclick="setMode('ai')">對戰 AI（隨時開始）</button>
+        <button class="toggle-btn" id="m-human" onclick="setMode('human')">同學互玩（老師控制配對）</button>
+      </div>
+    </div>
+    <p class="text-xs" id="mode-hint">每位學生獨立與 AI 對手玩，不需等待。</p>
   </div>
 
   <div class="card">
@@ -129,36 +145,67 @@ tr:hover td{background:rgba(255,255,255,.02);}
 <!-- ══ DASHBOARD ══ -->
 <div class="screen" id="screen-dashboard">
   <div class="card" style="text-align:center;">
-    <p class="text-xs" style="margin-bottom:.4rem;">房間代碼</p>
+    <div class="flex-between" style="justify-content:center;gap:1rem;margin-bottom:.5rem;">
+      <p class="text-xs" style="margin:0;">房間代碼</p>
+      <span class="phase-tag" id="phase-tag">大廳</span>
+    </div>
     <div class="room-code" id="d-code">----</div>
-    <p class="text-xs" style="margin-top:.7rem;margin-bottom:.4rem;">學生連結（複製給學生）</p>
+    <p class="text-xs" style="margin-top:.7rem;margin-bottom:.4rem;">學生連結（點擊複製）</p>
     <div class="url-box" id="d-url" onclick="copyURL()" style="cursor:pointer;">—</div>
-    <p class="text-xs" style="margin-top:.4rem;">點擊複製</p>
   </div>
 
-  <div class="alert info"><span class="live-dot"></span>每 5 秒自動更新 — 學生交卷後即時顯示</div>
+  <!-- 同學互玩模式：等待大廳 -->
+  <div class="card" id="card-lobby" style="display:none;">
+    <div class="flex-between" style="margin-bottom:.8rem;">
+      <p class="card-title" style="margin:0;">🚪 等待大廳</p>
+      <span class="text-xs" id="lobby-count">0 人等待中</span>
+    </div>
+    <div id="lobby-list" style="min-height:60px;">
+      <p class="text-xs" style="text-align:center;color:var(--text3);padding:1rem;">尚無學生加入</p>
+    </div>
+    <div class="alert warn" style="margin:.9rem 0 .5rem;">學生到齊後，按下「開始配對」會自動兩兩配對（奇數人時最後一位配 AI）。</div>
+    <button class="btn btn-green" id="btn-start-pair" onclick="startPairing()">▶ 開始配對</button>
+  </div>
 
+  <!-- 進行中：顯示對局狀態 -->
+  <div class="card" id="card-playing" style="display:none;">
+    <p class="card-title">⏳ 對局進行中</p>
+    <p class="text-xs" id="playing-info" style="margin-bottom:.6rem;">—</p>
+    <div id="playing-list"></div>
+  </div>
+
+  <div class="alert info"><span class="live-dot"></span>每 3 秒自動更新</div>
+
+  <!-- 即時統計 -->
   <div class="card">
     <p class="card-title">📊 即時統計</p>
     <div class="stats-grid">
-      <div class="stat"><div class="lbl">交卷人數</div><div class="val" id="s-count">0</div></div>
+      <div class="stat"><div class="lbl">已完賽</div><div class="val" id="s-count">0</div></div>
       <div class="stat"><div class="lbl">合作率</div><div class="val green" id="s-coop">0%</div></div>
       <div class="stat"><div class="lbl">平均學生分數</div><div class="val amber" id="s-avg-my">0</div></div>
       <div class="stat"><div class="lbl">平均對手分數</div><div class="val blue" id="s-avg-opp">0</div></div>
     </div>
   </div>
 
-  <div class="card">
-    <div class="flex-between" style="margin-bottom:.8rem;">
-      <p class="card-title" style="margin:0;">👥 學生明細</p>
-      <button class="btn btn-ghost" style="width:auto;padding:.4rem .9rem;font-size:.8rem;" onclick="exportCSV()">匯出 CSV</button>
+  <!-- CSV 匯出（顯眼位置） -->
+  <div class="card" style="background:rgba(124,106,247,.08);border-color:rgba(124,106,247,.3);">
+    <div class="flex-between">
+      <div>
+        <p class="card-title" style="margin-bottom:.2rem;">📥 下載成績</p>
+        <p class="text-xs" style="margin:0;">匯出全班成績為 CSV（可用 Excel 開啟）</p>
+      </div>
+      <button class="btn btn-primary" style="width:auto;padding:.6rem 1.2rem;" onclick="exportCSV()">匯出 CSV</button>
     </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">👥 學生明細</p>
     <div style="overflow-x:auto;">
       <table id="t-students">
         <thead><tr>
-          <th>#</th><th>姓名</th><th>學號</th><th>得分</th><th>對手</th><th>合作次數</th><th>選擇序列</th><th>交卷時間</th>
+          <th>#</th><th>姓名</th><th>學號</th><th>對手</th><th>得分</th><th>對手分</th><th>合作</th><th>選擇序列</th><th>交卷</th>
         </tr></thead>
-        <tbody><tr><td colspan="8" class="text-xs" style="text-align:center;padding:1.5rem;">尚無學生交卷</td></tr></tbody>
+        <tbody><tr><td colspan="9" class="text-xs" style="text-align:center;padding:1.5rem;">尚無學生交卷</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -167,9 +214,17 @@ tr:hover td{background:rgba(255,255,255,.02);}
 </div>
 
 <script>
-const cfg = { rounds_type:'multi', round_count:5, know_rounds:true, know_opponent:true };
+const cfg = { mode:'ai', rounds_type:'multi', round_count:5, know_rounds:true, know_opponent:true };
 let roomCode = '', teacherToken = '', refreshTimer = null;
 
+function setMode(m){
+  cfg.mode = m;
+  document.getElementById('m-ai').classList.toggle('active', m==='ai');
+  document.getElementById('m-human').classList.toggle('active', m==='human');
+  document.getElementById('mode-hint').textContent = m==='ai'
+    ? '每位學生獨立與 AI 對手玩，不需等待。'
+    : '學生進房後在大廳等待，老師按下「開始配對」後兩兩對戰。';
+}
 function setRoundsType(v){
   cfg.rounds_type=v;
   ['single','multi'].forEach(k=>document.getElementById('t-'+k).classList.toggle('active',k===v));
@@ -202,7 +257,6 @@ async function createRoom(){
     if(!res.ok) throw new Error('建立失敗');
     const data=await res.json();
     roomCode=data.code; teacherToken=data.teacher_token;
-    sessionStorage.setItem('pd_room_'+roomCode, teacherToken);
     showDashboard();
   }catch(e){alert('建立房間失敗：'+e.message);}
 }
@@ -214,7 +268,11 @@ function showDashboard(){
   const url=`${location.origin}/?room=${roomCode}`;
   document.getElementById('d-url').textContent=url;
   document.getElementById('header-info').textContent=`房間 ${roomCode}`;
-  refresh(); refreshTimer=setInterval(refresh,5000);
+
+  // 顯示對應卡片
+  document.getElementById('card-lobby').style.display = cfg.mode==='human' ? 'block' : 'none';
+
+  refresh(); refreshTimer=setInterval(refresh,3000);
 }
 
 function copyURL(){
@@ -227,11 +285,51 @@ function copyURL(){
   });
 }
 
+async function startPairing(){
+  if(!confirm('確定開始配對嗎？已在大廳的學生會兩兩配對。')) return;
+  try{
+    const res=await fetch(`/api/teacher/rooms/${roomCode}/pair?token=${encodeURIComponent(teacherToken)}`,{method:'POST'});
+    if(!res.ok) throw new Error('配對失敗');
+    const data=await res.json();
+    alert(`配對完成，共建立 ${data.matches_created} 場對局`);
+    refresh();
+  }catch(e){alert('錯誤：'+e.message);}
+}
+
 async function refresh(){
   try{
     const res=await fetch(`/api/teacher/rooms/${roomCode}?token=${encodeURIComponent(teacherToken)}`);
     if(!res.ok) return;
     const data=await res.json();
+
+    // Phase tag
+    const ptag=document.getElementById('phase-tag');
+    if(data.phase==='lobby'){ ptag.textContent='大廳中'; ptag.className='phase-tag lobby'; }
+    else { ptag.textContent='進行中'; ptag.className='phase-tag playing'; }
+
+    // Lobby
+    if(cfg.mode==='human'){
+      const waiting=data.lobby.waiting||[];
+      const playing=data.lobby.playing||[];
+      document.getElementById('lobby-count').textContent=`${waiting.length} 人等待中 / ${playing.length} 人對戰中`;
+      const lobbyList=document.getElementById('lobby-list');
+      if(waiting.length===0){
+        lobbyList.innerHTML='<p class="text-xs" style="text-align:center;color:var(--text3);padding:1rem;">尚無學生加入</p>';
+      } else {
+        lobbyList.innerHTML=waiting.map(p=>`<span class="chip">${escapeHtml(p.name)} <span style="color:var(--text3)">${escapeHtml(p.sid)}</span></span>`).join('');
+      }
+      // 進行中
+      const pcard=document.getElementById('card-playing');
+      if(playing.length>0){
+        pcard.style.display='block';
+        document.getElementById('playing-info').textContent=`${playing.length} 人對戰中`;
+        document.getElementById('playing-list').innerHTML=playing.map(p=>`<span class="chip">${escapeHtml(p.name)}</span>`).join('');
+      } else {
+        pcard.style.display='none';
+      }
+    }
+
+    // Stats
     document.getElementById('s-count').textContent=data.stats.count;
     document.getElementById('s-coop').textContent=Math.round(data.stats.cooperation_rate*100)+'%';
     document.getElementById('s-avg-my').textContent=data.stats.avg_my_score;
@@ -243,10 +341,9 @@ async function refresh(){
 function renderStudents(subs){
   const tbody=document.querySelector('#t-students tbody');
   if(!subs.length){
-    tbody.innerHTML='<tr><td colspan="8" class="text-xs" style="text-align:center;padding:1.5rem;">尚無學生交卷</td></tr>';
+    tbody.innerHTML='<tr><td colspan="9" class="text-xs" style="text-align:center;padding:1.5rem;">尚無學生交卷</td></tr>';
     return;
   }
-  // sort by score desc
   const sorted=[...subs].sort((a,b)=>b.my_score-a.my_score);
   tbody.innerHTML=sorted.map((s,i)=>{
     const coop=s.history.filter(h=>h.my_choice==='cooperate').length;
@@ -257,6 +354,7 @@ function renderStudents(subs){
       <td>${medal}</td>
       <td>${escapeHtml(s.name)}</td>
       <td>${escapeHtml(s.sid)}</td>
+      <td class="text-xs">${escapeHtml(s.opponent_name||'-')}</td>
       <td><strong style="color:var(--accent2)">${s.my_score}</strong></td>
       <td>${s.opp_score}</td>
       <td>${coop}/${s.history.length}</td>
@@ -270,12 +368,13 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':
 
 function exportCSV(){
   fetch(`/api/teacher/rooms/${roomCode}?token=${encodeURIComponent(teacherToken)}`).then(r=>r.json()).then(data=>{
-    const rows=[['姓名','學號','總分','對手分','合作次數','總回合','選擇序列','交卷時間']];
+    if(!data.submissions||!data.submissions.length){alert('尚無資料可匯出');return;}
+    const rows=[['姓名','學號','對手','總分','對手分','合作次數','總回合','選擇序列','交卷時間']];
     data.submissions.forEach(s=>{
       const coop=s.history.filter(h=>h.my_choice==='cooperate').length;
       const seq=s.history.map(h=>h.my_choice==='cooperate'?'C':'D').join('');
       const time=new Date(s.submitted_at*1000).toLocaleString('zh-TW');
-      rows.push([s.name,s.sid,s.my_score,s.opp_score,coop,s.history.length,seq,time]);
+      rows.push([s.name,s.sid,s.opponent_name||'-',s.my_score,s.opp_score,coop,s.history.length,seq,time]);
     });
     const csv='\ufeff'+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
     const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
@@ -285,11 +384,6 @@ function exportCSV(){
     a.click();
   });
 }
-
-// Restore session if reload (same tab)
-window.addEventListener('load',()=>{
-  setRoundsType('multi');
-});
 </script>
 </body>
 </html>

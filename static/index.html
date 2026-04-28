@@ -822,6 +822,9 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 // ── ROOM MODE (老師建立房間後學生用 ?room=CODE 進入) ─────────────────
 const ROOM_CODE = new URLSearchParams(location.search).get('room');
 let ROOM_SUBMITTED = false;
+let ROOM_MODE = 'ai';        // 'ai' | 'human'
+let PLAYER_ID = null;
+let HUMAN_POLL = null;
 
 async function initRoomMode() {
   if (!ROOM_CODE) return;
@@ -833,33 +836,235 @@ async function initRoomMode() {
     }
     const data = await res.json();
     const s = data.settings || {};
+    ROOM_MODE = s.mode || 'ai';
+
     // 套用老師設定到 cfg
     setRoundsType(s.rounds_type || 'multi');
     if (s.round_count) setRoundCount(s.round_count);
     setKnowRounds(s.know_rounds !== false);
     setKnowOpponent(s.know_opponent !== false);
 
-    // 隱藏實驗設定卡片（學生不能改）+ 鎖定為對抗 AI
+    // 隱藏實驗設定卡片（學生不能改）
     const cards = document.querySelectorAll('#screen-login .card');
-    // cards: [學生登入, 實驗設定, 報酬矩陣]
     if (cards[1]) cards[1].style.display = 'none';
-    // 隱藏對戰模式選擇 + 房間代碼欄位
     const modeFG = document.getElementById('input-mode').closest('.fg');
     if (modeFG) modeFG.style.display = 'none';
     document.getElementById('input-mode').value = 'vs-ai';
     document.getElementById('room-code-group').style.display = 'none';
 
-    // 在登入頁顯示房間資訊
     const heroP = document.querySelector('#screen-login .hero p');
-    if (heroP) heroP.innerHTML = `<span style="color:var(--accent2)">房間 ${ROOM_CODE}</span><br>${s.title || '老師已設定實驗條件'}`;
+    if (heroP) heroP.innerHTML = `<span style="color:var(--accent2)">房間 ${ROOM_CODE}</span><br>${s.title || '老師已設定實驗條件'}${ROOM_MODE==='human'?'<br><span style="color:var(--amber);font-size:.78rem">⏳ 同學互玩模式：登入後等待老師開始配對</span>':''}`;
     document.getElementById('header-info').textContent = '房間 ' + ROOM_CODE;
+
+    // human 模式覆蓋 doLogin 行為
+    if (ROOM_MODE === 'human') {
+      window.doLogin = doLoginHuman;
+    }
   } catch (e) {
     alert('連線房間失敗：' + e.message);
   }
 }
 
+// human 模式登入：加入大廳 + 開始輪詢
+async function doLoginHuman() {
+  const sid = document.getElementById('input-sid').value.trim();
+  const name = document.getElementById('input-name').value.trim();
+  if (!sid || !name) { alert('請填寫學號與姓名'); return; }
+  Object.assign(G, {sid, name, mode:'vs-human-room', myScore:0, oppScore:0, round:0, history:[]});
+  document.getElementById('header-info').textContent = `${name} - 房間 ${ROOM_CODE}`;
+
+  try {
+    const res = await fetch(`/api/rooms/${ROOM_CODE}/join`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({sid, name})
+    });
+    if (!res.ok) throw new Error('加入失敗');
+    const data = await res.json();
+    PLAYER_ID = data.player_id;
+
+    // 顯示等待畫面
+    showScreen('waiting');
+    document.getElementById('w-mode-tag').textContent = '等待老師開始配對';
+    document.getElementById('waiting-status').textContent = '已加入大廳，等待其他同學…';
+    document.getElementById('w-player-name').textContent = `${name}（${sid}）`;
+    document.getElementById('w-player-label').textContent = name;
+    document.getElementById('room-display').style.display = 'none';
+
+    // 開始輪詢
+    if (HUMAN_POLL) clearInterval(HUMAN_POLL);
+    HUMAN_POLL = setInterval(pollHumanState, 1500);
+  } catch(e) {
+    alert('加入房間失敗：' + e.message);
+  }
+}
+
+let LAST_RENDERED_ROUND = 0;
+let LAST_RESOLVED_LEN = 0;
+
+async function pollHumanState() {
+  if (!PLAYER_ID) return;
+  try {
+    const res = await fetch(`/api/rooms/${ROOM_CODE}/players/${PLAYER_ID}`);
+    if (!res.ok) return;
+    const st = await res.json();
+
+    if (st.status === 'waiting') {
+      document.getElementById('waiting-status').textContent = '已加入大廳，等待老師開始配對…';
+      return;
+    }
+
+    // 對局已配對
+    if (st.status === 'playing' && st.match_id) {
+      G.opponentName = st.opponent_name;
+
+      // 結算完成 → 顯示最終結果
+      if (st.finished) {
+        clearInterval(HUMAN_POLL); HUMAN_POLL = null;
+        // 同步歷史與分數
+        G.history = st.history.map(h => ({
+          round: h.round, myChoice: h.my_choice, oppChoice: h.opp_choice,
+          myPts: h.my_pts, oppPts: h.opp_pts, myTotal:0, oppTotal:0,
+        }));
+        G.myScore = st.my_score; G.oppScore = st.opp_score;
+        G.round = st.total_rounds;
+        showFinalResult();
+        return;
+      }
+
+      // 新回合 → 顯示遊戲畫面
+      const cur = st.current_round;
+      if (cur && cur !== LAST_RENDERED_ROUND) {
+        LAST_RENDERED_ROUND = cur;
+        G.round = cur;
+        G.myScore = st.my_score;
+        G.oppScore = st.opp_score;
+        G.history = st.history.map(h => ({
+          round: h.round, myChoice: h.my_choice, oppChoice: h.opp_choice,
+          myPts: h.my_pts, oppPts: h.opp_pts, myTotal:0, oppTotal:0,
+        }));
+        renderGameScreenHuman(st);
+      }
+
+      // 更新等待狀態
+      if (st.my_submitted && !st.opp_submitted) {
+        document.getElementById('waiting-opponent').style.display = 'block';
+        document.getElementById('game-instruction').textContent = '已選擇，等待對手…';
+      }
+
+      // 新一輪結果出現 → 顯示回合結果
+      if (st.history.length > LAST_RESOLVED_LEN) {
+        LAST_RESOLVED_LEN = st.history.length;
+        const last = st.history[st.history.length - 1];
+        showHumanRoundResult(last, st);
+      }
+    }
+  } catch(e) {}
+}
+
+function renderGameScreenHuman(st) {
+  showScreen('game');
+  G.myChoice = null;
+  const total = st.total_rounds;
+  const knowRounds = st.settings.know_rounds;
+  const isSingle = st.settings.rounds_type === 'single';
+
+  if (isSingle) document.getElementById('round-label').textContent = '單回合賽局';
+  else if (knowRounds) document.getElementById('round-label').textContent = `第 ${st.current_round} / ${total} 回合`;
+  else document.getElementById('round-label').textContent = `第 ${st.current_round} 回合`;
+
+  const dots = document.getElementById('round-dots');
+  dots.innerHTML='';
+  if (!isSingle && knowRounds) {
+    for (let i=1;i<=total;i++){
+      const d=document.createElement('div');
+      d.style.cssText=`width:7px;height:7px;border-radius:50%;background:${i<st.current_round?'var(--green)':i===st.current_round?'var(--amber)':'var(--surface2)'}`;
+      dots.appendChild(d);
+    }
+  }
+  const oppDisplay = st.settings.know_opponent ? st.opponent_name : '匿名對手';
+  document.getElementById('opponent-name-display').textContent = oppDisplay;
+  document.getElementById('my-total-score').textContent = st.my_score;
+
+  document.getElementById('game-chips').innerHTML = buildChips();
+  document.getElementById('game-instruction').textContent = '請選擇你的策略。';
+  document.getElementById('waiting-opponent').style.display='none';
+  document.getElementById('btn-cooperate').classList.remove('selected');
+  document.getElementById('btn-betray').classList.remove('selected');
+  document.getElementById('btn-cooperate').disabled=false;
+  document.getElementById('btn-betray').disabled=false;
+
+  // 改寫按鈕行為（替換 onclick）
+  document.getElementById('btn-cooperate').onclick = () => makeChoiceHuman('cooperate');
+  document.getElementById('btn-betray').onclick = () => makeChoiceHuman('betray');
+
+  updateHistory();
+  startTimer();
+}
+
+async function makeChoiceHuman(choice) {
+  if (G.myChoice) return;
+  G.myChoice = choice; clearTimer();
+  document.getElementById('btn-cooperate').classList.toggle('selected', choice==='cooperate');
+  document.getElementById('btn-betray').classList.toggle('selected', choice==='betray');
+  document.getElementById('btn-cooperate').disabled = true;
+  document.getElementById('btn-betray').disabled = true;
+  document.getElementById('waiting-opponent').style.display = 'block';
+  document.getElementById('game-instruction').textContent = '已選擇，等待對手…';
+
+  try {
+    await fetch(`/api/rooms/${ROOM_CODE}/players/${PLAYER_ID}/choice`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({choice})
+    });
+  } catch(e) { alert('送出失敗，請重試'); G.myChoice = null; }
+}
+
+function showHumanRoundResult(last, st) {
+  // 用既有 UI 顯示
+  showScreen('round-result');
+  document.getElementById('result-round-label').textContent =
+    st.settings.rounds_type==='single' ? '單回合結果' : `第 ${last.round} 回合結果`;
+  document.getElementById('r-my-name').textContent = G.name;
+  document.getElementById('r-opp-name').textContent = st.settings.know_opponent ? st.opponent_name : '匿名對手';
+
+  const myA = document.getElementById('r-my-action');
+  myA.textContent = last.my_choice==='cooperate'?'🤝 合作':'🗡️ 背叛'; myA.className='action '+last.my_choice;
+  const oppA = document.getElementById('r-opp-action');
+  oppA.textContent = last.opp_choice==='cooperate'?'🤝 合作':'🗡️ 背叛'; oppA.className='action '+last.opp_choice;
+
+  document.getElementById('r-my-score').textContent='+'+last.my_pts;
+  document.getElementById('r-opp-score').textContent='+'+last.opp_pts;
+  document.getElementById('r-my-total').textContent=st.my_score;
+
+  const banner=document.getElementById('result-banner');
+  if (last.my_pts>last.opp_pts){banner.className='result-banner win';banner.textContent='🎯 本回合優勢！';}
+  else if (last.my_pts<last.opp_pts){banner.className='result-banner lose';banner.textContent='😔 本回合吃虧';}
+  else if (last.my_pts===3){banner.className='result-banner win';banner.textContent='✅ 雙贏！相互合作';}
+  else{banner.className='result-banner draw';banner.textContent='⚡ 兩敗俱傷';}
+
+  document.getElementById('ai-analysis-card').style.display='none';
+
+  const isLast = last.round >= st.total_rounds;
+  const nextBtn = document.getElementById('next-round-btn');
+  nextBtn.textContent = isLast ? '查看最終結果 →' : '下一回合 →';
+  nextBtn.onclick = () => {
+    if (isLast) {
+      // 最終結果由 polling 觸發
+      document.getElementById('game-instruction').textContent = '等待最終結算…';
+      showScreen('waiting');
+      document.getElementById('waiting-status').textContent = '結算中…';
+    } else {
+      // 回到等待室直到下一輪 render
+      LAST_RENDERED_ROUND = last.round;  // 允許下一輪 render
+      showScreen('waiting');
+      document.getElementById('waiting-status').textContent = '等待下一回合…';
+    }
+  };
+}
+
 async function submitToRoom() {
   if (!ROOM_CODE || ROOM_SUBMITTED) return;
+  if (ROOM_MODE === 'human') return;  // human 模式由後端記錄
   ROOM_SUBMITTED = true;
   try {
     await fetch('/api/rooms/' + encodeURIComponent(ROOM_CODE) + '/results', {
@@ -883,7 +1088,6 @@ showFinalResult = function() {
   submitToRoom();
 };
 
-// 在房間模式下，再玩一局也應重新提交（清除 flag）
 const _origPlayAgain = playAgain;
 playAgain = function() {
   ROOM_SUBMITTED = false;
