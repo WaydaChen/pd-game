@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>老師後台 — 囚犯困境</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
 :root{
@@ -152,6 +153,11 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <div class="room-code" id="d-code">----</div>
     <p class="text-xs" style="margin-top:.7rem;margin-bottom:.4rem;">學生連結（點擊複製）</p>
     <div class="url-box" id="d-url" onclick="copyURL()" style="cursor:pointer;">—</div>
+    <div style="margin-top:1rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;">
+      <div id="qr-box" style="background:#fff;padding:.8rem;border-radius:var(--rs);display:inline-block;line-height:0;"></div>
+      <p class="text-xs">學生掃 QR code 即可進入</p>
+      <button class="btn btn-ghost" style="width:auto;padding:.4rem 1rem;font-size:.8rem;" onclick="openQRFullscreen()">🔍 放大投影</button>
+    </div>
   </div>
 
   <!-- 同學互玩模式：等待大廳 -->
@@ -269,6 +275,15 @@ function showDashboard(){
   document.getElementById('d-url').textContent=url;
   document.getElementById('header-info').textContent=`房間 ${roomCode}`;
 
+  // QR code
+  const qrBox=document.getElementById('qr-box');
+  qrBox.innerHTML='';
+  const canvas=document.createElement('canvas');
+  qrBox.appendChild(canvas);
+  if (window.QRCode) {
+    QRCode.toCanvas(canvas, url, {width:180, margin:1, color:{dark:'#0d0e14',light:'#ffffff'}}, ()=>{});
+  }
+
   // 顯示對應卡片
   document.getElementById('card-lobby').style.display = cfg.mode==='human' ? 'block' : 'none';
 
@@ -283,6 +298,21 @@ function copyURL(){
     el.textContent='✓ 已複製！';
     setTimeout(()=>el.textContent=orig,1200);
   });
+}
+
+function openQRFullscreen(){
+  const url=`${location.origin}/?room=${roomCode}`;
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(13,14,20,.97);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:2rem;';
+  overlay.onclick=()=>overlay.remove();
+  overlay.innerHTML=`
+    <div style="background:#fff;padding:2rem;border-radius:16px;line-height:0;"><canvas id="qr-big"></canvas></div>
+    <div style="margin-top:1.5rem;font-family:'Noto Serif TC',serif;font-size:2rem;letter-spacing:.4em;color:var(--accent2);font-weight:700;">${roomCode}</div>
+    <div style="margin-top:.5rem;color:var(--text2);font-size:.95rem;font-family:monospace;">${url}</div>
+    <div style="margin-top:1rem;color:var(--text3);font-size:.8rem;">點擊任意處關閉</div>`;
+  document.body.appendChild(overlay);
+  const size=Math.min(window.innerWidth, window.innerHeight)*0.55;
+  if (window.QRCode) QRCode.toCanvas(document.getElementById('qr-big'), url, {width:size, margin:1, color:{dark:'#0d0e14',light:'#ffffff'}});
 }
 
 async function startPairing(){
