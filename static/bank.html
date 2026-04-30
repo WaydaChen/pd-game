@@ -249,19 +249,19 @@ input:focus{border-color:var(--accent);}
 <div class="screen" id="screen-transition">
   <div class="hero">
     <div class="hero-icon">🔁</div>
-    <h1>進入 Treatment 2</h1>
-    <p>下面是兩階段規則的差異對照，看完規則再請老師啟動 T2</p>
+    <h1 id="trans-title">進入 Treatment 2</h1>
+    <p id="trans-desc">下面是規則差異對照，看完規則再請老師啟動下一階段</p>
   </div>
   <div class="card">
     <p class="card-title">📋 規則變更對照</p>
-    <div class="diff-row h"><div class="lbl">項目</div><div class="v1">T1</div><div class="v2">T2</div></div>
+    <div class="diff-row h"><div class="lbl">項目</div><div class="v1" id="diff-h1">T1</div><div class="v2" id="diff-h2">T2</div></div>
     <div id="diff-list"></div>
   </div>
   <div class="card">
-    <p class="card-title">📊 你在 T1 的表現</p>
+    <p class="card-title" id="prev-summary-title">📊 你在 T1 的表現</p>
     <div id="t1-summary"></div>
   </div>
-  <div class="alert warn" style="text-align:center;">⏳ 等待老師按下「開始 Treatment 2」</div>
+  <div class="alert warn" style="text-align:center;" id="trans-wait">⏳ 等待老師按下「開始 Treatment 2」</div>
 </div>
 
 <!-- ══ FINAL ══ -->
@@ -274,15 +274,20 @@ input:focus{border-color:var(--accent);}
   <div class="score-row" style="width:100%;">
     <div class="si"><div class="lbl">T1 收益</div><div class="val" id="f-t1" style="color:var(--accent2)">$0</div></div>
     <div class="si"><div class="lbl">T2 收益</div><div class="val" id="f-t2" style="color:var(--green)">$0</div></div>
-    <div class="si"><div class="lbl">總收益</div><div class="val" id="f-total" style="color:var(--amber)">$0</div></div>
+    <div class="si" id="f-t3-box" style="display:none;"><div class="lbl">T3 收益</div><div class="val" id="f-t3" style="color:var(--amber)">$0</div></div>
+    <div class="si"><div class="lbl">總收益</div><div class="val" id="f-total" style="color:var(--red)">$0</div></div>
   </div>
   <div class="card">
     <div class="tabs">
       <div class="tab active" onclick="switchTab('compare')">行為對照</div>
+      <div class="tab" onclick="switchTab('badges')">🏅 成就</div>
+      <div class="tab" onclick="switchTab('leaderboard')">🏆 排行榜</div>
       <div class="tab" onclick="switchTab('history')">回合詳情</div>
       <div class="tab" onclick="switchTab('theory')">理論對照</div>
     </div>
     <div id="tab-compare" class="theory"></div>
+    <div id="tab-badges" style="display:none;"></div>
+    <div id="tab-leaderboard" style="display:none;"></div>
     <div id="tab-history" style="display:none;"></div>
     <div id="tab-theory" class="theory" style="display:none;"></div>
   </div>
@@ -370,14 +375,16 @@ function showScreen(id) {
 function renderWaitConditions(treatment) {
   const t = SETTINGS[treatment];
   if (!t) return;
-  const lblMap = {t1:'Treatment 1', t2:'Treatment 2'};
+  const lblMap = {t1:'Treatment 1', t2:'Treatment 2', t3:'Treatment 3'};
   document.getElementById('wait-card-title').textContent = `🔬 ${lblMap[treatment]} 條件`;
+  const prem = t.insurance_premium || 0;
   document.getElementById('wait-conditions').innerHTML = `
     <div class="info-strip" style="margin-bottom:.5rem;">
       <span class="chip purple">${t.rounds} 回合</span>
       <span class="chip amber">門檻 ≥ ${t.threshold} 人</span>
       <span class="chip green">持有報酬 ${(t.hold_reward_pct*100)|0}%</span>
       <span class="chip blue">破產補償 $${t.bankruptcy_compensation}</span>
+      ${prem>0?`<span class="chip amber">保險費 -$${prem}/回合</span>`:''}
       ${t.forced_withdraw_prob>0?`<span class="chip red">強制提款 ${(t.forced_withdraw_prob*100)|0}%</span>`:''}
       <span class="chip ${t.show_live_count?'green':'red'}">${t.show_live_count?'即時計數開':'即時計數關'}</span>
     </div>
@@ -419,7 +426,7 @@ async function poll() {
       showScreen('wait'); return;
     }
 
-    if (st.status === 'transition') {
+    if (st.status === 'transition' || st.status === 'transition2') {
       renderTransition(st);
       showScreen('transition'); return;
     }
@@ -644,16 +651,31 @@ async function ackRound() {
 }
 
 function renderTransition(st) {
-  const t1 = SETTINGS.t1, t2 = SETTINGS.t2;
-  const fmt = v => typeof v==='number' && v < 1 && v > 0 ? `${(v*100)|0}%` : v;
+  const isT2T3 = st.status === 'transition2';
+  const a = isT2T3 ? SETTINGS.t2 : SETTINGS.t1;
+  const b = isT2T3 ? SETTINGS.t3 : SETTINGS.t2;
+  const aName = isT2T3 ? 'T2' : 'T1';
+  const bName = isT2T3 ? 'T3' : 'T2';
+  document.getElementById('trans-title').textContent = isT2T3 ? '進入 Treatment 3' : '進入 Treatment 2';
+  document.getElementById('trans-desc').textContent = isT2T3
+    ? '下面是 T2 與 T3 規則差異：公共存款保險需收取保險費，但破產時補償提高。'
+    : '下面是 T1 與 T2 規則差異，T2 加入存款保險。';
+  document.getElementById('trans-wait').textContent = isT2T3
+    ? '⏳ 等待老師按下「開始 Treatment 3」'
+    : '⏳ 等待老師按下「開始 Treatment 2」';
+  document.getElementById('diff-h1').textContent = aName;
+  document.getElementById('diff-h2').textContent = bName;
+  document.getElementById('prev-summary-title').textContent = `📊 你在 ${aName} 的表現`;
+
   const rows = [
-    ['回合數', t1.rounds, t2.rounds],
-    ['提款門檻', `≥${t1.threshold} 人`, `≥${t2.threshold} 人`],
-    ['持有報酬', `+${(t1.hold_reward_pct*100)|0}%`, `+${(t2.hold_reward_pct*100)|0}%`],
-    ['破產補償', `$${t1.bankruptcy_compensation}`, `$${t2.bankruptcy_compensation}`],
-    ['強制提款', `${(t1.forced_withdraw_prob*100)|0}%`, `${(t2.forced_withdraw_prob*100)|0}%`],
-    ['即時計數', t1.show_live_count?'顯示':'隱藏', t2.show_live_count?'顯示':'隱藏'],
-    ['配對方式', t1.pairing==='fixed'?'固定':'每輪重組', t2.pairing==='fixed'?'固定':'每輪重組'],
+    ['回合數', a.rounds, b.rounds],
+    ['提款門檻', `≥${a.threshold} 人`, `≥${b.threshold} 人`],
+    ['持有報酬', `+${(a.hold_reward_pct*100)|0}%`, `+${(b.hold_reward_pct*100)|0}%`],
+    ['破產補償', `$${a.bankruptcy_compensation}`, `$${b.bankruptcy_compensation}`],
+    ['保險費/回合', `$${a.insurance_premium||0}`, `$${b.insurance_premium||0}`],
+    ['強制提款', `${(a.forced_withdraw_prob*100)|0}%`, `${(b.forced_withdraw_prob*100)|0}%`],
+    ['即時計數', a.show_live_count?'顯示':'隱藏', b.show_live_count?'顯示':'隱藏'],
+    ['配對方式', a.pairing==='fixed'?'固定':'每輪重組', b.pairing==='fixed'?'固定':'每輪重組'],
   ];
   document.getElementById('diff-list').innerHTML = rows.map(r=>{
     const changed = String(r[1]) !== String(r[2]);
@@ -664,8 +686,7 @@ function renderTransition(st) {
     </div>`;
   }).join('');
 
-  // T1 個人摘要
-  const s = st.t1_summary || {};
+  const s = (isT2T3 ? st.t2_summary : st.t1_summary) || {};
   document.getElementById('t1-summary').innerHTML = `
     <div class="info-strip">
       <span class="chip purple">${s.rounds||0} 回合</span>
@@ -680,32 +701,68 @@ function renderTransition(st) {
 function renderFinal(st) {
   const t1 = st.t1_summary || {};
   const t2 = st.t2_summary || {};
+  const t3 = st.t3_summary || null;
   document.getElementById('f-t1').textContent = '$' + (t1.total_earnings || 0);
   document.getElementById('f-t2').textContent = '$' + (t2.total_earnings || 0);
+  if (t3) {
+    document.getElementById('f-t3-box').style.display = '';
+    document.getElementById('f-t3').textContent = '$' + (t3.total_earnings || 0);
+  }
   document.getElementById('f-total').textContent = '$' + (st.total_earnings || 0);
   document.getElementById('f-desc').textContent = `${st.settings.bank_name} · ${st.settings.title}`;
 
-  // 行為對照
-  const t1Wr = t1.rounds ? (t1.withdraw_count/t1.rounds*100).toFixed(0) : 0;
-  const t2Wr = t2.rounds ? (t2.withdraw_count/t2.rounds*100).toFixed(0) : 0;
+  const rateOf = s => s && s.rounds ? (s.withdraw_count/s.rounds*100).toFixed(0) : '0';
+  const t1Wr = rateOf(t1), t2Wr = rateOf(t2), t3Wr = t3 ? rateOf(t3) : null;
   let trend = '';
   if (t1.rounds && t2.rounds) {
-    if (t2Wr < t1Wr) trend = '<strong style="color:var(--green)">提款率下降</strong>，與「存款保險降低恐慌」的理論預測一致。';
-    else if (t2Wr > t1Wr) trend = '<strong style="color:var(--red)">提款率反而上升</strong>，可能反映道德風險（保險使學生願意冒險）。';
-    else trend = '兩階段提款率相同。';
+    if (+t2Wr < +t1Wr) trend = '<strong style="color:var(--green)">T1→T2 提款率下降</strong>，與「存款保險降低恐慌」理論一致。';
+    else if (+t2Wr > +t1Wr) trend = '<strong style="color:var(--red)">T1→T2 提款率反而上升</strong>，可能反映道德風險。';
+    else trend = 'T1→T2 提款率相同。';
   }
   document.getElementById('tab-compare').innerHTML = `
     <h4>📊 你的提款率</h4>
     T1：<strong>${t1Wr}%</strong>（${t1.withdraw_count||0}/${t1.rounds||0}） <br>
     T2：<strong>${t2Wr}%</strong>（${t2.withdraw_count||0}/${t2.rounds||0}） <br>
+    ${t3?`T3：<strong>${t3Wr}%</strong>（${t3.withdraw_count||0}/${t3.rounds||0}）<br>`:''}
     <p style="margin-top:.6rem;">${trend}</p>
     <h4>💰 收益對比</h4>
     T1（無保險）：$${t1.total_earnings||0} <br>
     T2（有保險）：$${t2.total_earnings||0}
+    ${t3?`<br>T3（公共保險+保費）：$${t3.total_earnings||0}`:''}
   `;
 
+  // 徽章
+  const badges = st.badges || [];
+  document.getElementById('tab-badges').innerHTML = badges.length
+    ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.6rem;">${badges.map(b=>`
+        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:.8rem;text-align:center;">
+          <div style="font-size:2.2rem;line-height:1;">${b.emoji||'🏅'}</div>
+          <div style="font-weight:700;margin-top:.3rem;color:var(--amber);">${b.name}</div>
+          <div style="font-size:.75rem;color:var(--muted);margin-top:.2rem;">${b.desc||''}</div>
+        </div>`).join('')}</div>`
+    : '<p style="color:var(--muted);text-align:center;padding:1rem;">本局未解鎖成就 ～ 下次加油！</p>';
+
+  // 排行榜
+  const lb = st.leaderboard || [];
+  document.getElementById('tab-leaderboard').innerHTML = lb.length
+    ? `<table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="color:var(--muted);font-size:.8rem;text-align:left;border-bottom:1px solid rgba(255,255,255,.1);">
+          <th style="padding:.4rem;">名次</th><th>玩家</th><th style="text-align:right;padding:.4rem;">總收益</th>
+        </tr></thead>
+        <tbody>${lb.map(r=>{
+          const medal = r.rank===1?'🥇':r.rank===2?'🥈':r.rank===3?'🥉':`#${r.rank}`;
+          const bg = r.is_me ? 'background:rgba(91,140,255,.12);' : '';
+          return `<tr style="${bg}border-bottom:1px solid rgba(255,255,255,.05);">
+            <td style="padding:.5rem;font-weight:700;">${medal}</td>
+            <td style="padding:.5rem;">${r.avatar||''} ${r.nickname||'匿名'}${r.is_me?' <span style=\"color:var(--accent2);font-size:.75rem;\">(你)</span>':''}</td>
+            <td style="padding:.5rem;text-align:right;color:var(--green);font-weight:700;">$${r.total||0}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`
+    : '<p style="color:var(--muted);text-align:center;padding:1rem;">尚無數據</p>';
+
   // 回合詳情
-  const allHist = [...(t1.history||[]), ...(t2.history||[])];
+  const allHist = [...(t1.history||[]), ...(t2.history||[]), ...(t3 ? (t3.history||[]) : [])];
   document.getElementById('tab-history').innerHTML = `<div class="history-grid">${allHist.map(h=>{
     const cls = h.bankrupt ? 'bankrupt' : (h.choice==='hold' ? 'win' : '');
     return `<div class="h-cell ${cls}">
@@ -716,6 +773,7 @@ function renderFinal(st) {
   }).join('')}</div>`;
 
   // 理論
+  const t3prem = t3 ? (SETTINGS.t3 && SETTINGS.t3.insurance_premium || 0) : 0;
   document.getElementById('tab-theory').innerHTML = `
     <h4>📖 Diamond–Dybvig 模型</h4>
     1983 年 Diamond 與 Dybvig 提出的模型解釋銀行擠兌：銀行透過<strong>期限轉換</strong>（短期存款融資長期投資）創造價值，但若所有人同時提款則會被迫低價變現，導致破產。
@@ -726,6 +784,10 @@ function renderFinal(st) {
     <h4>🛡️ 存款保險（T2）</h4>
     破產時保證最低補償 $${SETTINGS.t2.bankruptcy_compensation}，<strong>消除提款的恐慌動機</strong>，讓「持有」成為更穩定的選擇。<br>
     理論預測：T2 的提款率應顯著低於 T1，破產率也下降。
+    ${t3?`<h4>🏛️ 公共保險與道德風險（T3）</h4>
+    T3 加入<strong>每回合 $${t3prem} 保險費</strong>並提高破產補償。這是現實中「公共存保」的關鍵設計：<br>
+    <strong>佈局人（兩難）</strong>：保險費太低 → 銀不足以賠付；太高 → 抵銷保險收益。<br>
+    <strong>道德風險</strong>：完全補償可能讓銀行跟存戶都更冒險，需搭配資本適足率與監理。`:''}
     <h4>⚡ 強制提款（流動性衝擊）</h4>
     模擬真實世界中的緊急流動性需求（如失業、急用）。即使有保險，仍有部分提款不可避免，這在實證研究中是擠兌動態的重要驅動力。
     <h4>🔍 政策意涵</h4>
@@ -734,11 +796,13 @@ function renderFinal(st) {
 }
 
 function switchTab(tab) {
+  const tabs = ['compare','badges','leaderboard','history','theory'];
   document.querySelectorAll('.tab').forEach((t,i)=>{
-    t.classList.toggle('active',['compare','history','theory'][i]===tab);
+    t.classList.toggle('active', tabs[i]===tab);
   });
-  ['compare','history','theory'].forEach(t=>{
-    document.getElementById('tab-'+t).style.display=t===tab?'block':'none';
+  tabs.forEach(t=>{
+    const el = document.getElementById('tab-'+t);
+    if (el) el.style.display = (t===tab ? 'block' : 'none');
   });
 }
 

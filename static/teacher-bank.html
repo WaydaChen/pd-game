@@ -185,6 +185,51 @@ tr:hover td{background:rgba(255,255,255,.02);}
     </div>
   </div>
 
+  <!-- T3 開關 -->
+  <div class="card" style="background:rgba(78,203,138,.06);border-color:rgba(78,203,138,.3);">
+    <div class="flex-between" style="align-items:center;">
+      <div>
+        <p class="card-title" style="margin-bottom:.2rem;">🆕 啟用 Treatment 3（公共保險）</p>
+        <p class="text-xs" style="margin:0;">每回合所有人付保險費 → 破產時全額理賠（道德風險探討）</p>
+      </div>
+      <div class="toggle-group">
+        <button class="toggle-btn" id="t3-on-yes" onclick="setT3(true)">啟用</button>
+        <button class="toggle-btn active" id="t3-on-no" onclick="setT3(false)">不啟用</button>
+      </div>
+    </div>
+    <div id="t3-config" style="display:none;margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--border);">
+      <div class="row2">
+        <div class="fg"><label>回合數</label><input type="number" id="t3-rounds" value="3" min="1" max="20"></div>
+        <div class="fg"><label>提款門檻</label><input type="number" id="t3-threshold" value="4" min="1"></div>
+      </div>
+      <div class="row2">
+        <div class="fg"><label>持有報酬 (%)</label><input type="number" id="t3-reward" value="30" min="0"></div>
+        <div class="fg"><label>破產全額補償 ($)</label><input type="number" id="t3-comp" value="10" min="0"></div>
+      </div>
+      <div class="row2">
+        <div class="fg"><label>每回合保險費 ($)</label><input type="number" id="t3-premium" value="1" min="0" step="0.5"></div>
+        <div class="fg"><label>強制提款機率 (%)</label><input type="number" id="t3-forced" value="0" min="0" max="100"></div>
+      </div>
+      <div class="row2">
+        <div class="fg"><label>決策倒數 (秒，0=不限)</label><input type="number" id="t3-countdown" value="45" min="0" max="600"></div>
+        <div class="fg">
+          <label>市場新聞</label>
+          <div class="toggle-group">
+            <button class="toggle-btn active" id="t3-rumor-yes" onclick="setRumor('t3',true)">開</button>
+            <button class="toggle-btn" id="t3-rumor-no" onclick="setRumor('t3',false)">關</button>
+          </div>
+        </div>
+      </div>
+      <div class="fg">
+        <label>顯示即時提款人數</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="t3-live-yes" onclick="setLive('t3',true)">顯示</button>
+          <button class="toggle-btn" id="t3-live-no" onclick="setLive('t3',false)">隱藏</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <button class="btn btn-primary" onclick="createRoom()">建立房間 →</button>
 </div>
 
@@ -212,8 +257,10 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <p class="text-xs" id="control-hint" style="margin-bottom:.7rem;">學生加入大廳後，按「開始 Treatment 1」</p>
     <div id="control-buttons" style="display:grid;gap:.5rem;">
       <button class="btn btn-green" id="btn-start-t1" onclick="startTreatment('t1')">▶ 開始 Treatment 1</button>
-      <button class="btn btn-amber" id="btn-next" onclick="goTransition()" style="display:none;">→ 進入過渡頁（T1 → T2）</button>
+      <button class="btn btn-amber" id="btn-next" onclick="goTransition('transition')" style="display:none;">→ 進入過渡頁（T1 → T2）</button>
       <button class="btn btn-green" id="btn-start-t2" onclick="startTreatment('t2')" style="display:none;">▶ 開始 Treatment 2</button>
+      <button class="btn btn-amber" id="btn-next2" onclick="goTransition('transition2')" style="display:none;">→ 進入過渡頁（T2 → T3）</button>
+      <button class="btn btn-green" id="btn-start-t3" onclick="startTreatment('t3')" style="display:none;">▶ 開始 Treatment 3</button>
       <button class="btn btn-red" id="btn-end" onclick="endRoom()" style="display:none;">🏁 結束實驗（顯示最終結果）</button>
     </div>
   </div>
@@ -240,6 +287,15 @@ tr:hover td{background:rgba(255,255,255,.02);}
           <div class="stat"><div class="lbl">提款率</div><div class="val red" id="s-t2-with">0%</div></div>
           <div class="stat"><div class="lbl">破產率</div><div class="val amber" id="s-t2-bk">0%</div></div>
           <div class="stat"><div class="lbl">平均收益</div><div class="val green" id="s-t2-pay">0</div></div>
+        </div>
+      </div>
+      <div id="s-t3-box" style="display:none;">
+        <p class="text-xs" style="margin-bottom:.5rem;color:var(--amber);font-weight:500;">🆎 Treatment 3（公共保險）</p>
+        <div class="stats-grid">
+          <div class="stat"><div class="lbl">回合數</div><div class="val" id="s-t3-rounds">0</div></div>
+          <div class="stat"><div class="lbl">提款率</div><div class="val red" id="s-t3-with">0%</div></div>
+          <div class="stat"><div class="lbl">破產率</div><div class="val amber" id="s-t3-bk">0%</div></div>
+          <div class="stat"><div class="lbl">平均收益</div><div class="val green" id="s-t3-pay">0</div></div>
         </div>
       </div>
     </div>
@@ -281,9 +337,10 @@ tr:hover td{background:rgba(255,255,255,.02);}
 <script>
 const cfg = {
   title:'銀行擠兌實驗', bank_name:'課堂銀行',
-  deposit:10, group_size:6, anonymous_mode:true,
-  t1:{rounds:3, pairing:'fixed', threshold:4, hold_reward_pct:0.5, bankruptcy_compensation:0, forced_withdraw_prob:0, show_live_count:true, countdown_seconds:45, rumors_enabled:true},
-  t2:{rounds:3, pairing:'fixed', threshold:4, hold_reward_pct:0.5, bankruptcy_compensation:9, forced_withdraw_prob:0, show_live_count:true, countdown_seconds:45, rumors_enabled:true},
+  deposit:10, group_size:6, anonymous_mode:true, t3_enabled:false,
+  t1:{rounds:3, pairing:'fixed', threshold:4, hold_reward_pct:0.5, bankruptcy_compensation:0, forced_withdraw_prob:0, show_live_count:true, countdown_seconds:45, rumors_enabled:true, insurance_premium:0},
+  t2:{rounds:3, pairing:'fixed', threshold:4, hold_reward_pct:0.5, bankruptcy_compensation:9, forced_withdraw_prob:0, show_live_count:true, countdown_seconds:45, rumors_enabled:true, insurance_premium:0},
+  t3:{rounds:3, pairing:'fixed', threshold:4, hold_reward_pct:0.3, bankruptcy_compensation:10, forced_withdraw_prob:0, show_live_count:true, countdown_seconds:45, rumors_enabled:true, insurance_premium:1},
 };
 let roomCode = '', teacherToken = '', refreshTimer = null;
 
@@ -307,6 +364,12 @@ function setAnon(v){
   document.getElementById('anon-yes').classList.toggle('active', v);
   document.getElementById('anon-no').classList.toggle('active', !v);
 }
+function setT3(v){
+  cfg.t3_enabled=v;
+  document.getElementById('t3-on-yes').classList.toggle('active', v);
+  document.getElementById('t3-on-no').classList.toggle('active', !v);
+  document.getElementById('t3-config').style.display = v ? 'block' : 'none';
+}
 
 function readForm(){
   cfg.title = document.getElementById('i-title').value.trim()||'銀行擠兌實驗';
@@ -321,6 +384,15 @@ function readForm(){
     cfg[t].forced_withdraw_prob = (parseFloat(document.getElementById(`${t}-forced`).value)||0)/100;
     cfg[t].countdown_seconds = parseInt(document.getElementById(`${t}-countdown`).value)||0;
   });
+  if (cfg.t3_enabled) {
+    cfg.t3.rounds = parseInt(document.getElementById('t3-rounds').value)||3;
+    cfg.t3.threshold = parseInt(document.getElementById('t3-threshold').value)||4;
+    cfg.t3.hold_reward_pct = (parseFloat(document.getElementById('t3-reward').value)||0)/100;
+    cfg.t3.bankruptcy_compensation = parseFloat(document.getElementById('t3-comp').value)||0;
+    cfg.t3.forced_withdraw_prob = (parseFloat(document.getElementById('t3-forced').value)||0)/100;
+    cfg.t3.countdown_seconds = parseInt(document.getElementById('t3-countdown').value)||0;
+    cfg.t3.insurance_premium = parseFloat(document.getElementById('t3-premium').value)||0;
+  }
 }
 
 async function createRoom(){
@@ -381,10 +453,12 @@ async function startTreatment(t){
   }catch(e){alert('錯誤：'+e.message);}
 }
 
-async function goTransition(){
-  if(!confirm('進入過渡頁？學生會看到 T1 → T2 規則差異，準備進入 T2。')) return;
+async function goTransition(to){
+  to = to || 'transition';
+  const lbl = to==='transition2' ? 'T2 → T3' : 'T1 → T2';
+  if(!confirm(`進入過渡頁？學生會看到 ${lbl} 規則差異。`)) return;
   try{
-    const res=await fetch(`/api/teacher/bank-rooms/${roomCode}/next-treatment?token=${encodeURIComponent(teacherToken)}`,{method:'POST'});
+    const res=await fetch(`/api/teacher/bank-rooms/${roomCode}/next-treatment?token=${encodeURIComponent(teacherToken)}&to=${to}`,{method:'POST'});
     if(!res.ok) throw new Error('失敗');
     refresh();
   }catch(e){alert(e.message);}
@@ -406,25 +480,31 @@ async function refresh(){
 
     // Phase tag
     const ptag=document.getElementById('phase-tag');
-    const pmap={lobby:'大廳中',t1:'Treatment 1',transition:'過渡頁',t2:'Treatment 2',ended:'已結束'};
+    const pmap={lobby:'大廳中',t1:'Treatment 1',transition:'過渡頁 T1→T2',t2:'Treatment 2',transition2:'過渡頁 T2→T3',t3:'Treatment 3',ended:'已結束'};
     ptag.textContent=pmap[data.phase]||data.phase;
     ptag.className='phase-tag '+data.phase;
 
+    const t3on = !!(data.settings && data.settings.t3_enabled);
     // 控制按鈕顯示邏輯
     document.getElementById('btn-start-t1').style.display = (data.phase==='lobby') ? 'block' : 'none';
     document.getElementById('btn-next').style.display = (data.phase==='t1') ? 'block' : 'none';
     document.getElementById('btn-start-t2').style.display = (data.phase==='transition') ? 'block' : 'none';
-    document.getElementById('btn-end').style.display = (data.phase==='t2') ? 'block' : 'none';
+    document.getElementById('btn-next2').style.display = (data.phase==='t2' && t3on) ? 'block' : 'none';
+    document.getElementById('btn-start-t3').style.display = (data.phase==='transition2') ? 'block' : 'none';
+    document.getElementById('btn-end').style.display =
+      ((data.phase==='t2' && !t3on) || data.phase==='t3') ? 'block' : 'none';
 
     const hint=document.getElementById('control-hint');
     if(data.phase==='lobby') hint.textContent=`${data.player_count} 位學生已加入。學生到齊後按「開始 Treatment 1」。`;
-    else if(data.phase==='t1') hint.textContent='Treatment 1 進行中。等所有組完成後按「進入過渡頁」。';
+    else if(data.phase==='t1') hint.textContent='Treatment 1 進行中。完成後按「進入過渡頁」。';
     else if(data.phase==='transition') hint.textContent='過渡頁顯示中。準備好後按「開始 Treatment 2」。';
-    else if(data.phase==='t2') hint.textContent='Treatment 2 進行中。完成後按「結束實驗」。';
+    else if(data.phase==='t2') hint.textContent= t3on ? 'Treatment 2 進行中。完成後按「進入過渡頁（T2→T3）」。' : 'Treatment 2 進行中。完成後按「結束實驗」。';
+    else if(data.phase==='transition2') hint.textContent='過渡頁（T2→T3）顯示中。按「開始 Treatment 3」。';
+    else if(data.phase==='t3') hint.textContent='Treatment 3 進行中。完成後按「結束實驗」。';
     else hint.textContent='實驗已結束，學生看到最終結果頁。可匯出 CSV。';
 
     // Stats
-    const s1=data.stats.t1, s2=data.stats.t2;
+    const s1=data.stats.t1, s2=data.stats.t2, s3=data.stats.t3 || {rounds:0,withdraw_rate:0,bankrupt_rate:0,avg_payout:0};
     document.getElementById('s-t1-rounds').textContent=s1.rounds;
     document.getElementById('s-t1-with').textContent=Math.round(s1.withdraw_rate*100)+'%';
     document.getElementById('s-t1-bk').textContent=Math.round(s1.bankrupt_rate*100)+'%';
@@ -433,6 +513,14 @@ async function refresh(){
     document.getElementById('s-t2-with').textContent=Math.round(s2.withdraw_rate*100)+'%';
     document.getElementById('s-t2-bk').textContent=Math.round(s2.bankrupt_rate*100)+'%';
     document.getElementById('s-t2-pay').textContent='$'+s2.avg_payout;
+    const t3box = document.getElementById('s-t3-box');
+    if (t3box) {
+      t3box.style.display = t3on ? 'block' : 'none';
+      document.getElementById('s-t3-rounds').textContent=s3.rounds;
+      document.getElementById('s-t3-with').textContent=Math.round(s3.withdraw_rate*100)+'%';
+      document.getElementById('s-t3-bk').textContent=Math.round(s3.bankrupt_rate*100)+'%';
+      document.getElementById('s-t3-pay').textContent='$'+s3.avg_payout;
+    }
 
     // Groups
     const gcard=document.getElementById('card-groups');

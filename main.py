@@ -474,6 +474,7 @@ class TreatmentConfig(BaseModel):
     show_live_count: bool = True
     countdown_seconds: int = 45      # 每回合決策秒數，0 = 不限時
     rumors_enabled: bool = True       # 是否在回合開始顯示「市場新聞」
+    insurance_premium: float = 0.0    # 每回合所有人付的保險費（T3 公共保險）
 
 class BankSettings(BaseModel):
     title: str = "銀行擠兌實驗"
@@ -481,8 +482,10 @@ class BankSettings(BaseModel):
     deposit: float = 10
     group_size: int = 6
     anonymous_mode: bool = True       # 學生端使用化名+頭像
+    t3_enabled: bool = False          # 是否啟用第三階段（公共保險 / 資本要求）
     t1: TreatmentConfig = TreatmentConfig(bankruptcy_compensation=0)
     t2: TreatmentConfig = TreatmentConfig(bankruptcy_compensation=9)
+    t3: TreatmentConfig = TreatmentConfig(bankruptcy_compensation=10, insurance_premium=1.0, hold_reward_pct=0.3)
 
 # 化名與頭像
 _NICKNAME_POOL = [
@@ -626,6 +629,7 @@ def _bank_resolve_round(room, group, rnd):
     threshold = int(tcfg["threshold"])
     reward_pct = float(tcfg["hold_reward_pct"])
     comp = float(tcfg["bankruptcy_compensation"])
+    premium = float(tcfg.get("insurance_premium", 0) or 0)
 
     # 強制提款者一律 withdraw
     for pid, d in rnd["decisions"].items():
@@ -654,6 +658,11 @@ def _bank_resolve_round(room, group, rnd):
             payouts[pid] = deposit
         for pid in holders:
             payouts[pid] = round(deposit * (1 + reward_pct), 2)
+
+    # 公共保險費：所有人沒回合都要扣
+    if premium > 0:
+        for pid in payouts:
+            payouts[pid] = round(payouts[pid] - premium, 2)
 
     rnd["resolved"] = True
     rnd["resolved_at"] = time.time()
@@ -689,8 +698,8 @@ def bank_start(code: str, token: str, treatment: str = "t1"):
         raise HTTPException(status_code=404, detail="找不到房間")
     if token != room["token"]:
         raise HTTPException(status_code=403, detail="授權失敗")
-    if treatment not in ("t1", "t2"):
-        raise HTTPException(status_code=400, detail="treatment 必須是 t1 或 t2")
+    if treatment not in ("t1", "t2", "t3"):
+        raise HTTPException(status_code=400, detail="treatment 必須是 t1 / t2 / t3")
 
     with LOCK:
         # 重組 groups（每次 start 重新分配）
@@ -700,17 +709,20 @@ def bank_start(code: str, token: str, treatment: str = "t1"):
         room["phase"] = treatment
     return {"ok": True, "groups": len(room["groups"]), "phase": room["phase"]}
 
-# ── Teacher: transition to T2 ────────────────────────────────────────
+# ── Teacher: transition ────────────────────────────────────────
 @app.post("/api/teacher/bank-rooms/{code}/next-treatment")
-def bank_next_treatment(code: str, token: str):
+def bank_next_treatment(code: str, token: str, to: str = "transition"):
+    """to: 'transition' (T1→T2) | 'transition2' (T2→T3)"""
     room = ROOMS.get(code)
     if not room or room.get("type") != "bank":
         raise HTTPException(status_code=404, detail="找不到房間")
     if token != room["token"]:
         raise HTTPException(status_code=403, detail="授權失敗")
+    if to not in ("transition", "transition2"):
+        raise HTTPException(status_code=400, detail="to 參數錯誤")
     with LOCK:
-        room["phase"] = "transition"
-    return {"ok": True, "phase": "transition"}
+        room["phase"] = to
+    return {"ok": True, "phase": to}
 
 # ── Teacher: end ─────────────────────────────────────────────────────
 @app.post("/api/teacher/bank-rooms/{code}/end")
@@ -752,9 +764,11 @@ def bank_player_state(code: str, pid: str):
         base["my_avatar"] = player.get("avatar")
         return base
 
-    if room["phase"] == "transition":
-        base["status"] = "transition"
+    if room["phase"] in ("transition", "transition2"):
+        base["status"] = room["phase"]   # 'transition' 或 'transition2'
         base["t1_summary"] = _player_treatment_summary(room, pid, "t1")
+        if room["phase"] == "transition2":
+            base["t2_summary"] = _player_treatment_summary(room, pid, "t2")
         base["total_earnings"] = round(sum(h["payout"] for h in room["history"] if h["pid"] == pid), 2)
         base["my_nickname"] = player.get("nickname")
         base["my_avatar"] = player.get("avatar")
@@ -764,9 +778,13 @@ def bank_player_state(code: str, pid: str):
         base["status"] = "ended"
         base["t1_summary"] = _player_treatment_summary(room, pid, "t1")
         base["t2_summary"] = _player_treatment_summary(room, pid, "t2")
+        if settings.get("t3_enabled"):
+            base["t3_summary"] = _player_treatment_summary(room, pid, "t3")
         base["total_earnings"] = round(sum(h["payout"] for h in room["history"] if h["pid"] == pid), 2)
         base["my_nickname"] = player.get("nickname")
         base["my_avatar"] = player.get("avatar")
+        base["badges"] = _compute_badges(room, pid)
+        base["leaderboard"] = _build_leaderboard(room, pid)
         return base
 
     # 進行中：t1 或 t2
@@ -841,6 +859,104 @@ def _player_treatment_summary(room, pid, treatment):
         "bankrupt_rounds": bankrupts,
         "history": rows,
     }
+
+# ── 成就徽章 ────────────────────────────────────────────────────────
+_BADGE_DEFS = [
+    # (id, emoji, name, description, predicate(rows, helpers))
+    ("iron_holder", "🛡️", "鋼鐵儲戶",  "全程未提款（被強制不算）",
+        lambda h, x: x["voluntary_withdraws"] == 0 and h["rounds"] >= 3),
+    ("escape_master", "🍀", "逃命大師", "破產回合中全部抽中拿存款",
+        lambda h, x: x["bankrupt_withdraws"] >= 2 and x["bankrupt_winners"] == x["bankrupt_withdraws"]),
+    ("unlucky", "💀", "天降衰神", "被強制提款 ≥ 3 次",
+        lambda h, x: x["forced_count"] >= 3),
+    ("bank_breaker", "💣", "銀行終結者", "至少 2 次成為破產組的提款者",
+        lambda h, x: x["bankrupt_as_withdrawer"] >= 2),
+    ("survivor", "🏰", "穩坐金山", "從未經歷銀行破產（同組）",
+        lambda h, x: h["rounds"] >= 3 and x["bankrupt_rounds"] == 0),
+    ("learner", "📚", "學習曲線", "T1 提款率 > T2 提款率（學會理性）",
+        lambda h, x: x["t1_with_rate"] is not None and x["t2_with_rate"] is not None and x["t1_with_rate"] > x["t2_with_rate"] + 0.1),
+    ("contrarian", "🦊", "反骨派", "T2 提款率 > T1 提款率（反向操作）",
+        lambda h, x: x["t1_with_rate"] is not None and x["t2_with_rate"] is not None and x["t2_with_rate"] > x["t1_with_rate"] + 0.1),
+    ("rich", "💰", "金庫之王", "全班總收益前 3 名",
+        lambda h, x: x.get("rank", 99) <= 3),
+    ("flawless", "🌟", "完美收場", "從未拿到 0 元（每回合都有錢）",
+        lambda h, x: h["rounds"] >= 4 and x["zero_payouts"] == 0),
+]
+
+def _compute_badges(room, pid):
+    history = [h for h in room["history"] if h["pid"] == pid]
+    if not history:
+        return []
+    total = round(sum(h["payout"] for h in history), 2)
+    # 排名
+    all_totals = []
+    for opid in room["players"]:
+        rows = [h for h in room["history"] if h["pid"] == opid]
+        all_totals.append((opid, round(sum(h["payout"] for h in rows), 2)))
+    all_totals.sort(key=lambda x: -x[1])
+    rank = next((i+1 for i, (op, _) in enumerate(all_totals) if op == pid), 99)
+
+    voluntary_withdraws = sum(1 for h in history if h["choice"] == "withdraw" and not h["forced"])
+    forced_count = sum(1 for h in history if h["forced"])
+    bankrupt_rounds = sum(1 for h in history if h["bankrupt"])
+    bankrupt_withdraws = sum(1 for h in history if h["bankrupt"] and h["choice"] == "withdraw")
+    deposit = float(room["settings"]["deposit"])
+    bankrupt_winners = sum(1 for h in history if h["bankrupt"] and h["choice"] == "withdraw" and h["payout"] >= deposit)
+    bankrupt_as_withdrawer = bankrupt_withdraws
+    zero_payouts = sum(1 for h in history if h["payout"] <= 0)
+
+    def _wr(t):
+        rows = [h for h in history if h["treatment"] == t]
+        if not rows: return None
+        return sum(1 for h in rows if h["choice"] == "withdraw") / len(rows)
+
+    helpers = {
+        "voluntary_withdraws": voluntary_withdraws,
+        "forced_count": forced_count,
+        "bankrupt_rounds": bankrupt_rounds,
+        "bankrupt_withdraws": bankrupt_withdraws,
+        "bankrupt_winners": bankrupt_winners,
+        "bankrupt_as_withdrawer": bankrupt_as_withdrawer,
+        "zero_payouts": zero_payouts,
+        "rank": rank,
+        "t1_with_rate": _wr("t1"),
+        "t2_with_rate": _wr("t2"),
+        "t3_with_rate": _wr("t3"),
+    }
+    head = {"rounds": len(history), "total": total}
+
+    earned = []
+    for bid, emoji, name, desc, pred in _BADGE_DEFS:
+        try:
+            if pred(head, helpers):
+                earned.append({"id": bid, "emoji": emoji, "name": name, "desc": desc})
+        except Exception:
+            pass
+    return earned
+
+def _build_leaderboard(room, my_pid, top_n=10):
+    rows = []
+    for opid, p in room["players"].items():
+        h = [x for x in room["history"] if x["pid"] == opid]
+        if not h: continue
+        total = round(sum(x["payout"] for x in h), 2)
+        rows.append({
+            "is_me": opid == my_pid,
+            "nickname": p.get("nickname") or "—",
+            "avatar": p.get("avatar") or "👤",
+            "total": total,
+            "rounds": len(h),
+        })
+    rows.sort(key=lambda x: -x["total"])
+    for i, r in enumerate(rows):
+        r["rank"] = i + 1
+    # 取前 N + 確保自己也在內
+    top = rows[:top_n]
+    if not any(r["is_me"] for r in top):
+        me = next((r for r in rows if r["is_me"]), None)
+        if me:
+            top.append(me)
+    return top
 
 # ── Student: submit bank choice ──────────────────────────────────────
 @app.post("/api/bank/rooms/{code}/players/{pid}/choice")
@@ -940,8 +1056,10 @@ def bank_dashboard(code: str, token: str):
             "rounds_played": len(rows),
             "t1_earnings": round(sum(h["payout"] for h in rows if h["treatment"] == "t1"), 2),
             "t2_earnings": round(sum(h["payout"] for h in rows if h["treatment"] == "t2"), 2),
+            "t3_earnings": round(sum(h["payout"] for h in rows if h["treatment"] == "t3"), 2),
             "t1_withdraws": sum(1 for h in rows if h["treatment"] == "t1" and h["choice"] == "withdraw"),
             "t2_withdraws": sum(1 for h in rows if h["treatment"] == "t2" and h["choice"] == "withdraw"),
+            "t3_withdraws": sum(1 for h in rows if h["treatment"] == "t3" and h["choice"] == "withdraw"),
         })
 
     groups_view = []
@@ -962,6 +1080,6 @@ def bank_dashboard(code: str, token: str):
         "players": players_view,
         "groups": groups_view,
         "history": history,
-        "stats": {"t1": _stats("t1"), "t2": _stats("t2")},
+        "stats": {"t1": _stats("t1"), "t2": _stats("t2"), "t3": _stats("t3")},
     }
 
