@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>銀行擠兌 — 課堂實驗</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+:root{
+  --bg:#0d0e14;--bg2:#13141c;--bg3:#1a1c27;
+  --surface:#1e2030;--surface2:#252840;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.16);
+  --text:#e8e9f0;--text2:#9a9db8;--text3:#5c5f7a;
+  --accent:#7c6af7;--accent2:#a594ff;
+  --red:#f06060;--green:#4ecb8a;--amber:#f0b429;--blue:#4a9eff;
+  --r:12px;--rs:8px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans TC',sans-serif;font-weight:300;min-height:100vh;display:flex;flex-direction:column;align-items:center;}
+header{width:100%;background:var(--bg2);border-bottom:1px solid var(--border);padding:.9rem 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.logo{font-family:'Noto Serif TC',serif;font-size:1.05rem;font-weight:700;color:var(--accent2);}
+.header-info{font-size:.78rem;color:var(--text3);}
+
+.screen{width:100%;max-width:560px;padding:2rem 1.5rem;display:none;flex-direction:column;align-items:center;gap:1.2rem;}
+.screen.active{display:flex;}
+
+.card{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.3rem;}
+.card-title{font-family:'Noto Serif TC',serif;font-size:1rem;font-weight:600;margin-bottom:.55rem;}
+.card-sub{font-size:.8rem;color:var(--text2);line-height:1.65;margin-bottom:.8rem;}
+
+.hero{text-align:center;padding:1.2rem 0 .3rem;}
+.hero-icon{width:62px;height:62px;background:var(--surface2);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto .8rem;font-size:1.7rem;border:1px solid var(--border2);}
+.hero h1{font-family:'Noto Serif TC',serif;font-size:1.5rem;font-weight:700;margin-bottom:.4rem;background:linear-gradient(135deg,#a594ff 0%,#7c6af7 60%,#4a9eff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.hero p{color:var(--text2);font-size:.86rem;line-height:1.65;}
+
+.fg{display:flex;flex-direction:column;gap:.4rem;margin-bottom:.7rem;}
+label{font-size:.78rem;color:var(--text2);font-weight:500;}
+input[type=text]{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:.6rem .9rem;color:var(--text);font-size:.92rem;outline:none;font-family:'Noto Sans TC',sans-serif;}
+input:focus{border-color:var(--accent);}
+
+.btn{width:100%;padding:.75rem 1.4rem;border-radius:var(--rs);font-size:.92rem;font-weight:500;cursor:pointer;border:none;transition:all .2s;font-family:'Noto Sans TC',sans-serif;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);}
+.btn-green{background:var(--green);color:#0d0e14;}
+.btn-red{background:var(--red);color:#fff;}
+
+.pulse-ring{width:46px;height:46px;border-radius:50%;background:var(--accent);opacity:.15;animation:pulse 1.8s ease-in-out infinite;margin:0 auto .9rem;position:relative;}
+.pulse-ring::before{content:'';position:absolute;inset:8px;border-radius:50%;background:var(--accent);opacity:.5;animation:pulse 1.8s ease-in-out .3s infinite;}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:.15}50%{transform:scale(1.3);opacity:.05}}
+
+.choice-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;width:100%;}
+.choice-btn{border:2px solid var(--border);border-radius:var(--r);background:var(--surface);cursor:pointer;padding:1.1rem .9rem;text-align:center;transition:all .2s;font-family:'Noto Sans TC',sans-serif;color:var(--text);}
+.choice-btn:hover{transform:translateY(-2px);}
+.choice-btn.hold:hover,.choice-btn.hold.selected{border-color:var(--green);background:rgba(78,203,138,.08);}
+.choice-btn.withdraw:hover,.choice-btn.withdraw.selected{border-color:var(--red);background:rgba(240,96,96,.08);}
+.choice-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.choice-btn.selected{transform:translateY(-2px);}
+.choice-icon{font-size:1.8rem;display:block;margin-bottom:.35rem;}
+.choice-name{font-size:.95rem;font-weight:700;}
+.choice-desc{font-size:.7rem;color:var(--text2);margin-top:.2rem;line-height:1.4;}
+
+.info-strip{width:100%;display:flex;flex-wrap:wrap;gap:.4rem;}
+.chip{padding:.25rem .65rem;border-radius:20px;font-size:.72rem;font-weight:500;border:1px solid;}
+.chip.purple{background:rgba(124,106,247,.12);border-color:rgba(124,106,247,.3);color:var(--accent2);}
+.chip.green{background:rgba(78,203,138,.1);border-color:rgba(78,203,138,.3);color:var(--green);}
+.chip.red{background:rgba(240,96,96,.1);border-color:rgba(240,96,96,.3);color:var(--red);}
+.chip.amber{background:rgba(240,180,41,.1);border-color:rgba(240,180,41,.3);color:var(--amber);}
+.chip.blue{background:rgba(74,158,255,.1);border-color:rgba(74,158,255,.3);color:var(--blue);}
+
+.alert{width:100%;padding:.7rem .9rem;border-radius:var(--rs);font-size:.82rem;border:1px solid;}
+.alert.info{background:rgba(74,158,255,.08);border-color:rgba(74,158,255,.25);color:var(--blue);}
+.alert.warn{background:rgba(240,180,41,.08);border-color:rgba(240,180,41,.25);color:var(--amber);}
+.alert.danger{background:rgba(240,96,96,.08);border-color:rgba(240,96,96,.25);color:var(--red);}
+
+.live-counter{width:100%;text-align:center;padding:1.1rem;border-radius:var(--r);background:linear-gradient(180deg,var(--bg3),var(--surface));border:1px solid var(--border);}
+.live-counter .num{font-size:2.4rem;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums;}
+.live-counter .lbl{font-size:.78rem;color:var(--text2);}
+.live-counter .gap{font-size:.78rem;color:var(--text3);margin-top:.3rem;}
+
+.result-banner{width:100%;border-radius:var(--r);padding:1.2rem;text-align:center;font-size:1.1rem;font-weight:700;font-family:'Noto Serif TC',serif;}
+.result-banner.win{background:rgba(78,203,138,.12);border:1px solid rgba(78,203,138,.3);color:var(--green);}
+.result-banner.lose{background:rgba(240,96,96,.12);border:1px solid rgba(240,96,96,.3);color:var(--red);}
+.result-banner.draw{background:rgba(240,180,41,.12);border:1px solid rgba(240,180,41,.3);color:var(--amber);}
+
+.score-row{display:flex;justify-content:space-around;margin:.7rem 0;padding:.8rem;background:var(--bg3);border-radius:var(--rs);}
+.si{text-align:center;}
+.si .lbl{font-size:.7rem;color:var(--text3);}
+.si .val{font-size:1.4rem;font-weight:700;margin-top:.1rem;}
+
+.diff-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;font-size:.84rem;padding:.6rem 0;border-bottom:1px solid var(--border);}
+.diff-row:last-child{border-bottom:none;}
+.diff-row .lbl{color:var(--text2);font-size:.78rem;}
+.diff-row .v1{color:var(--accent2);}
+.diff-row .v2{color:var(--green);}
+.diff-row.h{font-weight:700;}
+
+.tabs{display:flex;gap:.5rem;width:100%;border-bottom:1px solid var(--border);margin-bottom:.9rem;}
+.tab{padding:.5rem .95rem;font-size:.83rem;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;}
+.tab.active{color:var(--accent2);border-bottom-color:var(--accent);}
+
+.theory{font-size:.82rem;color:var(--text2);line-height:1.75;}
+.theory strong{color:var(--text);}
+.theory h4{font-family:'Noto Serif TC',serif;font-size:.95rem;color:var(--accent2);margin:.8rem 0 .3rem;}
+.text-xs{font-size:.73rem;color:var(--text3);}
+
+.history-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(54px,1fr));gap:4px;}
+.h-cell{padding:.4rem .25rem;border-radius:5px;text-align:center;font-size:.7rem;background:var(--bg3);}
+.h-cell.bankrupt{background:rgba(240,96,96,.18);}
+.h-cell.win{background:rgba(78,203,138,.15);}
+.h-cell .r{font-weight:700;font-size:.78rem;color:var(--text);}
+.h-cell .p{color:var(--text2);font-size:.7rem;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🏦 銀行擠兌</div>
+  <div class="header-info" id="header-info">課堂實驗</div>
+</header>
+
+<!-- ══ LOGIN ══ -->
+<div class="screen active" id="screen-login">
+  <div class="hero">
+    <div class="hero-icon">🏦</div>
+    <h1 id="hero-title">銀行擠兌實驗</h1>
+    <p id="hero-desc">輸入學號姓名後等待老師開始實驗</p>
+  </div>
+  <div class="card">
+    <p class="card-title">學生登入</p>
+    <div class="fg"><label>學號</label><input type="text" id="i-sid" placeholder="例：B10123456"></div>
+    <div class="fg"><label>姓名</label><input type="text" id="i-name" placeholder="你的姓名"></div>
+  </div>
+  <div class="card" id="rules-card">
+    <p class="card-title">📜 遊戲規則</p>
+    <div class="card-sub" id="rules-text">載入中…</div>
+  </div>
+  <button class="btn btn-primary" onclick="doLogin()">加入大廳 →</button>
+</div>
+
+<!-- ══ WAITING ══ -->
+<div class="screen" id="screen-wait">
+  <div style="text-align:center;padding:1.5rem 0;">
+    <div class="pulse-ring"></div>
+    <p style="color:var(--text2);margin-bottom:.5rem;" id="wait-title">等待老師開始實驗…</p>
+    <p class="text-xs" id="wait-desc">老師按下「開始 Treatment 1」後自動進入遊戲</p>
+  </div>
+  <div class="card">
+    <p class="card-title" id="wait-card-title">本場條件</p>
+    <div id="wait-conditions"></div>
+  </div>
+  <div class="card" id="my-prev-card" style="display:none;">
+    <p class="card-title">你的累計收益</p>
+    <div class="score-row"><div class="si"><div class="lbl">$</div><div class="val" id="wait-earn" style="color:var(--green)">0</div></div></div>
+  </div>
+</div>
+
+<!-- ══ GAME ══ -->
+<div class="screen" id="screen-game">
+  <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+    <div>
+      <p class="text-xs" id="g-round-label">第 1 回合</p>
+      <p class="text-xs" id="g-treatment-label" style="margin-top:2px;font-weight:600;color:var(--accent2);">Treatment 1</p>
+    </div>
+    <div class="si" style="text-align:right;">
+      <div class="lbl">累計收益</div>
+      <div class="val" id="g-earn" style="font-size:1.15rem;color:var(--green)">$0</div>
+    </div>
+  </div>
+
+  <div class="info-strip" id="g-chips"></div>
+
+  <!-- 強制提款警示 -->
+  <div class="alert danger" id="forced-alert" style="display:none;">
+    ⚡ <strong>本回合強制提款</strong> — 你被指派必須提款（模擬流動性需求衝擊）
+  </div>
+
+  <div class="card">
+    <p class="card-title" id="g-bank-name">課堂銀行</p>
+    <p class="card-sub" id="g-instruction">請選擇是否提款。決定後等其他組員出牌即進行結算。</p>
+  </div>
+
+  <!-- 即時提款計數 -->
+  <div class="live-counter" id="live-counter" style="display:none;">
+    <div class="num" id="live-num">0 / 0</div>
+    <div class="lbl">目前已提款人數 / 已決定人數</div>
+    <div class="gap" id="live-gap"></div>
+  </div>
+
+  <div class="choice-row">
+    <button class="choice-btn hold" id="btn-hold" onclick="makeChoice('hold')">
+      <span class="choice-icon">💎</span>
+      <div class="choice-name" style="color:var(--green)">持有</div>
+      <div class="choice-desc">不破產 → 取回 <span id="hold-payoff">$15</span><br>破產 → 拿補償 <span id="hold-comp">$0</span></div>
+    </button>
+    <button class="choice-btn withdraw" id="btn-withdraw" onclick="makeChoice('withdraw')">
+      <span class="choice-icon">💸</span>
+      <div class="choice-name" style="color:var(--red)">提款</div>
+      <div class="choice-desc">不破產 → 拿回 <span id="wd-payoff">$10</span><br>破產 → 隨機抽籤拿 $10 或 $0</div>
+    </button>
+  </div>
+
+  <div class="alert info" id="waiting-others" style="display:none;">✓ 已選擇，等待其他組員…</div>
+</div>
+
+<!-- ══ ROUND RESULT ══ -->
+<div class="screen" id="screen-round-result">
+  <p class="text-xs" id="rr-label">第 1 回合結果</p>
+  <div class="result-banner" id="rr-banner">—</div>
+  <div class="card">
+    <div class="score-row">
+      <div class="si"><div class="lbl">本回合收益</div><div class="val" id="rr-payout" style="color:var(--accent2)">$0</div></div>
+      <div class="si"><div class="lbl">累計收益</div><div class="val" id="rr-total" style="color:var(--green)">$0</div></div>
+    </div>
+    <div class="card-sub" id="rr-detail" style="margin-top:.5rem;margin-bottom:0;"></div>
+  </div>
+  <button class="btn btn-primary" onclick="ackRound()">繼續 →</button>
+</div>
+
+<!-- ══ TRANSITION ══ -->
+<div class="screen" id="screen-transition">
+  <div class="hero">
+    <div class="hero-icon">🔁</div>
+    <h1>進入 Treatment 2</h1>
+    <p>下面是兩階段規則的差異對照，看完規則再請老師啟動 T2</p>
+  </div>
+  <div class="card">
+    <p class="card-title">📋 規則變更對照</p>
+    <div class="diff-row h"><div class="lbl">項目</div><div class="v1">T1</div><div class="v2">T2</div></div>
+    <div id="diff-list"></div>
+  </div>
+  <div class="card">
+    <p class="card-title">📊 你在 T1 的表現</p>
+    <div id="t1-summary"></div>
+  </div>
+  <div class="alert warn" style="text-align:center;">⏳ 等待老師按下「開始 Treatment 2」</div>
+</div>
+
+<!-- ══ FINAL ══ -->
+<div class="screen" id="screen-final">
+  <div class="hero">
+    <div class="hero-icon" id="f-icon">🏆</div>
+    <h1>實驗結束</h1>
+    <p id="f-desc">—</p>
+  </div>
+  <div class="score-row" style="width:100%;">
+    <div class="si"><div class="lbl">T1 收益</div><div class="val" id="f-t1" style="color:var(--accent2)">$0</div></div>
+    <div class="si"><div class="lbl">T2 收益</div><div class="val" id="f-t2" style="color:var(--green)">$0</div></div>
+    <div class="si"><div class="lbl">總收益</div><div class="val" id="f-total" style="color:var(--amber)">$0</div></div>
+  </div>
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('compare')">行為對照</div>
+      <div class="tab" onclick="switchTab('history')">回合詳情</div>
+      <div class="tab" onclick="switchTab('theory')">理論對照</div>
+    </div>
+    <div id="tab-compare" class="theory"></div>
+    <div id="tab-history" style="display:none;"></div>
+    <div id="tab-theory" class="theory" style="display:none;"></div>
+  </div>
+  <button class="btn btn-ghost" onclick="location.reload()">重新進入</button>
+</div>
+
+<script>
+const ROOM_CODE = new URLSearchParams(location.search).get('room');
+let PLAYER_ID = null;
+let SETTINGS = null;
+let POLL = null;
+let LAST_PHASE = '';
+let LAST_ROUND_KEY = '';
+let LAST_RESOLVED_KEY = '';
+let RESULT_VIEWED_KEY = '';
+let MY_CHOICE = null;
+
+if (!ROOM_CODE) {
+  alert('沒有指定房間代碼，請使用老師提供的連結進入。');
+}
+
+async function bootstrap() {
+  if (!ROOM_CODE) return;
+  try {
+    const res = await fetch('/api/rooms/' + encodeURIComponent(ROOM_CODE));
+    if (!res.ok) { alert('找不到房間 ' + ROOM_CODE); return; }
+    const data = await res.json();
+    if (data.type !== 'bank') {
+      // 不是銀行擠兌房間 → 轉去 PD 頁面
+      location.replace('/?room=' + encodeURIComponent(ROOM_CODE));
+      return;
+    }
+    SETTINGS = data.settings;
+    document.getElementById('hero-title').textContent = SETTINGS.title || '銀行擠兌實驗';
+    document.getElementById('hero-desc').innerHTML = `<span style="color:var(--accent2)">房間 ${ROOM_CODE}</span><br>${SETTINGS.bank_name || '課堂銀行'} · 每人存款 $${SETTINGS.deposit}`;
+    document.getElementById('header-info').textContent = '房間 ' + ROOM_CODE;
+    renderRulesPreview();
+  } catch (e) {
+    alert('載入失敗：' + e.message);
+  }
+}
+
+function renderRulesPreview() {
+  const t1 = SETTINGS.t1, t2 = SETTINGS.t2;
+  const dep = SETTINGS.deposit;
+  document.getElementById('rules-text').innerHTML = `
+    <p style="margin-bottom:.5rem;">每位學生在「<strong style="color:var(--accent2)">${SETTINGS.bank_name}</strong>」存款 <strong>$${dep}</strong>。每回合可選擇：</p>
+    <ul style="margin-left:1.2rem;line-height:1.8;">
+      <li><strong style="color:var(--green)">持有</strong>：不破產時拿回 $${(dep*(1+t1.hold_reward_pct)).toFixed(0)}（T1）/ $${(dep*(1+t2.hold_reward_pct)).toFixed(0)}（T2）</li>
+      <li><strong style="color:var(--red)">提款</strong>：不破產時拿回 $${dep}</li>
+    </ul>
+    <p style="margin-top:.6rem;">當提款人數達到門檻 → 銀行<strong style="color:var(--red)">破產</strong>，提款者隨機抽籤決定誰拿到錢，其他人拿補償（T1=$${t1.bankruptcy_compensation} / T2=$${t2.bankruptcy_compensation}）。</p>
+  `;
+}
+
+async function doLogin() {
+  const sid = document.getElementById('i-sid').value.trim();
+  const name = document.getElementById('i-name').value.trim();
+  if (!sid || !name) { alert('請填寫學號與姓名'); return; }
+  try {
+    const res = await fetch(`/api/rooms/${ROOM_CODE}/join`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({sid, name})
+    });
+    if (!res.ok) throw new Error('加入失敗');
+    const data = await res.json();
+    PLAYER_ID = data.player_id;
+    showScreen('wait');
+    renderWaitConditions('t1');
+    if (POLL) clearInterval(POLL);
+    POLL = setInterval(poll, 1500);
+  } catch (e) {
+    alert('加入失敗：' + e.message);
+  }
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+function renderWaitConditions(treatment) {
+  const t = SETTINGS[treatment];
+  if (!t) return;
+  const lblMap = {t1:'Treatment 1', t2:'Treatment 2'};
+  document.getElementById('wait-card-title').textContent = `🔬 ${lblMap[treatment]} 條件`;
+  document.getElementById('wait-conditions').innerHTML = `
+    <div class="info-strip" style="margin-bottom:.5rem;">
+      <span class="chip purple">${t.rounds} 回合</span>
+      <span class="chip amber">門檻 ≥ ${t.threshold} 人</span>
+      <span class="chip green">持有報酬 ${(t.hold_reward_pct*100)|0}%</span>
+      <span class="chip blue">破產補償 $${t.bankruptcy_compensation}</span>
+      ${t.forced_withdraw_prob>0?`<span class="chip red">強制提款 ${(t.forced_withdraw_prob*100)|0}%</span>`:''}
+      <span class="chip ${t.show_live_count?'green':'red'}">${t.show_live_count?'即時計數開':'即時計數關'}</span>
+    </div>
+  `;
+}
+
+async function poll() {
+  if (!PLAYER_ID) return;
+  try {
+    const res = await fetch(`/api/bank/rooms/${ROOM_CODE}/players/${PLAYER_ID}`);
+    if (!res.ok) return;
+    const st = await res.json();
+
+    // 累計收益（隨時更新）
+    if (typeof st.total_earnings === 'number') {
+      document.getElementById('wait-earn').textContent = '$' + st.total_earnings;
+      document.getElementById('g-earn').textContent = '$' + st.total_earnings;
+      document.getElementById('my-prev-card').style.display = st.total_earnings > 0 ? 'block' : 'none';
+    }
+
+    if (st.status === 'waiting') {
+      // 大廳：依 phase 決定文案
+      if (st.phase === 'lobby') {
+        document.getElementById('wait-title').textContent = '已加入大廳';
+        document.getElementById('wait-desc').textContent = '等待老師按下「開始 Treatment 1」';
+        renderWaitConditions('t1');
+      } else if (st.phase === 't1') {
+        // 在 T1 進行但本玩家還沒分到組（極少見）
+        document.getElementById('wait-title').textContent = '等待老師重新分組…';
+      }
+      showScreen('wait'); return;
+    }
+
+    if (st.status === 'transition') {
+      renderTransition(st);
+      showScreen('transition'); return;
+    }
+
+    if (st.status === 'ended') {
+      renderFinal(st);
+      showScreen('final');
+      clearInterval(POLL); POLL = null;
+      return;
+    }
+
+    if (st.status === 'playing') {
+      renderGame(st);
+    }
+  } catch (e) {}
+}
+
+function renderGame(st) {
+  const t = st.treatment_config;
+  const phaseChanged = LAST_PHASE !== st.phase;
+  LAST_PHASE = st.phase;
+
+  // 回合結果尚未確認 → 顯示結果頁
+  if (st.round_resolved && st.result) {
+    const key = `${st.phase}-${st.round_num}-${st.group_id}`;
+    if (RESULT_VIEWED_KEY !== key) {
+      LAST_RESOLVED_KEY = key;
+      renderRoundResult(st);
+      showScreen('round-result');
+    }
+    return;
+  }
+
+  // 進入新回合 → 顯示遊戲畫面
+  const roundKey = `${st.phase}-${st.round_num}-${st.group_id}`;
+  const newRound = roundKey !== LAST_ROUND_KEY;
+  LAST_ROUND_KEY = roundKey;
+
+  if (newRound) {
+    MY_CHOICE = null;
+    document.getElementById('btn-hold').classList.remove('selected');
+    document.getElementById('btn-withdraw').classList.remove('selected');
+    document.getElementById('btn-hold').disabled = false;
+    document.getElementById('btn-withdraw').disabled = false;
+    document.getElementById('waiting-others').style.display = 'none';
+  }
+
+  document.getElementById('g-round-label').textContent = `第 ${st.round_num} / ${st.total_rounds} 回合 · 組別 ${st.group_id}`;
+  document.getElementById('g-treatment-label').textContent = st.treatment === 't1' ? '🅰 Treatment 1（無存款保險）' : '🅱 Treatment 2（有存款保險）';
+  document.getElementById('g-treatment-label').style.color = st.treatment === 't1' ? 'var(--accent2)' : 'var(--green)';
+  document.getElementById('g-bank-name').textContent = st.settings.bank_name;
+
+  const dep = st.settings.deposit;
+  document.getElementById('hold-payoff').textContent = '$' + (dep*(1+t.hold_reward_pct)).toFixed(0);
+  document.getElementById('hold-comp').textContent = '$' + t.bankruptcy_compensation;
+  document.getElementById('wd-payoff').textContent = '$' + dep;
+
+  document.getElementById('g-chips').innerHTML = `
+    <span class="chip purple">${st.group_size} 人組</span>
+    <span class="chip amber">門檻 ≥ ${t.threshold}</span>
+    <span class="chip green">持有 +${(t.hold_reward_pct*100)|0}%</span>
+    <span class="chip blue">破產補償 $${t.bankruptcy_compensation}</span>
+  `;
+
+  // 強制提款
+  if (st.forced) {
+    document.getElementById('forced-alert').style.display = 'block';
+    document.getElementById('btn-hold').disabled = true;
+    if (!st.submitted) {
+      // 自動送出 withdraw
+      makeChoice('withdraw');
+    }
+  } else {
+    document.getElementById('forced-alert').style.display = 'none';
+  }
+
+  // 即時計數
+  const lc = document.getElementById('live-counter');
+  if (t.show_live_count && st.live_withdraw_count !== null) {
+    lc.style.display = 'block';
+    document.getElementById('live-num').textContent = `${st.live_withdraw_count} / ${st.submitted_count}`;
+    const gap = t.threshold - st.live_withdraw_count;
+    document.getElementById('live-gap').textContent = gap > 0 ? `距離破產門檻還差 ${gap} 人` : '⚠️ 已達破產門檻';
+  } else {
+    lc.style.display = 'none';
+  }
+
+  if (st.submitted && !st.round_resolved) {
+    document.getElementById('waiting-others').style.display = 'block';
+    document.getElementById('btn-hold').disabled = true;
+    document.getElementById('btn-withdraw').disabled = true;
+  }
+
+  if (phaseChanged || newRound) {
+    showScreen('game');
+  }
+}
+
+async function makeChoice(choice) {
+  if (MY_CHOICE) return;
+  MY_CHOICE = choice;
+  document.getElementById('btn-hold').classList.toggle('selected', choice==='hold');
+  document.getElementById('btn-withdraw').classList.toggle('selected', choice==='withdraw');
+  document.getElementById('btn-hold').disabled = true;
+  document.getElementById('btn-withdraw').disabled = true;
+  document.getElementById('waiting-others').style.display = 'block';
+  try {
+    await fetch(`/api/bank/rooms/${ROOM_CODE}/players/${PLAYER_ID}/choice`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({choice})
+    });
+  } catch(e) {
+    MY_CHOICE = null;
+    alert('送出失敗，請重試');
+  }
+}
+
+function renderRoundResult(st) {
+  const r = st.result;
+  const myChoice = st.my_choice;
+  const myPayout = r.payouts[PLAYER_ID];
+  const banner = document.getElementById('rr-banner');
+  document.getElementById('rr-label').textContent = `第 ${st.round_num} 回合結果（${st.treatment.toUpperCase()}）`;
+
+  if (r.bankrupt) {
+    if (myChoice === 'withdraw' && myPayout >= st.settings.deposit) {
+      banner.className = 'result-banner win';
+      banner.textContent = '⚡ 銀行破產！你抽中拿到存款';
+    } else {
+      banner.className = 'result-banner lose';
+      banner.textContent = '💥 銀行破產！';
+    }
+  } else {
+    if (myChoice === 'hold') {
+      banner.className = 'result-banner win';
+      banner.textContent = '✅ 銀行存活，你獲得持有報酬';
+    } else {
+      banner.className = 'result-banner draw';
+      banner.textContent = '🟡 銀行存活，你已提款';
+    }
+  }
+
+  document.getElementById('rr-payout').textContent = '$' + myPayout;
+  document.getElementById('rr-total').textContent = '$' + (st.total_earnings);
+  document.getElementById('rr-detail').innerHTML = `
+    本組 ${r.total} 人中有 <strong style="color:var(--red)">${r.withdraw_count}</strong> 人提款，門檻為 ${r.threshold}。<br>
+    你的選擇：<strong>${myChoice==='withdraw'?'💸 提款':'💎 持有'}</strong>${st.forced?'（強制）':''}<br>
+    ${r.bankrupt ? `銀行破產 → 補償 $${st.treatment_config.bankruptcy_compensation}（提款者隨機抽 ${Math.max(0,r.threshold-1)} 人拿到 $${st.settings.deposit}）` : `銀行存活 → 提款者拿 $${st.settings.deposit}，持有者拿 $${(st.settings.deposit*(1+st.treatment_config.hold_reward_pct)).toFixed(0)}`}
+  `;
+
+  // 標記已看過
+  RESULT_VIEWED_KEY = '';
+}
+
+async function ackRound() {
+  RESULT_VIEWED_KEY = LAST_RESOLVED_KEY;
+  showScreen('wait');
+  document.getElementById('wait-title').textContent = '等待其他組員確認…';
+  document.getElementById('wait-desc').textContent = '全組都按下繼續後進入下一回合';
+  try {
+    await fetch(`/api/bank/rooms/${ROOM_CODE}/players/${PLAYER_ID}/ack`, {method:'POST'});
+  } catch (e) {}
+}
+
+function renderTransition(st) {
+  const t1 = SETTINGS.t1, t2 = SETTINGS.t2;
+  const fmt = v => typeof v==='number' && v < 1 && v > 0 ? `${(v*100)|0}%` : v;
+  const rows = [
+    ['回合數', t1.rounds, t2.rounds],
+    ['提款門檻', `≥${t1.threshold} 人`, `≥${t2.threshold} 人`],
+    ['持有報酬', `+${(t1.hold_reward_pct*100)|0}%`, `+${(t2.hold_reward_pct*100)|0}%`],
+    ['破產補償', `$${t1.bankruptcy_compensation}`, `$${t2.bankruptcy_compensation}`],
+    ['強制提款', `${(t1.forced_withdraw_prob*100)|0}%`, `${(t2.forced_withdraw_prob*100)|0}%`],
+    ['即時計數', t1.show_live_count?'顯示':'隱藏', t2.show_live_count?'顯示':'隱藏'],
+    ['配對方式', t1.pairing==='fixed'?'固定':'每輪重組', t2.pairing==='fixed'?'固定':'每輪重組'],
+  ];
+  document.getElementById('diff-list').innerHTML = rows.map(r=>{
+    const changed = String(r[1]) !== String(r[2]);
+    return `<div class="diff-row" style="${changed?'background:rgba(240,180,41,.05);':''}">
+      <div class="lbl">${r[0]}${changed?' <span style="color:var(--amber)">●</span>':''}</div>
+      <div class="v1">${r[1]}</div>
+      <div class="v2">${r[2]}</div>
+    </div>`;
+  }).join('');
+
+  // T1 個人摘要
+  const s = st.t1_summary || {};
+  document.getElementById('t1-summary').innerHTML = `
+    <div class="info-strip">
+      <span class="chip purple">${s.rounds||0} 回合</span>
+      <span class="chip green">收益 $${s.total_earnings||0}</span>
+      <span class="chip red">提款 ${s.withdraw_count||0} 次</span>
+      ${s.bankrupt_rounds?`<span class="chip amber">遇到破產 ${s.bankrupt_rounds} 次</span>`:''}
+      ${s.forced_count?`<span class="chip blue">被強制 ${s.forced_count} 次</span>`:''}
+    </div>
+  `;
+}
+
+function renderFinal(st) {
+  const t1 = st.t1_summary || {};
+  const t2 = st.t2_summary || {};
+  document.getElementById('f-t1').textContent = '$' + (t1.total_earnings || 0);
+  document.getElementById('f-t2').textContent = '$' + (t2.total_earnings || 0);
+  document.getElementById('f-total').textContent = '$' + (st.total_earnings || 0);
+  document.getElementById('f-desc').textContent = `${st.settings.bank_name} · ${st.settings.title}`;
+
+  // 行為對照
+  const t1Wr = t1.rounds ? (t1.withdraw_count/t1.rounds*100).toFixed(0) : 0;
+  const t2Wr = t2.rounds ? (t2.withdraw_count/t2.rounds*100).toFixed(0) : 0;
+  let trend = '';
+  if (t1.rounds && t2.rounds) {
+    if (t2Wr < t1Wr) trend = '<strong style="color:var(--green)">提款率下降</strong>，與「存款保險降低恐慌」的理論預測一致。';
+    else if (t2Wr > t1Wr) trend = '<strong style="color:var(--red)">提款率反而上升</strong>，可能反映道德風險（保險使學生願意冒險）。';
+    else trend = '兩階段提款率相同。';
+  }
+  document.getElementById('tab-compare').innerHTML = `
+    <h4>📊 你的提款率</h4>
+    T1：<strong>${t1Wr}%</strong>（${t1.withdraw_count||0}/${t1.rounds||0}） <br>
+    T2：<strong>${t2Wr}%</strong>（${t2.withdraw_count||0}/${t2.rounds||0}） <br>
+    <p style="margin-top:.6rem;">${trend}</p>
+    <h4>💰 收益對比</h4>
+    T1（無保險）：$${t1.total_earnings||0} <br>
+    T2（有保險）：$${t2.total_earnings||0}
+  `;
+
+  // 回合詳情
+  const allHist = [...(t1.history||[]), ...(t2.history||[])];
+  document.getElementById('tab-history').innerHTML = `<div class="history-grid">${allHist.map(h=>{
+    const cls = h.bankrupt ? 'bankrupt' : (h.choice==='hold' ? 'win' : '');
+    return `<div class="h-cell ${cls}">
+      <div class="r">${h.treatment.toUpperCase()}-${h.round}</div>
+      <div class="p">${h.choice==='withdraw'?'💸':'💎'}${h.forced?'⚡':''}</div>
+      <div class="p">$${h.payout}</div>
+    </div>`;
+  }).join('')}</div>`;
+
+  // 理論
+  document.getElementById('tab-theory').innerHTML = `
+    <h4>📖 Diamond–Dybvig 模型</h4>
+    1983 年 Diamond 與 Dybvig 提出的模型解釋銀行擠兌：銀行透過<strong>期限轉換</strong>（短期存款融資長期投資）創造價值，但若所有人同時提款則會被迫低價變現，導致破產。
+    <h4>⚖️ 兩種均衡</h4>
+    <strong>1. 良好均衡</strong>：所有人理性選擇持有 → 銀行運作正常，每人拿到完整持有報酬。<br>
+    <strong>2. 擠兌均衡</strong>：每個人預期他人會提款 → 自己也提款（自我實現預言）→ 銀行破產。<br>
+    兩個均衡都是 Nash 均衡，差別在於<strong>對他人行為的預期</strong>。
+    <h4>🛡️ 存款保險（T2）</h4>
+    破產時保證最低補償 $${SETTINGS.t2.bankruptcy_compensation}，<strong>消除提款的恐慌動機</strong>，讓「持有」成為更穩定的選擇。<br>
+    理論預測：T2 的提款率應顯著低於 T1，破產率也下降。
+    <h4>⚡ 強制提款（流動性衝擊）</h4>
+    模擬真實世界中的緊急流動性需求（如失業、急用）。即使有保險，仍有部分提款不可避免，這在實證研究中是擠兌動態的重要驅動力。
+    <h4>🔍 政策意涵</h4>
+    存款保險（如美國 FDIC、台灣中央存保）在 1933 年後幾乎終結傳統銀行擠兌。但保險也帶來<strong>道德風險</strong>：銀行可能更冒險，需搭配資本適足率、監理等配套措施。
+  `;
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    t.classList.toggle('active',['compare','history','theory'][i]===tab);
+  });
+  ['compare','history','theory'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display=t===tab?'block':'none';
+  });
+}
+
+bootstrap();
+</script>
+</body>
+</html>

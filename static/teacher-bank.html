@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>老師後台 — 銀行擠兌</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+:root{
+  --bg:#0d0e14;--bg2:#13141c;--bg3:#1a1c27;
+  --surface:#1e2030;--surface2:#252840;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.16);
+  --text:#e8e9f0;--text2:#9a9db8;--text3:#5c5f7a;
+  --accent:#7c6af7;--accent2:#a594ff;
+  --red:#f06060;--green:#4ecb8a;--amber:#f0b429;--blue:#4a9eff;
+  --r:12px;--rs:8px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans TC',sans-serif;font-weight:300;min-height:100vh;}
+header{background:var(--bg2);border-bottom:1px solid var(--border);padding:.9rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+.logo{font-family:'Noto Serif TC',serif;font-size:1.05rem;font-weight:700;color:var(--accent2);}
+.container{max-width:1080px;margin:0 auto;padding:2rem 1.5rem;}
+.screen{display:none;}.screen.active{display:block;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.4rem;margin-bottom:1.2rem;}
+.card-title{font-family:'Noto Serif TC',serif;font-size:1rem;font-weight:600;margin-bottom:.65rem;}
+.hero{text-align:center;padding:1rem 0 1.5rem;}
+.hero h1{font-family:'Noto Serif TC',serif;font-size:1.7rem;font-weight:700;margin-bottom:.4rem;background:linear-gradient(135deg,#a594ff,#7c6af7,#4a9eff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.hero p{color:var(--text2);font-size:.9rem;}
+.fg{display:flex;flex-direction:column;gap:.4rem;margin-bottom:.8rem;}
+label{font-size:.78rem;color:var(--text2);font-weight:500;}
+input[type=text],input[type=number]{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:.55rem .8rem;color:var(--text);font-size:.9rem;outline:none;font-family:'Noto Sans TC',sans-serif;}
+input:focus{border-color:var(--accent);}
+.toggle-group{display:flex;gap:6px;flex-wrap:wrap;}
+.toggle-btn{flex:1;min-width:80px;padding:.45rem .4rem;border-radius:var(--rs);border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:.78rem;cursor:pointer;text-align:center;transition:all .18s;font-family:'Noto Sans TC',sans-serif;}
+.toggle-btn.active{border-color:var(--accent);background:rgba(124,106,247,.15);color:var(--accent2);}
+.btn{padding:.7rem 1.4rem;border-radius:var(--rs);font-size:.92rem;font-weight:500;cursor:pointer;border:none;transition:all .2s;width:100%;font-family:'Noto Sans TC',sans-serif;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:var(--accent2);}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);}
+.btn-ghost:hover{border-color:var(--border2);color:var(--text);}
+.btn-green{background:var(--green);color:#0d0e14;}
+.btn-amber{background:var(--amber);color:#0d0e14;}
+.btn-red{background:var(--red);color:#fff;}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;}
+.room-code{font-size:3rem;font-weight:700;letter-spacing:.4em;color:var(--accent2);text-align:center;padding:1.2rem;background:var(--bg3);border-radius:var(--rs);border:1px dashed var(--border2);font-variant-numeric:tabular-nums;}
+.url-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:.7rem .9rem;font-family:monospace;font-size:.85rem;word-break:break-all;color:var(--accent2);cursor:pointer;}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.8rem;}
+.stat{background:var(--bg3);border-radius:var(--rs);padding:.9rem;text-align:center;}
+.stat .lbl{font-size:.72rem;color:var(--text3);margin-bottom:.3rem;}
+.stat .val{font-size:1.6rem;font-weight:700;color:var(--accent2);}
+.stat .val.green{color:var(--green);}.stat .val.amber{color:var(--amber);}.stat .val.blue{color:var(--blue);}.stat .val.red{color:var(--red);}
+table{width:100%;border-collapse:collapse;font-size:.85rem;}
+th,td{padding:.55rem .5rem;text-align:left;border-bottom:1px solid var(--border);}
+th{color:var(--text2);font-weight:500;font-size:.76rem;background:var(--bg3);}
+tr:hover td{background:rgba(255,255,255,.02);}
+.flex-between{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;}
+.text-xs{font-size:.73rem;color:var(--text3);}
+.alert{padding:.7rem .9rem;border-radius:var(--rs);font-size:.82rem;border:1px solid;margin-bottom:1rem;}
+.alert.info{background:rgba(74,158,255,.08);border-color:rgba(74,158,255,.25);color:var(--blue);}
+.alert.warn{background:rgba(240,180,41,.08);border-color:rgba(240,180,41,.25);color:var(--amber);}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:.4rem;animation:pulse-dot 2s ease-in-out infinite;}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
+.chip{display:inline-block;padding:.3rem .7rem;border-radius:20px;font-size:.74rem;background:var(--bg3);border:1px solid var(--border);margin:.15rem;}
+.phase-tag{display:inline-block;padding:.25rem .8rem;border-radius:20px;font-size:.78rem;font-weight:500;}
+.phase-tag.lobby{background:rgba(240,180,41,.12);color:var(--amber);border:1px solid rgba(240,180,41,.3);}
+.phase-tag.t1{background:rgba(124,106,247,.12);color:var(--accent2);border:1px solid rgba(124,106,247,.3);}
+.phase-tag.t2{background:rgba(78,203,138,.12);color:var(--green);border:1px solid rgba(78,203,138,.3);}
+.phase-tag.transition{background:rgba(74,158,255,.12);color:var(--blue);border:1px solid rgba(74,158,255,.3);}
+.phase-tag.ended{background:rgba(255,255,255,.06);color:var(--text2);border:1px solid var(--border);}
+.tcol{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;}
+@media (max-width:680px){.tcol{grid-template-columns:1fr;}}
+.tcard{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:1rem;}
+.tcard h4{font-size:.95rem;font-weight:600;margin-bottom:.6rem;font-family:'Noto Serif TC',serif;}
+.tcard.t1 h4{color:var(--accent2);}
+.tcard.t2 h4{color:var(--green);}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">🏦 銀行擠兌 — 老師後台</div>
+  <div id="header-info" class="text-xs"></div>
+</header>
+
+<div class="container">
+
+<!-- ══ SETUP ══ -->
+<div class="screen active" id="screen-setup">
+  <div class="hero">
+    <h1>建立銀行擠兌實驗</h1>
+    <p>Diamond–Dybvig 模型：探索流動性風險與存款保險效果</p>
+  </div>
+
+  <div class="card">
+    <p class="card-title">📝 房間 & 銀行設定</p>
+    <div class="row2">
+      <div class="fg"><label>實驗標題</label><input type="text" id="i-title" value="銀行擠兌實驗"></div>
+      <div class="fg"><label>銀行名稱</label><input type="text" id="i-bank" value="課堂銀行"></div>
+      <div class="fg"><label>每人存款金額 ($)</label><input type="number" id="i-deposit" value="10" min="1"></div>
+      <div class="fg"><label>每組人數</label><input type="number" id="i-group" value="6" min="2" max="20"></div>
+    </div>
+  </div>
+
+  <div class="tcol">
+    <div class="tcard t1">
+      <h4>🅰 Treatment 1 （無存款保險）</h4>
+      <div class="fg"><label>回合數</label><input type="number" id="t1-rounds" value="3" min="1" max="20"></div>
+      <div class="fg">
+        <label>配對方式</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="t1-p-fixed" onclick="setPair('t1','fixed')">固定組別</button>
+          <button class="toggle-btn" id="t1-p-rand" onclick="setPair('t1','random_each_round')">每輪重組</button>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="fg"><label>提款門檻（人數 ≥）</label><input type="number" id="t1-threshold" value="4" min="1"></div>
+        <div class="fg"><label>持有報酬 (%)</label><input type="number" id="t1-reward" value="50" min="0"></div>
+      </div>
+      <div class="row2">
+        <div class="fg"><label>破產補償 ($)</label><input type="number" id="t1-comp" value="0" min="0"></div>
+        <div class="fg"><label>強制提款機率 (%)</label><input type="number" id="t1-forced" value="0" min="0" max="100"></div>
+      </div>
+      <div class="fg">
+        <label>顯示即時提款人數</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="t1-live-yes" onclick="setLive('t1',true)">顯示</button>
+          <button class="toggle-btn" id="t1-live-no" onclick="setLive('t1',false)">隱藏</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tcard t2">
+      <h4>🅱 Treatment 2 （有存款保險）</h4>
+      <div class="fg"><label>回合數</label><input type="number" id="t2-rounds" value="3" min="1" max="20"></div>
+      <div class="fg">
+        <label>配對方式</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="t2-p-fixed" onclick="setPair('t2','fixed')">固定組別</button>
+          <button class="toggle-btn" id="t2-p-rand" onclick="setPair('t2','random_each_round')">每輪重組</button>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="fg"><label>提款門檻（人數 ≥）</label><input type="number" id="t2-threshold" value="4" min="1"></div>
+        <div class="fg"><label>持有報酬 (%)</label><input type="number" id="t2-reward" value="50" min="0"></div>
+      </div>
+      <div class="row2">
+        <div class="fg"><label>破產補償 ($)</label><input type="number" id="t2-comp" value="9" min="0"></div>
+        <div class="fg"><label>強制提款機率 (%)</label><input type="number" id="t2-forced" value="0" min="0" max="100"></div>
+      </div>
+      <div class="fg">
+        <label>顯示即時提款人數</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="t2-live-yes" onclick="setLive('t2',true)">顯示</button>
+          <button class="toggle-btn" id="t2-live-no" onclick="setLive('t2',false)">隱藏</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" onclick="createRoom()">建立房間 →</button>
+</div>
+
+<!-- ══ DASHBOARD ══ -->
+<div class="screen" id="screen-dashboard">
+  <div class="card" style="text-align:center;">
+    <div class="flex-between" style="justify-content:center;gap:1rem;margin-bottom:.5rem;">
+      <p class="text-xs" style="margin:0;">房間代碼</p>
+      <span class="phase-tag lobby" id="phase-tag">大廳</span>
+    </div>
+    <div class="room-code" id="d-code">----</div>
+    <p class="text-xs" style="margin-top:.7rem;margin-bottom:.4rem;">學生連結（點擊複製）</p>
+    <div class="url-box" id="d-url" onclick="copyURL()">—</div>
+    <div style="margin-top:1rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;">
+      <div style="background:#fff;padding:.8rem;border-radius:var(--rs);display:inline-block;line-height:0;">
+        <img id="qr-img" alt="QR" width="180" height="180" style="display:block;">
+      </div>
+      <button class="btn btn-ghost" style="width:auto;padding:.4rem 1rem;font-size:.8rem;" onclick="openQRFullscreen()">🔍 放大投影</button>
+    </div>
+  </div>
+
+  <!-- 控制區 -->
+  <div class="card">
+    <p class="card-title">🎬 流程控制</p>
+    <p class="text-xs" id="control-hint" style="margin-bottom:.7rem;">學生加入大廳後，按「開始 Treatment 1」</p>
+    <div id="control-buttons" style="display:grid;gap:.5rem;">
+      <button class="btn btn-green" id="btn-start-t1" onclick="startTreatment('t1')">▶ 開始 Treatment 1</button>
+      <button class="btn btn-amber" id="btn-next" onclick="goTransition()" style="display:none;">→ 進入過渡頁（T1 → T2）</button>
+      <button class="btn btn-green" id="btn-start-t2" onclick="startTreatment('t2')" style="display:none;">▶ 開始 Treatment 2</button>
+      <button class="btn btn-red" id="btn-end" onclick="endRoom()" style="display:none;">🏁 結束實驗（顯示最終結果）</button>
+    </div>
+  </div>
+
+  <div class="alert info"><span class="live-dot"></span>每 2 秒自動更新</div>
+
+  <!-- 即時統計 -->
+  <div class="card">
+    <p class="card-title">📊 即時統計</p>
+    <div class="row2" style="gap:1rem;">
+      <div>
+        <p class="text-xs" style="margin-bottom:.5rem;color:var(--accent2);font-weight:500;">🅰 Treatment 1</p>
+        <div class="stats-grid">
+          <div class="stat"><div class="lbl">回合數</div><div class="val" id="s-t1-rounds">0</div></div>
+          <div class="stat"><div class="lbl">提款率</div><div class="val red" id="s-t1-with">0%</div></div>
+          <div class="stat"><div class="lbl">破產率</div><div class="val amber" id="s-t1-bk">0%</div></div>
+          <div class="stat"><div class="lbl">平均收益</div><div class="val green" id="s-t1-pay">0</div></div>
+        </div>
+      </div>
+      <div>
+        <p class="text-xs" style="margin-bottom:.5rem;color:var(--green);font-weight:500;">🅱 Treatment 2</p>
+        <div class="stats-grid">
+          <div class="stat"><div class="lbl">回合數</div><div class="val" id="s-t2-rounds">0</div></div>
+          <div class="stat"><div class="lbl">提款率</div><div class="val red" id="s-t2-with">0%</div></div>
+          <div class="stat"><div class="lbl">破產率</div><div class="val amber" id="s-t2-bk">0%</div></div>
+          <div class="stat"><div class="lbl">平均收益</div><div class="val green" id="s-t2-pay">0</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 組別狀態 -->
+  <div class="card" id="card-groups" style="display:none;">
+    <p class="card-title">👥 各組進度</p>
+    <div id="groups-list"></div>
+  </div>
+
+  <!-- CSV 匯出 -->
+  <div class="card" style="background:rgba(124,106,247,.08);border-color:rgba(124,106,247,.3);">
+    <div class="flex-between">
+      <div>
+        <p class="card-title" style="margin-bottom:.2rem;">📥 下載成績</p>
+        <p class="text-xs" style="margin:0;">匯出全班完整對局歷史（每回合每位學生一列）</p>
+      </div>
+      <button class="btn btn-primary" style="width:auto;padding:.6rem 1.2rem;" onclick="exportCSV()">匯出 CSV</button>
+    </div>
+  </div>
+
+  <!-- 學生明細 -->
+  <div class="card">
+    <p class="card-title">🧑‍🎓 學生明細</p>
+    <div style="overflow-x:auto;">
+      <table id="t-students">
+        <thead><tr>
+          <th>#</th><th>姓名</th><th>學號</th><th>組</th><th>T1 收益</th><th>T1 提款</th><th>T2 收益</th><th>T2 提款</th><th>總收益</th>
+        </tr></thead>
+        <tbody><tr><td colspan="9" class="text-xs" style="text-align:center;padding:1.5rem;">尚無學生加入</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <button class="btn btn-ghost" onclick="location.reload()">建立另一個房間</button>
+</div>
+
+<script>
+const cfg = {
+  title:'銀行擠兌實驗', bank_name:'課堂銀行',
+  deposit:10, group_size:6,
+  t1:{rounds:3, pairing:'fixed', threshold:4, hold_reward_pct:0.5, bankruptcy_compensation:0, forced_withdraw_prob:0, show_live_count:true},
+  t2:{rounds:3, pairing:'fixed', threshold:4, hold_reward_pct:0.5, bankruptcy_compensation:9, forced_withdraw_prob:0, show_live_count:true},
+};
+let roomCode = '', teacherToken = '', refreshTimer = null;
+
+function setPair(t, v){
+  cfg[t].pairing=v;
+  document.getElementById(`${t}-p-fixed`).classList.toggle('active', v==='fixed');
+  document.getElementById(`${t}-p-rand`).classList.toggle('active', v==='random_each_round');
+}
+function setLive(t, v){
+  cfg[t].show_live_count=v;
+  document.getElementById(`${t}-live-yes`).classList.toggle('active', v);
+  document.getElementById(`${t}-live-no`).classList.toggle('active', !v);
+}
+
+function readForm(){
+  cfg.title = document.getElementById('i-title').value.trim()||'銀行擠兌實驗';
+  cfg.bank_name = document.getElementById('i-bank').value.trim()||'課堂銀行';
+  cfg.deposit = parseFloat(document.getElementById('i-deposit').value)||10;
+  cfg.group_size = parseInt(document.getElementById('i-group').value)||6;
+  ['t1','t2'].forEach(t=>{
+    cfg[t].rounds = parseInt(document.getElementById(`${t}-rounds`).value)||3;
+    cfg[t].threshold = parseInt(document.getElementById(`${t}-threshold`).value)||4;
+    cfg[t].hold_reward_pct = (parseFloat(document.getElementById(`${t}-reward`).value)||0)/100;
+    cfg[t].bankruptcy_compensation = parseFloat(document.getElementById(`${t}-comp`).value)||0;
+    cfg[t].forced_withdraw_prob = (parseFloat(document.getElementById(`${t}-forced`).value)||0)/100;
+  });
+}
+
+async function createRoom(){
+  readForm();
+  try{
+    const res=await fetch('/api/teacher/bank-rooms',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(cfg)
+    });
+    if(!res.ok) throw new Error('建立失敗');
+    const data=await res.json();
+    roomCode=data.code; teacherToken=data.teacher_token;
+    showDashboard();
+  }catch(e){alert('建立房間失敗：'+e.message);}
+}
+
+function showDashboard(){
+  document.getElementById('screen-setup').classList.remove('active');
+  document.getElementById('screen-dashboard').classList.add('active');
+  document.getElementById('d-code').textContent=roomCode;
+  const url=`${location.origin}/?room=${roomCode}`;
+  document.getElementById('d-url').textContent=url;
+  document.getElementById('header-info').textContent=`房間 ${roomCode}`;
+  document.getElementById('qr-img').src=`https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(url)}`;
+  refresh(); refreshTimer=setInterval(refresh,2000);
+}
+
+function copyURL(){
+  const url=document.getElementById('d-url').textContent;
+  navigator.clipboard.writeText(url).then(()=>{
+    const el=document.getElementById('d-url'); const orig=el.textContent;
+    el.textContent='✓ 已複製！'; setTimeout(()=>el.textContent=orig,1200);
+  });
+}
+
+function openQRFullscreen(){
+  const url=`${location.origin}/?room=${roomCode}`;
+  const size=Math.round(Math.min(window.innerWidth, window.innerHeight)*0.55);
+  const qrUrl=`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&margin=8&data=${encodeURIComponent(url)}`;
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(13,14,20,.97);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:2rem;';
+  overlay.onclick=()=>overlay.remove();
+  overlay.innerHTML=`
+    <div style="background:#fff;padding:1.5rem;border-radius:16px;line-height:0;"><img src="${qrUrl}" width="${size}" height="${size}" alt="QR"></div>
+    <div style="margin-top:1.5rem;font-family:'Noto Serif TC',serif;font-size:2rem;letter-spacing:.4em;color:var(--accent2);font-weight:700;">${roomCode}</div>
+    <div style="margin-top:.5rem;color:var(--text2);font-size:.95rem;font-family:monospace;word-break:break-all;text-align:center;">${url}</div>
+    <div style="margin-top:1rem;color:var(--text3);font-size:.8rem;">點擊任意處關閉</div>`;
+  document.body.appendChild(overlay);
+}
+
+async function startTreatment(t){
+  if(!confirm(`確定開始 Treatment ${t.toUpperCase()}？將立刻分組並開始第一回合。`)) return;
+  try{
+    const res=await fetch(`/api/teacher/bank-rooms/${roomCode}/start?token=${encodeURIComponent(teacherToken)}&treatment=${t}`,{method:'POST'});
+    if(!res.ok) throw new Error('啟動失敗');
+    const data=await res.json();
+    refresh();
+  }catch(e){alert('錯誤：'+e.message);}
+}
+
+async function goTransition(){
+  if(!confirm('進入過渡頁？學生會看到 T1 → T2 規則差異，準備進入 T2。')) return;
+  try{
+    const res=await fetch(`/api/teacher/bank-rooms/${roomCode}/next-treatment?token=${encodeURIComponent(teacherToken)}`,{method:'POST'});
+    if(!res.ok) throw new Error('失敗');
+    refresh();
+  }catch(e){alert(e.message);}
+}
+
+async function endRoom(){
+  if(!confirm('確定結束實驗？學生會看到最終結果頁。')) return;
+  try{
+    await fetch(`/api/teacher/bank-rooms/${roomCode}/end?token=${encodeURIComponent(teacherToken)}`,{method:'POST'});
+    refresh();
+  }catch(e){alert(e.message);}
+}
+
+async function refresh(){
+  try{
+    const res=await fetch(`/api/teacher/bank-rooms/${roomCode}?token=${encodeURIComponent(teacherToken)}`);
+    if(!res.ok) return;
+    const data=await res.json();
+
+    // Phase tag
+    const ptag=document.getElementById('phase-tag');
+    const pmap={lobby:'大廳中',t1:'Treatment 1',transition:'過渡頁',t2:'Treatment 2',ended:'已結束'};
+    ptag.textContent=pmap[data.phase]||data.phase;
+    ptag.className='phase-tag '+data.phase;
+
+    // 控制按鈕顯示邏輯
+    document.getElementById('btn-start-t1').style.display = (data.phase==='lobby') ? 'block' : 'none';
+    document.getElementById('btn-next').style.display = (data.phase==='t1') ? 'block' : 'none';
+    document.getElementById('btn-start-t2').style.display = (data.phase==='transition') ? 'block' : 'none';
+    document.getElementById('btn-end').style.display = (data.phase==='t2') ? 'block' : 'none';
+
+    const hint=document.getElementById('control-hint');
+    if(data.phase==='lobby') hint.textContent=`${data.player_count} 位學生已加入。學生到齊後按「開始 Treatment 1」。`;
+    else if(data.phase==='t1') hint.textContent='Treatment 1 進行中。等所有組完成後按「進入過渡頁」。';
+    else if(data.phase==='transition') hint.textContent='過渡頁顯示中。準備好後按「開始 Treatment 2」。';
+    else if(data.phase==='t2') hint.textContent='Treatment 2 進行中。完成後按「結束實驗」。';
+    else hint.textContent='實驗已結束，學生看到最終結果頁。可匯出 CSV。';
+
+    // Stats
+    const s1=data.stats.t1, s2=data.stats.t2;
+    document.getElementById('s-t1-rounds').textContent=s1.rounds;
+    document.getElementById('s-t1-with').textContent=Math.round(s1.withdraw_rate*100)+'%';
+    document.getElementById('s-t1-bk').textContent=Math.round(s1.bankrupt_rate*100)+'%';
+    document.getElementById('s-t1-pay').textContent='$'+s1.avg_payout;
+    document.getElementById('s-t2-rounds').textContent=s2.rounds;
+    document.getElementById('s-t2-with').textContent=Math.round(s2.withdraw_rate*100)+'%';
+    document.getElementById('s-t2-bk').textContent=Math.round(s2.bankrupt_rate*100)+'%';
+    document.getElementById('s-t2-pay').textContent='$'+s2.avg_payout;
+
+    // Groups
+    const gcard=document.getElementById('card-groups');
+    if(data.groups && data.groups.length){
+      gcard.style.display='block';
+      document.getElementById('groups-list').innerHTML=data.groups.map(g=>`
+        <span class="chip">${g.id} (${g.size}人, ${g.treatment.toUpperCase()}) — 第 ${g.current_round} 回 / 已完成 ${g.rounds_resolved} 回</span>
+      `).join('');
+    } else {
+      gcard.style.display='none';
+    }
+
+    // Players
+    renderStudents(data.players);
+
+  }catch(e){}
+}
+
+function renderStudents(list){
+  const tbody=document.querySelector('#t-students tbody');
+  if(!list.length){
+    tbody.innerHTML='<tr><td colspan="9" class="text-xs" style="text-align:center;padding:1.5rem;">尚無學生加入</td></tr>';
+    return;
+  }
+  const sorted=[...list].sort((a,b)=>b.total_earnings-a.total_earnings);
+  tbody.innerHTML=sorted.map((p,i)=>{
+    const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
+    return `<tr>
+      <td>${medal}</td>
+      <td>${escapeHtml(p.name)}</td>
+      <td>${escapeHtml(p.sid)}</td>
+      <td>${p.group_id||'-'}</td>
+      <td>$${p.t1_earnings}</td>
+      <td>${p.t1_withdraws}</td>
+      <td>$${p.t2_earnings}</td>
+      <td>${p.t2_withdraws}</td>
+      <td><strong style="color:var(--accent2)">$${p.total_earnings}</strong></td>
+    </tr>`;
+  }).join('');
+}
+
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function exportCSV(){
+  fetch(`/api/teacher/bank-rooms/${roomCode}?token=${encodeURIComponent(teacherToken)}`).then(r=>r.json()).then(data=>{
+    const rows=[['Treatment','組','回合','學號','姓名','選擇','是否強制','破產','提款人數','收益','時間']];
+    data.history.forEach(h=>{
+      const t=new Date(h.ts*1000).toLocaleString('zh-TW');
+      rows.push([h.treatment.toUpperCase(),h.group_id,h.round,h.sid,h.name,
+        h.choice==='withdraw'?'提款':'持有',h.forced?'強制':'',h.bankrupt?'是':'',h.withdraw_count,h.payout,t]);
+    });
+    const csv='\ufeff'+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`bank-room-${roomCode}-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+  });
+}
+</script>
+</body>
+</html>

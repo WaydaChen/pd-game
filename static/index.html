@@ -835,6 +835,10 @@ async function initRoomMode() {
       return;
     }
     const data = await res.json();
+    if (data.type === 'bank') {
+      location.replace('/bank?room=' + encodeURIComponent(ROOM_CODE));
+      return;
+    }
     const s = data.settings || {};
     ROOM_MODE = s.mode || 'ai';
 
