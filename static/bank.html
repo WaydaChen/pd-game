@@ -109,6 +109,24 @@ input:focus{border-color:var(--accent);}
 .h-cell.win{background:rgba(78,203,138,.15);}
 .h-cell .r{font-weight:700;font-size:.78rem;color:var(--text);}
 .h-cell .p{color:var(--text2);font-size:.7rem;}
+
+/* 倒數計時器 */
+.timer-wrap{width:100%;display:flex;align-items:center;gap:.7rem;margin:-.4rem 0 .2rem;}
+.timer-bar{flex:1;height:8px;border-radius:4px;background:var(--bg3);overflow:hidden;border:1px solid var(--border);}
+.timer-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--amber));transition:width .9s linear;border-radius:4px;}
+.timer-fill.danger{background:linear-gradient(90deg,var(--amber),var(--red));}
+.timer-num{font-variant-numeric:tabular-nums;font-weight:700;font-size:.95rem;min-width:42px;text-align:right;color:var(--text);}
+.timer-num.danger{color:var(--red);animation:tick .5s ease-in-out infinite alternate;}
+@keyframes tick{from{transform:scale(1)}to{transform:scale(1.12)}}
+
+/* 市場新聞跡 */
+.rumor{width:100%;border-radius:var(--rs);padding:.65rem .9rem;font-size:.83rem;line-height:1.5;background:linear-gradient(90deg,rgba(74,158,255,.10),rgba(124,106,247,.10));border:1px solid rgba(124,106,247,.25);color:var(--text);position:relative;overflow:hidden;}
+.rumor::before{content:'📰 市場新聞';display:block;font-size:.7rem;color:var(--accent2);font-weight:600;margin-bottom:.2rem;letter-spacing:.05em;}
+
+/* 化名頭牌 */
+.alias-pill{display:inline-flex;align-items:center;gap:.45rem;padding:.3rem .7rem;border-radius:20px;background:var(--bg3);border:1px solid var(--border2);font-size:.82rem;font-weight:500;}
+.alias-pill .av{font-size:1.05rem;}
+.alias-pill .nm{color:var(--accent2);}
 </style>
 </head>
 <body>
@@ -142,8 +160,7 @@ input:focus{border-color:var(--accent);}
   <div style="text-align:center;padding:1.5rem 0;">
     <div class="pulse-ring"></div>
     <p style="color:var(--text2);margin-bottom:.5rem;" id="wait-title">等待老師開始實驗…</p>
-    <p class="text-xs" id="wait-desc">老師按下「開始 Treatment 1」後自動進入遊戲</p>
-  </div>
+    <p class="text-xs" id="wait-desc">老師按下「開始 Treatment 1」後自動進入遊戲</p>    <div id="wait-alias" class="alias-pill" style="display:none;margin-top:.7rem;"><span class="av"></span><span class="nm"></span></div>  </div>
   <div class="card">
     <p class="card-title" id="wait-card-title">本場條件</p>
     <div id="wait-conditions"></div>
@@ -161,11 +178,23 @@ input:focus{border-color:var(--accent);}
       <p class="text-xs" id="g-round-label">第 1 回合</p>
       <p class="text-xs" id="g-treatment-label" style="margin-top:2px;font-weight:600;color:var(--accent2);">Treatment 1</p>
     </div>
-    <div class="si" style="text-align:right;">
-      <div class="lbl">累計收益</div>
-      <div class="val" id="g-earn" style="font-size:1.15rem;color:var(--green)">$0</div>
+    <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:.3rem;">
+      <div id="g-alias" class="alias-pill" style="display:none;"><span class="av"></span><span class="nm"></span></div>
+      <div class="si" style="text-align:right;">
+        <div class="lbl" style="font-size:.65rem;">累計收益</div>
+        <div class="val" id="g-earn" style="font-size:1.05rem;color:var(--green)">$0</div>
+      </div>
     </div>
   </div>
+
+  <!-- 倒數條 -->
+  <div class="timer-wrap" id="timer-wrap" style="display:none;">
+    <div class="timer-bar"><div class="timer-fill" id="timer-fill" style="width:100%"></div></div>
+    <div class="timer-num" id="timer-num">--</div>
+  </div>
+
+  <!-- 市場新聞 -->
+  <div class="rumor" id="rumor-box" style="display:none;"></div>
 
   <div class="info-strip" id="g-chips"></div>
 
@@ -270,6 +299,9 @@ let LAST_ROUND_KEY = '';
 let LAST_RESOLVED_KEY = '';
 let RESULT_VIEWED_KEY = '';
 let MY_CHOICE = null;
+let TIMER_INT = null;
+let TIMER_END = 0;       // 本地 epoch ms
+let TIMER_TOTAL = 0;     // 秒
 
 if (!ROOM_CODE) {
   alert('沒有指定房間代碼，請使用老師提供的連結進入。');
@@ -366,6 +398,14 @@ async function poll() {
       document.getElementById('my-prev-card').style.display = st.total_earnings > 0 ? 'block' : 'none';
     }
 
+    // 化名牌（在大廳 / 过渡頁也顯示）
+    if (st.my_nickname) {
+      const wa = document.getElementById('wait-alias');
+      wa.style.display = 'inline-flex';
+      wa.querySelector('.av').textContent = st.my_avatar || '';
+      wa.querySelector('.nm').textContent = st.my_nickname;
+    }
+
     if (st.status === 'waiting') {
       // 大廳：依 phase 決定文案
       if (st.phase === 'lobby') {
@@ -425,6 +465,33 @@ function renderGame(st) {
     document.getElementById('btn-hold').disabled = false;
     document.getElementById('btn-withdraw').disabled = false;
     document.getElementById('waiting-others').style.display = 'none';
+    // 設定本回合倒數終點（以伺服器時間補正）
+    if (st.countdown_seconds && st.countdown_seconds > 0 && st.round_started_at && st.server_time) {
+      const skew = (Date.now()/1000) - st.server_time;
+      TIMER_END = (st.round_started_at + st.countdown_seconds + skew) * 1000;
+      TIMER_TOTAL = st.countdown_seconds;
+      startTimer();
+    } else {
+      stopTimer();
+      document.getElementById('timer-wrap').style.display = 'none';
+    }
+  }
+
+  // 化名牌
+  if (st.my_nickname) {
+    const ap = document.getElementById('g-alias');
+    ap.style.display = 'inline-flex';
+    ap.querySelector('.av').textContent = st.my_avatar || '';
+    ap.querySelector('.nm').textContent = st.my_nickname;
+  }
+
+  // 市場新聞
+  const rb = document.getElementById('rumor-box');
+  if (st.rumor) {
+    rb.style.display = 'block';
+    rb.innerHTML = `<div>${st.rumor.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>`;
+  } else {
+    rb.style.display = 'none';
   }
 
   document.getElementById('g-round-label').textContent = `第 ${st.round_num} / ${st.total_rounds} 回合 · 組別 ${st.group_id}`;
@@ -486,6 +553,7 @@ async function makeChoice(choice) {
   document.getElementById('btn-hold').disabled = true;
   document.getElementById('btn-withdraw').disabled = true;
   document.getElementById('waiting-others').style.display = 'block';
+  stopTimer();
   try {
     await fetch(`/api/bank/rooms/${ROOM_CODE}/players/${PLAYER_ID}/choice`, {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -497,7 +565,38 @@ async function makeChoice(choice) {
   }
 }
 
+// 倒數計時器
+function startTimer() {
+  stopTimer();
+  document.getElementById('timer-wrap').style.display = 'flex';
+  tickTimer();
+  TIMER_INT = setInterval(tickTimer, 250);
+}
+function stopTimer() {
+  if (TIMER_INT) { clearInterval(TIMER_INT); TIMER_INT = null; }
+}
+function tickTimer() {
+  const remainMs = TIMER_END - Date.now();
+  const remain = Math.max(0, remainMs/1000);
+  const pct = Math.max(0, Math.min(100, remain / TIMER_TOTAL * 100));
+  const fill = document.getElementById('timer-fill');
+  const num = document.getElementById('timer-num');
+  fill.style.width = pct + '%';
+  num.textContent = remain > 0 ? Math.ceil(remain) + 's' : '0s';
+  const danger = remain <= 5;
+  fill.classList.toggle('danger', danger);
+  num.classList.toggle('danger', danger);
+  if (remain <= 0 && !MY_CHOICE) {
+    // 逾時 → 自動送出持有（預設保守）
+    stopTimer();
+    if (!document.getElementById('btn-hold').disabled) {
+      makeChoice('hold');
+    }
+  }
+}
+
 function renderRoundResult(st) {
+  stopTimer();
   const r = st.result;
   const myChoice = st.my_choice;
   const myPayout = r.payouts[PLAYER_ID];

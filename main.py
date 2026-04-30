@@ -196,6 +196,9 @@ def join_room(code: str, req: JoinRequest):
                 "status": "waiting", "match_id": None,
                 "joined_at": time.time(),
             }
+            # 銀行擠兌房間：分配化名/頭像
+            if room.get("type") == "bank" and room.get("settings", {}).get("anonymous_mode", True):
+                _assign_alias(room, pid)
     return {"player_id": pid, "phase": room["phase"]}
 
 # ── Student: poll state ──────────────────────────────────────────────
@@ -469,14 +472,76 @@ class TreatmentConfig(BaseModel):
     bankruptcy_compensation: float = 0  # 破產時非提款者拿到的錢
     forced_withdraw_prob: float = 0.0   # 強制提款機率
     show_live_count: bool = True
+    countdown_seconds: int = 45      # 每回合決策秒數，0 = 不限時
+    rumors_enabled: bool = True       # 是否在回合開始顯示「市場新聞」
 
 class BankSettings(BaseModel):
     title: str = "銀行擠兌實驗"
     bank_name: str = "課堂銀行"
     deposit: float = 10
     group_size: int = 6
+    anonymous_mode: bool = True       # 學生端使用化名+頭像
     t1: TreatmentConfig = TreatmentConfig(bankruptcy_compensation=0)
     t2: TreatmentConfig = TreatmentConfig(bankruptcy_compensation=9)
+
+# 化名與頭像
+_NICKNAME_POOL = [
+    "神祕儲戶", "匿名客戶", "路過大叔", "早起的鳥", "夜貓子",
+    "理性投資者", "謹慎的人", "急性子", "冷靜分析師", "風險愛好者",
+    "保守派", "消息靈通", "新手村民", "老江湖", "幸運兒",
+    "觀望者", "先行者", "跟風俠", "獨行客", "理財達人",
+]
+_AVATAR_POOL = ["🦊","🐼","🐨","🐯","🦁","🐸","🐵","🦄","🐙","🦉","🐺","🦝","🐰","🐻","🦦","🐧","🦩","🦥","🐢","🦔"]
+
+def _assign_alias(room, pid):
+    """為玩家分配不重複的化名 + 頭像"""
+    used_names = {p.get("nickname") for p in room["players"].values() if p.get("nickname")}
+    used_avs = {p.get("avatar") for p in room["players"].values() if p.get("avatar")}
+    pool_n = [n for n in _NICKNAME_POOL if n not in used_names] or _NICKNAME_POOL
+    pool_a = [a for a in _AVATAR_POOL if a not in used_avs] or _AVATAR_POOL
+    base = random.choice(pool_n)
+    # 加上編號避免衝突
+    suffix = random.randint(10, 99)
+    nickname = f"{base} #{suffix}"
+    while any(p.get("nickname") == nickname for p in room["players"].values() if p.get("sid") != room["players"][pid]["sid"]):
+        suffix = random.randint(10, 99)
+        nickname = f"{base} #{suffix}"
+    room["players"][pid]["nickname"] = nickname
+    room["players"][pid]["avatar"] = random.choice(pool_a)
+
+_RUMOR_POOL_NEUTRAL = [
+    "📰 央行例行記者會：金融體系運作正常",
+    "📊 本季 GDP 數據符合預期",
+    "📺 財經頻道分析：市場進入觀望期",
+]
+_RUMOR_POOL_POSITIVE = [
+    "💰 央行宣布緊急注資 50 億元維穩",
+    "🛡️ 金管會表態：必要時將啟動全額保障",
+    "📈 銀行公布財報：壞帳率創新低",
+    "✅ 國際評等機構維持本行 A 級評等",
+]
+_RUMOR_POOL_NEGATIVE = [
+    "⚠️ 社群媒體瘋傳銀行壞帳消息（未經證實）",
+    "📉 知名分析師建議分散存款風險",
+    "🔥 鄰近銀行傳出資金調度困難",
+    "❗ 部分大戶傳出今日要大額提款",
+]
+
+def _generate_rumor(room, group):
+    """依據其他組的歷史回合產生市場新聞"""
+    history = room["history"]
+    treatment = group["treatment"]
+    # 看其他組最近一回合是否破產
+    other_bankrupts = sum(1 for h in history if h["treatment"] == treatment and h["group_id"] != group["id"] and h["bankrupt"])
+    other_total = len({(h["group_id"], h["round"]) for h in history if h["treatment"] == treatment and h["group_id"] != group["id"]})
+    if other_bankrupts > 0 and random.random() < 0.7:
+        return random.choice(_RUMOR_POOL_NEGATIVE) + "（已有 {} 組發生擠兌）".format(other_bankrupts // max(1, len({h["pid"] for h in history if h["bankrupt"]})) + 1) if False else random.choice(_RUMOR_POOL_NEGATIVE)
+    # 隨機正負中性
+    pool = random.choices(
+        [_RUMOR_POOL_NEUTRAL, _RUMOR_POOL_POSITIVE, _RUMOR_POOL_NEGATIVE],
+        weights=[3, 2, 2], k=1
+    )[0]
+    return random.choice(pool)
 
 class BankChoice(BaseModel):
     choice: str   # 'hold' | 'withdraw'
@@ -541,12 +606,15 @@ def _bank_start_round(room, group):
     forced = {}
     for pid in group["players"]:
         forced[pid] = random.random() < float(tcfg["forced_withdraw_prob"])
+    rumor = _generate_rumor(room, group) if tcfg.get("rumors_enabled", True) else None
     rnd = {
         "round_num": len(group["rounds"]) + 1,
         "decisions": {pid: {"choice": None, "forced": forced[pid], "submitted_at": None} for pid in group["players"]},
         "resolved": False,
         "result": None,
         "started_at": time.time(),
+        "rumor": rumor,
+        "countdown_seconds": int(tcfg.get("countdown_seconds", 0) or 0),
     }
     group["rounds"].append(rnd)
 
@@ -680,12 +748,16 @@ def bank_player_state(code: str, pid: str):
         base["status"] = "waiting"
         # 累計收益：用 history
         base["total_earnings"] = round(sum(h["payout"] for h in room["history"] if h["pid"] == pid), 2)
+        base["my_nickname"] = player.get("nickname")
+        base["my_avatar"] = player.get("avatar")
         return base
 
     if room["phase"] == "transition":
         base["status"] = "transition"
         base["t1_summary"] = _player_treatment_summary(room, pid, "t1")
         base["total_earnings"] = round(sum(h["payout"] for h in room["history"] if h["pid"] == pid), 2)
+        base["my_nickname"] = player.get("nickname")
+        base["my_avatar"] = player.get("avatar")
         return base
 
     if room["phase"] == "ended":
@@ -693,6 +765,8 @@ def bank_player_state(code: str, pid: str):
         base["t1_summary"] = _player_treatment_summary(room, pid, "t1")
         base["t2_summary"] = _player_treatment_summary(room, pid, "t2")
         base["total_earnings"] = round(sum(h["payout"] for h in room["history"] if h["pid"] == pid), 2)
+        base["my_nickname"] = player.get("nickname")
+        base["my_avatar"] = player.get("avatar")
         return base
 
     # 進行中：t1 或 t2
@@ -701,6 +775,15 @@ def bank_player_state(code: str, pid: str):
     if not group["rounds"]:
         return base
     rnd = group["rounds"][-1]
+
+    # ⬇ 倒數逾時強制結算
+    if not rnd["resolved"] and rnd.get("countdown_seconds", 0) > 0:
+        elapsed = time.time() - rnd["started_at"]
+        if elapsed > rnd["countdown_seconds"] + 1.5:  # 寬限 1.5s
+            with LOCK:
+                if not rnd["resolved"]:
+                    _bank_resolve_round(room, group, rnd)
+
     decision = rnd["decisions"].get(pid, {})
 
     # 即時提款計數
@@ -728,6 +811,12 @@ def bank_player_state(code: str, pid: str):
         "live_withdraw_count": live_withdraw if tcfg["show_live_count"] else None,
         "result": rnd["result"] if rnd["resolved"] else None,
         "total_earnings": total_earnings,
+        "round_started_at": rnd["started_at"],
+        "countdown_seconds": rnd.get("countdown_seconds", 0),
+        "server_time": time.time(),
+        "rumor": rnd.get("rumor"),
+        "my_nickname": player.get("nickname"),
+        "my_avatar": player.get("avatar"),
         "history": [
             {"round": r["round_num"], "treatment": treatment, "result": r["result"],
              "my_choice": r["decisions"].get(pid, {}).get("choice"),
@@ -846,6 +935,7 @@ def bank_dashboard(code: str, token: str):
         rows = [h for h in history if h["pid"] == pid]
         players_view.append({
             "sid": p["sid"], "name": p["name"], "group_id": p.get("group_id"),
+            "nickname": p.get("nickname"), "avatar": p.get("avatar"),
             "total_earnings": round(sum(h["payout"] for h in rows), 2),
             "rounds_played": len(rows),
             "t1_earnings": round(sum(h["payout"] for h in rows if h["treatment"] == "t1"), 2),

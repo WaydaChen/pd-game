@@ -99,6 +99,14 @@ tr:hover td{background:rgba(255,255,255,.02);}
       <div class="fg"><label>每人存款金額 ($)</label><input type="number" id="i-deposit" value="10" min="1"></div>
       <div class="fg"><label>每組人數</label><input type="number" id="i-group" value="6" min="2" max="20"></div>
     </div>
+    <div class="fg" style="margin-top:.4rem;">
+      <label>學生顯示名稱</label>
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="anon-yes" onclick="setAnon(true)">🎭 化名+頭像（推薦）</button>
+        <button class="toggle-btn" id="anon-no" onclick="setAnon(false)">👤 使用真實姓名</button>
+      </div>
+      <p class="text-xs" style="margin-top:.3rem;">化名可减少同儕壓力，使學生更真實反應擠兌動機（老師端仍可看真名）</p>
+    </div>
   </div>
 
   <div class="tcol">
@@ -119,6 +127,16 @@ tr:hover td{background:rgba(255,255,255,.02);}
       <div class="row2">
         <div class="fg"><label>破產補償 ($)</label><input type="number" id="t1-comp" value="0" min="0"></div>
         <div class="fg"><label>強制提款機率 (%)</label><input type="number" id="t1-forced" value="0" min="0" max="100"></div>
+      </div>
+      <div class="row2">
+        <div class="fg"><label>決策倒數 (秒，0=不限)</label><input type="number" id="t1-countdown" value="45" min="0" max="600"></div>
+        <div class="fg">
+          <label>市場新聞</label>
+          <div class="toggle-group">
+            <button class="toggle-btn active" id="t1-rumor-yes" onclick="setRumor('t1',true)">開</button>
+            <button class="toggle-btn" id="t1-rumor-no" onclick="setRumor('t1',false)">關</button>
+          </div>
+        </div>
       </div>
       <div class="fg">
         <label>顯示即時提款人數</label>
@@ -146,6 +164,16 @@ tr:hover td{background:rgba(255,255,255,.02);}
       <div class="row2">
         <div class="fg"><label>破產補償 ($)</label><input type="number" id="t2-comp" value="9" min="0"></div>
         <div class="fg"><label>強制提款機率 (%)</label><input type="number" id="t2-forced" value="0" min="0" max="100"></div>
+      </div>
+      <div class="row2">
+        <div class="fg"><label>決策倒數 (秒，0=不限)</label><input type="number" id="t2-countdown" value="45" min="0" max="600"></div>
+        <div class="fg">
+          <label>市場新聞</label>
+          <div class="toggle-group">
+            <button class="toggle-btn active" id="t2-rumor-yes" onclick="setRumor('t2',true)">開</button>
+            <button class="toggle-btn" id="t2-rumor-no" onclick="setRumor('t2',false)">關</button>
+          </div>
+        </div>
       </div>
       <div class="fg">
         <label>顯示即時提款人數</label>
@@ -240,9 +268,9 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <div style="overflow-x:auto;">
       <table id="t-students">
         <thead><tr>
-          <th>#</th><th>姓名</th><th>學號</th><th>組</th><th>T1 收益</th><th>T1 提款</th><th>T2 收益</th><th>T2 提款</th><th>總收益</th>
+          <th>#</th><th>姓名</th><th>化名</th><th>學號</th><th>組</th><th>T1 收益</th><th>T1 提款</th><th>T2 收益</th><th>T2 提款</th><th>總收益</th>
         </tr></thead>
-        <tbody><tr><td colspan="9" class="text-xs" style="text-align:center;padding:1.5rem;">尚無學生加入</td></tr></tbody>
+        <tbody><tr><td colspan="10" class="text-xs" style="text-align:center;padding:1.5rem;">尚無學生加入</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -253,9 +281,9 @@ tr:hover td{background:rgba(255,255,255,.02);}
 <script>
 const cfg = {
   title:'銀行擠兌實驗', bank_name:'課堂銀行',
-  deposit:10, group_size:6,
-  t1:{rounds:3, pairing:'fixed', threshold:4, hold_reward_pct:0.5, bankruptcy_compensation:0, forced_withdraw_prob:0, show_live_count:true},
-  t2:{rounds:3, pairing:'fixed', threshold:4, hold_reward_pct:0.5, bankruptcy_compensation:9, forced_withdraw_prob:0, show_live_count:true},
+  deposit:10, group_size:6, anonymous_mode:true,
+  t1:{rounds:3, pairing:'fixed', threshold:4, hold_reward_pct:0.5, bankruptcy_compensation:0, forced_withdraw_prob:0, show_live_count:true, countdown_seconds:45, rumors_enabled:true},
+  t2:{rounds:3, pairing:'fixed', threshold:4, hold_reward_pct:0.5, bankruptcy_compensation:9, forced_withdraw_prob:0, show_live_count:true, countdown_seconds:45, rumors_enabled:true},
 };
 let roomCode = '', teacherToken = '', refreshTimer = null;
 
@@ -269,6 +297,16 @@ function setLive(t, v){
   document.getElementById(`${t}-live-yes`).classList.toggle('active', v);
   document.getElementById(`${t}-live-no`).classList.toggle('active', !v);
 }
+function setRumor(t, v){
+  cfg[t].rumors_enabled=v;
+  document.getElementById(`${t}-rumor-yes`).classList.toggle('active', v);
+  document.getElementById(`${t}-rumor-no`).classList.toggle('active', !v);
+}
+function setAnon(v){
+  cfg.anonymous_mode=v;
+  document.getElementById('anon-yes').classList.toggle('active', v);
+  document.getElementById('anon-no').classList.toggle('active', !v);
+}
 
 function readForm(){
   cfg.title = document.getElementById('i-title').value.trim()||'銀行擠兌實驗';
@@ -281,6 +319,7 @@ function readForm(){
     cfg[t].hold_reward_pct = (parseFloat(document.getElementById(`${t}-reward`).value)||0)/100;
     cfg[t].bankruptcy_compensation = parseFloat(document.getElementById(`${t}-comp`).value)||0;
     cfg[t].forced_withdraw_prob = (parseFloat(document.getElementById(`${t}-forced`).value)||0)/100;
+    cfg[t].countdown_seconds = parseInt(document.getElementById(`${t}-countdown`).value)||0;
   });
 }
 
@@ -415,15 +454,17 @@ async function refresh(){
 function renderStudents(list){
   const tbody=document.querySelector('#t-students tbody');
   if(!list.length){
-    tbody.innerHTML='<tr><td colspan="9" class="text-xs" style="text-align:center;padding:1.5rem;">尚無學生加入</td></tr>';
+    tbody.innerHTML='<tr><td colspan="10" class="text-xs" style="text-align:center;padding:1.5rem;">尚無學生加入</td></tr>';
     return;
   }
   const sorted=[...list].sort((a,b)=>b.total_earnings-a.total_earnings);
   tbody.innerHTML=sorted.map((p,i)=>{
     const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
+    const alias = p.nickname ? `${p.avatar||''} ${escapeHtml(p.nickname)}` : '<span class="text-xs">—</span>';
     return `<tr>
       <td>${medal}</td>
       <td>${escapeHtml(p.name)}</td>
+      <td>${alias}</td>
       <td>${escapeHtml(p.sid)}</td>
       <td>${p.group_id||'-'}</td>
       <td>$${p.t1_earnings}</td>
