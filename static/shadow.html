@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shadow Reading · 跟讀練習 + 即時回饋</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1612;
+    --ink-soft: #4a4038;
+    --ink-whisper: #8a7d71;
+    --paper: #f4ede0;
+    --paper-deep: #e8dfc9;
+    --accent: #c23b22;
+    --accent-soft: #e85a3d;
+    --gold: #c8a055;
+    --green: #4a7c59;
+    --red: #c23b22;
+    --line: rgba(26, 22, 18, 0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Fraunces', 'Noto Sans TC', Georgia, serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body {
+    background-image:
+      radial-gradient(at 20% 15%, rgba(200, 160, 85, 0.08) 0%, transparent 45%),
+      radial-gradient(at 85% 80%, rgba(194, 59, 34, 0.06) 0%, transparent 45%);
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(26,22,18,0.012) 2px, rgba(26,22,18,0.012) 3px);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 2;
+    max-width: 1020px;
+    margin: 0 auto;
+    padding: 3rem 2rem 4rem;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 1.5rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .logo { font-family: 'Fraunces', serif; font-weight: 800; font-size: 2.2rem; font-style: italic; letter-spacing: -0.02em; line-height: 1; }
+  .logo .accent { color: var(--accent); font-style: normal; font-weight: 400; }
+
+  .tagline {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.15em;
+    color: var(--ink-whisper);
+    text-transform: uppercase;
+    text-align: right;
+  }
+
+  .tagline .dot {
+    display: inline-block; width: 6px; height: 6px;
+    background: var(--accent); border-radius: 50%;
+    margin-right: 6px; animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .input-section {
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    padding: 1.5rem;
+    border-radius: 2px;
+    margin-bottom: 2rem;
+    transition: all 0.3s;
+  }
+  .input-section.collapsed { padding: 0.75rem 1.5rem; }
+  .input-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+  .input-section.collapsed .input-header { margin-bottom: 0; }
+
+  .input-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+  }
+
+  .toggle-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    background: none;
+    border: 1px solid var(--line);
+    padding: 0.35rem 0.7rem;
+    color: var(--ink-soft);
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    transition: all 0.2s;
+  }
+  .toggle-btn:hover { border-color: var(--ink); background: var(--paper); }
+
+  .input-body { transition: all 0.3s; overflow: hidden; }
+  .input-section.collapsed .input-body { max-height: 0; margin: 0; }
+
+  textarea {
+    width: 100%;
+    min-height: 160px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    padding: 1rem;
+    font-family: 'Fraunces', serif;
+    font-size: 1rem;
+    color: var(--ink);
+    resize: vertical;
+    outline: none;
+    line-height: 1.7;
+  }
+  textarea:focus { border-color: var(--ink); }
+
+  .input-actions { display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; }
+
+  button {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+    padding: 0.8rem 1.4rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-radius: 1px;
+  }
+  button:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); }
+  button:disabled { opacity: 0.3; cursor: not-allowed; }
+  button.ghost { background: transparent; color: var(--ink); }
+  button.ghost:hover:not(:disabled) { background: var(--ink); color: var(--paper); }
+
+  button.sample {
+    background: transparent;
+    color: var(--ink-soft);
+    border-color: var(--line);
+    font-size: 0.72rem;
+  }
+  button.sample:hover:not(:disabled) { background: var(--paper); color: var(--ink); border-color: var(--ink); }
+
+  .settings {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.5rem;
+    padding: 1.2rem 1.5rem;
+    background: transparent;
+    border: 1px dashed var(--line);
+    border-radius: 2px;
+    margin-bottom: 2rem;
+  }
+
+  .setting { display: flex; flex-direction: column; gap: 0.4rem; }
+  .setting label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    color: var(--ink-whisper);
+    text-transform: uppercase;
+  }
+
+  select, input[type="range"] {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    padding: 0.3rem 0;
+    font-family: 'Fraunces', serif;
+    font-size: 0.95rem;
+    color: var(--ink);
+    outline: none;
+    cursor: pointer;
+    width: 100%;
+  }
+  select:focus { border-bottom-color: var(--ink); }
+
+  .range-row { display: flex; align-items: center; gap: 0.75rem; }
+  input[type="range"] { flex: 1; appearance: none; height: 2px; background: var(--line); padding: 0; cursor: pointer; }
+  input[type="range"]::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; background: var(--accent); border-radius: 50%; cursor: pointer; }
+  input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; background: var(--accent); border-radius: 50%; cursor: pointer; border: none; }
+
+  .range-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--ink);
+    min-width: 40px;
+    text-align: right;
+  }
+
+  .stage {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    padding: 2.5rem 2rem;
+    margin-bottom: 1.5rem;
+    min-height: 240px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stage::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--paper-deep);
+    z-index: 1;
+  }
+
+  .stage::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    height: 3px;
+    background: var(--accent);
+    width: var(--progress, 0%);
+    transition: width 0.3s ease;
+    z-index: 2;
+  }
+
+  .sentence-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    color: var(--ink-whisper);
+    margin-bottom: 1rem;
+  }
+  .sentence-number .current { color: var(--accent); font-weight: 600; }
+
+  .current-sentence {
+    font-family: 'Fraunces', serif;
+    font-size: 1.7rem;
+    line-height: 1.55;
+    font-weight: 400;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    min-height: 5rem;
+  }
+
+  .current-sentence.empty {
+    color: var(--ink-whisper);
+    font-style: italic;
+    font-size: 1.1rem;
+  }
+
+  .word {
+    display: inline-block;
+    padding: 0 2px;
+    border-radius: 3px;
+    transition: all 0.3s;
+  }
+
+  .word.correct { background: rgba(74, 124, 89, 0.18); color: var(--green); }
+  .word.incorrect { background: rgba(194, 59, 34, 0.14); color: var(--accent); text-decoration: underline; text-decoration-style: wavy; text-decoration-color: var(--accent); }
+  .word.missed { color: var(--ink-whisper); text-decoration: line-through; opacity: 0.6; }
+
+  .status {
+    display: flex; align-items: center; gap: 0.5rem;
+    margin-top: 1.2rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    color: var(--ink-whisper);
+    text-transform: uppercase;
+  }
+
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-whisper); transition: all 0.3s; }
+  .status-dot.playing { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+  .status-dot.recording { background: var(--red); animation: recording-pulse 1s ease-in-out infinite; }
+  @keyframes recording-pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(194,59,34,0.6); }
+    50% { box-shadow: 0 0 0 8px rgba(194,59,34,0); }
+  }
+  .status-dot.paused { background: var(--gold); }
+  .status-dot.success { background: var(--green); }
+
+  .feedback-panel {
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    display: none;
+  }
+  .feedback-panel.visible { display: block; animation: slideIn 0.3s ease-out; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .feedback-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px dashed var(--line);
+  }
+
+  .feedback-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.15em;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+  }
+
+  .score {
+    font-family: 'Fraunces', serif;
+    font-size: 2rem;
+    font-weight: 800;
+    font-style: italic;
+    line-height: 1;
+  }
+
+  .score.excellent { color: var(--green); }
+  .score.good { color: var(--gold); }
+  .score.needs-work { color: var(--accent); }
+
+  .score-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    color: var(--ink-whisper);
+    text-transform: uppercase;
+    display: block;
+    margin-top: 0.2rem;
+  }
+
+  .transcript-row {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 1rem;
+    padding: 0.8rem 0;
+    align-items: baseline;
+    border-bottom: 1px dashed var(--line);
+  }
+  .transcript-row:last-child { border-bottom: none; }
+
+  .transcript-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    color: var(--ink-whisper);
+    text-transform: uppercase;
+  }
+
+  .transcript-text {
+    font-family: 'Fraunces', serif;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--ink);
+  }
+  .transcript-text.empty { color: var(--ink-whisper); font-style: italic; }
+
+  .feedback-stats {
+    display: flex; gap: 1.5rem;
+    margin-top: 1rem; padding-top: 1rem;
+    border-top: 1px dashed var(--line);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    flex-wrap: wrap;
+  }
+
+  .stat { display: flex; align-items: center; gap: 0.4rem; }
+  .stat-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .stat-dot.green { background: var(--green); }
+  .stat-dot.red { background: var(--red); }
+  .stat-dot.gray { background: var(--ink-whisper); }
+
+  .feedback-audio {
+    margin-top: 1rem; padding-top: 1rem;
+    border-top: 1px dashed var(--line);
+    display: flex; gap: 0.75rem; align-items: center;
+    flex-wrap: wrap;
+  }
+
+  audio { flex: 1; min-width: 200px; height: 36px; }
+
+  .controls-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 0.6rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .controls-grid button { padding: 1rem 0.6rem; font-size: 0.74rem; }
+
+  .btn-record { background: var(--red); border-color: var(--red); color: white; }
+  .btn-record:hover:not(:disabled) { background: var(--ink); border-color: var(--ink); }
+  .btn-record.recording {
+    background: var(--ink); border-color: var(--ink);
+    animation: record-glow 1.5s ease-in-out infinite;
+  }
+  @keyframes record-glow {
+    0%,100% { box-shadow: 0 0 0 0 rgba(194,59,34,0.5); }
+    50% { box-shadow: 0 0 0 6px rgba(194,59,34,0); }
+  }
+
+  .btn-next {
+    background: var(--accent); border-color: var(--accent);
+    font-size: 0.82rem !important; font-weight: 600;
+  }
+  .btn-next:hover:not(:disabled) { background: var(--ink); border-color: var(--ink); }
+
+  .hints {
+    display: flex; justify-content: center; gap: 1.8rem;
+    flex-wrap: wrap;
+    padding-top: 1rem; border-top: 1px dashed var(--line);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem; color: var(--ink-whisper);
+    letter-spacing: 0.08em;
+  }
+
+  .hint kbd {
+    display: inline-block;
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    padding: 2px 8px; margin: 0 4px;
+    font-family: inherit;
+    font-size: 0.62rem;
+    color: var(--ink);
+    border-radius: 3px;
+  }
+
+  .sentence-list {
+    margin-top: 2.5rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .list-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .list-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+  }
+
+  .list-count { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--ink-whisper); }
+
+  .sentences { max-height: 280px; overflow-y: auto; padding-right: 0.5rem; }
+  .sentences::-webkit-scrollbar { width: 4px; }
+  .sentences::-webkit-scrollbar-track { background: transparent; }
+  .sentences::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+
+  .sentence-item {
+    padding: 0.8rem 1rem;
+    margin-bottom: 0.4rem;
+    border-left: 2px solid transparent;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    gap: 0.8rem;
+    align-items: flex-start;
+  }
+
+  .sentence-item:hover { background: var(--paper-deep); border-left-color: var(--ink-whisper); }
+  .sentence-item.active { background: var(--paper-deep); border-left-color: var(--accent); color: var(--ink); font-weight: 500; }
+  .sentence-item.done { color: var(--ink-whisper); }
+
+  .sentence-item .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--ink-whisper);
+    min-width: 2rem;
+    padding-top: 2px;
+  }
+
+  .sentence-item .score-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    min-width: 2.5rem;
+    text-align: center;
+    margin-left: auto;
+  }
+
+  .score-badge.excellent { background: rgba(74,124,89,0.18); color: var(--green); }
+  .score-badge.good { background: rgba(200,160,85,0.2); color: var(--gold); }
+  .score-badge.needs-work { background: rgba(194,59,34,0.15); color: var(--accent); }
+
+  .warning-banner {
+    background: rgba(200,160,85,0.15);
+    border: 1px solid var(--gold);
+    border-radius: 2px;
+    padding: 0.8rem 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.88rem;
+    color: var(--ink-soft);
+    display: none;
+  }
+  .warning-banner.visible { display: block; }
+  .warning-banner strong { color: var(--ink); font-weight: 600; }
+
+  @media (max-width: 680px) {
+    .wrapper { padding: 2rem 1.25rem 3rem; }
+    .logo { font-size: 1.7rem; }
+    .current-sentence { font-size: 1.25rem; }
+    .stage { padding: 2rem 1.25rem; min-height: 200px; }
+    .controls-grid { grid-template-columns: 1fr 1fr; }
+    .hints { display: none; }
+    .transcript-row { grid-template-columns: 1fr; gap: 0.3rem; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrapper">
+
+    <header>
+      <div class="logo">Shadow<span class="accent">.</span>Read</div>
+      <div class="tagline"><span class="dot"></span>Shadowing + Real-time Feedback</div>
+    </header>
+
+    <div class="warning-banner" id="warningBanner">
+      <strong>⚠ Browser notice:</strong> <span id="warningText"></span>
+    </div>
+
+    <div class="input-section" id="inputSection">
+      <div class="input-header">
+        <span class="input-label">— Paste your text</span>
+        <button class="toggle-btn" id="toggleInput">Collapse ▲</button>
+      </div>
+      <div class="input-body">
+        <textarea id="textInput" placeholder="Paste English text here.">Good morning, everyone. Thank you for having me here today. The title of today's talk is "How Bank Transparency Affects Banks in Financial Crises." Let me start with a thought experiment. Imagine you are the CEO of a highly transparent bank, and a financial crisis has just hit.</textarea>
+        <div class="input-actions">
+          <button id="loadBtn">Load Text →</button>
+          <button class="ghost" id="clearBtn">Clear</button>
+          <button class="sample" id="sampleBtn">Load Sample Speech</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings">
+      <div class="setting">
+        <label>Voice</label>
+        <select id="voiceSelect"></select>
+      </div>
+      <div class="setting">
+        <label>Speed</label>
+        <div class="range-row">
+          <input type="range" id="rateRange" min="0.5" max="1.3" step="0.05" value="0.9">
+          <span class="range-value" id="rateValue">0.9×</span>
+        </div>
+      </div>
+      <div class="setting">
+        <label>Listen-to-repeat gap</label>
+        <div class="range-row">
+          <input type="range" id="gapRange" min="1000" max="6000" step="250" value="3000">
+          <span class="range-value" id="gapValue">3.0s</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage" id="stage" style="--progress: 0%">
+      <div class="sentence-number" id="sentenceNumber">Ready · Load text to start</div>
+      <div class="current-sentence empty" id="currentSentence">Paste or load text above, then press Load Text to begin.</div>
+      <div class="status">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Idle</span>
+      </div>
+    </div>
+
+    <div class="feedback-panel" id="feedbackPanel">
+      <div class="feedback-header">
+        <span class="feedback-title">— Your attempt</span>
+        <div style="text-align: right;">
+          <div class="score" id="scoreValue">—</div>
+          <span class="score-label" id="scoreLabel">Accuracy</span>
+        </div>
+      </div>
+
+      <div class="transcript-row">
+        <span class="transcript-label">Target</span>
+        <div class="transcript-text" id="targetText"></div>
+      </div>
+
+      <div class="transcript-row">
+        <span class="transcript-label">You said</span>
+        <div class="transcript-text" id="userText"></div>
+      </div>
+
+      <div class="feedback-stats" id="feedbackStats"></div>
+
+      <div class="feedback-audio" id="feedbackAudio" style="display: none;">
+        <span class="transcript-label" style="min-width: auto;">Playback</span>
+        <audio id="recordingPlayback" controls></audio>
+      </div>
+    </div>
+
+    <div class="controls-grid">
+      <button class="ghost" id="replayBtn" disabled>↻ Replay</button>
+      <button class="btn-record" id="recordBtn" disabled>● Record</button>
+      <button class="ghost" id="pauseBtn" disabled>⏸ Pause</button>
+      <button class="btn-next" id="nextBtn" disabled>Next →</button>
+    </div>
+
+    <div class="hints">
+      <span class="hint"><kbd>Space</kbd> Record</span>
+      <span class="hint"><kbd>N</kbd> Next</span>
+      <span class="hint"><kbd>R</kbd> Replay audio</span>
+      <span class="hint"><kbd>P</kbd> Pause</span>
+      <span class="hint"><kbd>←</kbd> Previous</span>
+    </div>
+
+    <div class="sentence-list" id="sentenceList" style="display: none;">
+      <div class="list-header">
+        <span class="list-title">— All sentences</span>
+        <span class="list-count" id="listCount">0 sentences</span>
+      </div>
+      <div class="sentences" id="sentencesContainer"></div>
+    </div>
+
+  </div>
+
+<script>
+  let sentences = [];
+  let scores = {};
+  let recordings = {};
+  let currentIdx = 0;
+  let isPlaying = false;
+  let isPaused = false;
+  let isRecording = false;
+  let autoReplayTimer = null;
+  let voices = [];
+  let selectedVoice = null;
+  let recognition = null;
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let currentUserTranscript = '';
+  let audioStream = null;
+
+  const $ = id => document.getElementById(id);
+  const textInput = $('textInput');
+  const loadBtn = $('loadBtn');
+  const clearBtn = $('clearBtn');
+  const sampleBtn = $('sampleBtn');
+  const voiceSelect = $('voiceSelect');
+  const rateRange = $('rateRange');
+  const rateValue = $('rateValue');
+  const gapRange = $('gapRange');
+  const gapValue = $('gapValue');
+  const stage = $('stage');
+  const sentenceNumber = $('sentenceNumber');
+  const currentSentence = $('currentSentence');
+  const statusDot = $('statusDot');
+  const statusText = $('statusText');
+  const replayBtn = $('replayBtn');
+  const nextBtn = $('nextBtn');
+  const pauseBtn = $('pauseBtn');
+  const recordBtn = $('recordBtn');
+  const sentenceList = $('sentenceList');
+  const listCount = $('listCount');
+  const sentencesContainer = $('sentencesContainer');
+  const toggleInput = $('toggleInput');
+  const inputSection = $('inputSection');
+  const feedbackPanel = $('feedbackPanel');
+  const scoreValue = $('scoreValue');
+  const scoreLabel = $('scoreLabel');
+  const targetText = $('targetText');
+  const userText = $('userText');
+  const feedbackStats = $('feedbackStats');
+  const feedbackAudio = $('feedbackAudio');
+  const recordingPlayback = $('recordingPlayback');
+  const warningBanner = $('warningBanner');
+  const warningText = $('warningText');
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const hasRecognition = !!SpeechRecognition;
+  const hasRecorder = !!(navigator.mediaDevices && window.MediaRecorder);
+
+  if (!hasRecognition && !hasRecorder) {
+    warningBanner.classList.add('visible');
+    warningText.textContent = 'Speech recognition and recording unavailable. Try Chrome or Edge for full functionality.';
+  } else if (!hasRecognition) {
+    warningBanner.classList.add('visible');
+    warningText.textContent = 'Speech recognition unavailable (try Chrome/Edge). Recording works, but auto-scoring is disabled.';
+  }
+
+  function loadVoices() {
+    voices = speechSynthesis.getVoices();
+    const englishVoices = voices.filter(v => v.lang.startsWith('en'));
+    voiceSelect.innerHTML = '';
+
+    if (englishVoices.length === 0) {
+      const opt = document.createElement('option');
+      opt.textContent = 'Loading voices...';
+      voiceSelect.appendChild(opt);
+      return;
+    }
+
+    const priorityNames = ['Samantha', 'Daniel', 'Karen', 'Google US English', 'Microsoft Aria', 'Microsoft Jenny', 'Alex'];
+    const sorted = englishVoices.sort((a, b) => {
+      const aP = priorityNames.findIndex(n => a.name.includes(n));
+      const bP = priorityNames.findIndex(n => b.name.includes(n));
+      if (aP >= 0 && bP < 0) return -1;
+      if (aP < 0 && bP >= 0) return 1;
+      if (aP >= 0 && bP >= 0) return aP - bP;
+      return a.name.localeCompare(b.name);
+    });
+
+    sorted.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.name;
+      opt.textContent = `${v.name} (${v.lang})`;
+      voiceSelect.appendChild(opt);
+    });
+
+    selectedVoice = sorted[0];
+    voiceSelect.value = selectedVoice.name;
+  }
+
+  speechSynthesis.onvoiceschanged = loadVoices;
+  loadVoices();
+
+  voiceSelect.addEventListener('change', () => {
+    selectedVoice = voices.find(v => v.name === voiceSelect.value);
+  });
+
+  rateRange.addEventListener('input', () => {
+    rateValue.textContent = parseFloat(rateRange.value).toFixed(2) + '×';
+  });
+
+  gapRange.addEventListener('input', () => {
+    gapValue.textContent = (parseInt(gapRange.value) / 1000).toFixed(1) + 's';
+  });
+
+  function splitIntoSentences(text) {
+    text = text.trim().replace(/\s+/g, ' ');
+    const abbreviations = ['Mr.','Mrs.','Ms.','Dr.','Prof.','Sr.','Jr.','St.','vs.','etc.','i.e.','e.g.','U.S.','U.K.','Inc.','Ltd.','Co.','Corp.','a.m.','p.m.','Q1.','Q2.','Q3.','Q4.'];
+    const placeholders = {};
+    abbreviations.forEach((abbr, i) => {
+      const p = `__ABBR${i}__`;
+      placeholders[p] = abbr;
+      text = text.split(abbr).join(p);
+    });
+
+    const regex = /([^.!?]+[.!?]+)(?:\s+|$)/g;
+    const matches = text.match(regex) || [];
+    let result = matches.map(s => s.trim()).filter(s => s.length > 0);
+    const combined = result.join(' ').replace(/\s+/g, ' ').trim();
+    const clean = text.replace(/\s+/g, ' ').trim();
+    if (combined.length < clean.length) {
+      const rem = clean.substring(combined.length).trim();
+      if (rem) result.push(rem);
+    }
+
+    result = result.map(s => {
+      Object.keys(placeholders).forEach(p => { s = s.split(p).join(placeholders[p]); });
+      return s;
+    });
+
+    // Split long sentences at commas, semicolons, colons, and em-dashes
+    // Rule: if a sentence has more than 6 words AND contains these punctuation marks,
+    // split at each one. Preserve the punctuation at the end of each chunk.
+    const final = [];
+    result.forEach(s => {
+      const wc = s.split(/\s+/).length;
+      if (wc > 6 && /[,;:—–]/.test(s)) {
+        // Split on comma/semicolon/colon/em-dash followed by whitespace
+        // Keep the punctuation attached to the preceding chunk
+        const parts = s.split(/([,;:—–])\s+/);
+        // parts is like: ['chunk1', ',', 'chunk2', ';', 'chunk3']
+        // reassemble into ['chunk1,', 'chunk2;', 'chunk3']
+        const chunks = [];
+        let buffer = '';
+        for (let i = 0; i < parts.length; i++) {
+          if (/^[,;:—–]$/.test(parts[i])) {
+            buffer += parts[i];
+            chunks.push(buffer.trim());
+            buffer = '';
+          } else {
+            buffer = parts[i];
+          }
+        }
+        if (buffer.trim()) chunks.push(buffer.trim());
+
+        // Merge any chunk shorter than 3 words with its neighbor so we don't end up
+        // with tiny fragments like "however," or "and then,"
+        const merged = [];
+        chunks.forEach(c => {
+          const cw = c.split(/\s+/).length;
+          if (cw < 3 && merged.length > 0) {
+            merged[merged.length - 1] += ' ' + c;
+          } else {
+            merged.push(c);
+          }
+        });
+
+        // If merging still leaves a tail chunk shorter than 3 words, merge it back
+        if (merged.length > 1) {
+          const last = merged[merged.length - 1];
+          if (last.split(/\s+/).length < 3) {
+            merged[merged.length - 2] += ' ' + last;
+            merged.pop();
+          }
+        }
+
+        if (merged.length > 1) {
+          final.push(...merged);
+        } else {
+          final.push(s);
+        }
+      } else {
+        final.push(s);
+      }
+    });
+    return final.filter(s => s.length > 0);
+  }
+
+  function normalize(text) {
+    // 連字號 / 各式 dash 轉成空白（讓「twenty-one」可比對到「twenty one」）
+    // 阿拉伯數字與英文字母原樣保留（視為正確內容，不可被去除）
+    return text.toLowerCase()
+      .replace(/[\-–—_/]/g, ' ')
+      .replace(/[.,!?;:"'""''`()\[\]{}<>。，！？；：、「」『』（）【】]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  const equivalents = {
+    "cant":"cannot","wont":"will not","dont":"do not","doesnt":"does not","didnt":"did not",
+    "isnt":"is not","arent":"are not","wasnt":"was not","werent":"were not","hasnt":"has not",
+    "havent":"have not","hadnt":"had not","im":"i am","youre":"you are","hes":"he is",
+    "shes":"she is","its":"it is","theyre":"they are","ill":"i will","youll":"you will",
+    "hell":"he will","ive":"i have","youve":"you have","weve":"we have","theyve":"they have",
+    "id":"i would","youd":"you would","hed":"he would","shed":"she would",
+    "thats":"that is","theres":"there is","heres":"here is","whats":"what is","wheres":"where is",
+    "whos":"who is","hows":"how is","whys":"why is","lets":"let us",
+    "gonna":"going to","wanna":"want to","gotta":"got to","kinda":"kind of","sorta":"sort of"
+  };
+
+  // 阿拉伯數字 → 英文字（兩種形式都先正規化成單一拼字形式以利比對）
+  const NUM_WORDS = ["zero","one","two","three","four","five","six","seven","eight","nine","ten",
+    "eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen","twenty"];
+  NUM_WORDS.forEach((w, i) => { equivalents[String(i)] = w; });
+  [["30","thirty"],["40","forty"],["50","fifty"],["60","sixty"],
+   ["70","seventy"],["80","eighty"],["90","ninety"],["100","hundred"],["1000","thousand"]]
+    .forEach(([d,w]) => { equivalents[d] = w; });
+
+  function expandWord(w) {
+    if (!w) return w;
+    // 純阿拉伯數字 / 英文字母單字：透過 equivalents 規一化（無對映則保留原樣，仍視為正確內容）
+    return equivalents[w] || w;
+  }
+
+  function expandTokens(tokens) {
+    const out = [];
+    tokens.forEach(t => {
+      const e = expandWord(t);
+      if (e.includes(' ')) out.push(...e.split(' ')); else out.push(e);
+    });
+    return out;
+  }
+
+  function lcsAlign(a, b) {
+    const m = a.length, n = b.length;
+    const dp = Array(m+1).fill(null).map(() => Array(n+1).fill(0));
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (a[i-1] === b[j-1]) dp[i][j] = dp[i-1][j-1] + 1;
+        else dp[i][j] = Math.max(dp[i-1][j], dp[i][j-1]);
+      }
+    }
+    const aMatched = Array(m).fill(false);
+    const bMatched = Array(n).fill(false);
+    let i = m, j = n;
+    while (i > 0 && j > 0) {
+      if (a[i-1] === b[j-1]) { aMatched[i-1] = true; bMatched[j-1] = true; i--; j--; }
+      else if (dp[i-1][j] > dp[i][j-1]) i--;
+      else j--;
+    }
+    return { aMatched, bMatched };
+  }
+
+  function mapExpandedToOriginal(originalWords, expMatched) {
+    const origMatched = [];
+    let idx = 0;
+    for (const w of originalWords) {
+      const parts = expandWord(normalize(w)).split(' ').length;
+      let any = false;
+      for (let p = 0; p < parts; p++) if (expMatched[idx + p]) any = true;
+      origMatched.push(any);
+      idx += parts;
+    }
+    return origMatched;
+  }
+
+  function loadText() {
+    const text = textInput.value.trim();
+    if (!text) { alert('Please paste some English text first.'); return; }
+
+    sentences = splitIntoSentences(text);
+    if (sentences.length === 0) { alert('No sentences detected.'); return; }
+
+    currentIdx = 0;
+    scores = {};
+    recordings = {};
+    renderSentenceList();
+    sentenceList.style.display = 'block';
+    listCount.textContent = `${sentences.length} sentence${sentences.length > 1 ? 's' : ''}`;
+
+    nextBtn.disabled = false;
+    replayBtn.disabled = false;
+    pauseBtn.disabled = false;
+    recordBtn.disabled = !(hasRecognition || hasRecorder);
+
+    inputSection.classList.add('collapsed');
+    toggleInput.textContent = 'Expand ▼';
+
+    feedbackPanel.classList.remove('visible');
+    playSentence(0);
+  }
+
+  loadBtn.addEventListener('click', loadText);
+  clearBtn.addEventListener('click', () => { textInput.value = ''; textInput.focus(); });
+  sampleBtn.addEventListener('click', () => {
+    textInput.value = `Good morning, everyone. Thank you so much for having me here today. It is a real pleasure to be presenting in front of such a distinguished audience. The title of today's talk is "How Bank Transparency Affects Banks in Financial Crises." Let me start with a thought experiment. Imagine you are the CEO of a highly transparent bank, and a financial crisis has just hit. How would you adjust your risk profile? This is the question that motivates our paper.`;
+  });
+
+  toggleInput.addEventListener('click', () => {
+    inputSection.classList.toggle('collapsed');
+    toggleInput.textContent = inputSection.classList.contains('collapsed') ? 'Expand ▼' : 'Collapse ▲';
+  });
+
+  function scoreClass(s) {
+    if (s >= 85) return 'excellent';
+    if (s >= 65) return 'good';
+    return 'needs-work';
+  }
+
+  function renderSentenceList() {
+    sentencesContainer.innerHTML = '';
+    sentences.forEach((s, i) => {
+      const item = document.createElement('div');
+      item.className = 'sentence-item';
+      if (i === currentIdx) item.classList.add('active');
+      if (scores[i] !== undefined) item.classList.add('done');
+
+      const num = document.createElement('span');
+      num.className = 'num';
+      num.textContent = String(i+1).padStart(2, '0');
+
+      const txt = document.createElement('span');
+      txt.textContent = s;
+      txt.style.flex = '1';
+
+      item.appendChild(num);
+      item.appendChild(txt);
+
+      if (scores[i] !== undefined) {
+        const badge = document.createElement('span');
+        badge.className = 'score-badge ' + scoreClass(scores[i]);
+        badge.textContent = scores[i] + '%';
+        item.appendChild(badge);
+      }
+
+      item.addEventListener('click', () => { currentIdx = i; playSentence(i); });
+      sentencesContainer.appendChild(item);
+    });
+
+    const active = sentencesContainer.querySelector('.active');
+    if (active) active.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function playSentence(idx) {
+    clearTimeout(autoReplayTimer);
+    speechSynthesis.cancel();
+    stopRecording(false);
+
+    if (idx < 0 || idx >= sentences.length) return;
+
+    currentIdx = idx;
+    const s = sentences[idx];
+
+    currentSentence.classList.remove('empty');
+    currentSentence.textContent = s;
+    sentenceNumber.innerHTML = `<span class="current">${String(idx+1).padStart(2,'0')}</span> / ${String(sentences.length).padStart(2,'0')}`;
+
+    const progress = (idx / Math.max(sentences.length - 1, 1)) * 100;
+    stage.style.setProperty('--progress', `${progress}%`);
+
+    if (scores[idx] === undefined) {
+      feedbackPanel.classList.remove('visible');
+    } else {
+      showPreviousFeedback(idx);
+    }
+
+    renderSentenceList();
+    speakCurrent();
+  }
+
+  function speakCurrent() {
+    if (currentIdx < 0 || currentIdx >= sentences.length) return;
+    speechSynthesis.cancel();
+
+    const u = new SpeechSynthesisUtterance(sentences[currentIdx]);
+    if (selectedVoice) u.voice = selectedVoice;
+    u.rate = parseFloat(rateRange.value);
+    u.pitch = 1.0;
+    u.volume = 1.0;
+
+    u.onstart = () => {
+      isPlaying = true;
+      statusDot.classList.remove('paused', 'recording', 'success');
+      statusDot.classList.add('playing');
+      statusText.textContent = 'Listening · Get ready to speak';
+    };
+
+    u.onend = () => {
+      isPlaying = false;
+      statusDot.classList.remove('playing');
+      statusText.textContent = 'Your turn · Press Space to record';
+
+      if (!isPaused && currentIdx < sentences.length && scores[currentIdx] === undefined) {
+        autoReplayTimer = setTimeout(() => {
+          if (!isPaused && !isRecording) speakCurrent();
+        }, parseInt(gapRange.value));
+      }
+    };
+
+    u.onerror = () => {
+      isPlaying = false;
+      statusDot.classList.remove('playing');
+    };
+
+    speechSynthesis.speak(u);
+  }
+
+  async function startRecording() {
+    if (isRecording) return;
+
+    clearTimeout(autoReplayTimer);
+    speechSynthesis.cancel();
+    isPlaying = false;
+
+    currentUserTranscript = '';
+    audioChunks = [];
+
+    if (hasRecognition) {
+      try {
+        recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.interimResults = true;
+        recognition.continuous = true;
+        recognition.maxAlternatives = 1;
+
+        recognition.onresult = (e) => {
+          let interim = '', final = '';
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            const t = e.results[i][0].transcript;
+            if (e.results[i].isFinal) final += t + ' '; else interim += t;
+          }
+          if (final) currentUserTranscript += final;
+          userText.textContent = (currentUserTranscript + interim).trim() || '...';
+          userText.classList.remove('empty');
+        };
+
+        recognition.onerror = (e) => { console.warn('Recognition error:', e.error); };
+        recognition.start();
+      } catch (e) { console.warn(e); }
+    }
+
+    if (hasRecorder) {
+      try {
+        if (!audioStream) audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(audioStream);
+        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+        mediaRecorder.start();
+      } catch (e) {
+        console.warn('Media recording error:', e);
+        warningBanner.classList.add('visible');
+        warningText.textContent = 'Microphone access denied. Grant permission and reload.';
+      }
+    }
+
+    isRecording = true;
+    recordBtn.textContent = '■ Stop';
+    recordBtn.classList.add('recording');
+    statusDot.classList.remove('playing', 'paused');
+    statusDot.classList.add('recording');
+    statusText.textContent = 'Recording · Speak now';
+
+    feedbackPanel.classList.add('visible');
+    targetText.textContent = sentences[currentIdx];
+    userText.textContent = '...';
+    userText.classList.add('empty');
+    feedbackStats.innerHTML = '';
+    scoreValue.textContent = '—';
+    scoreValue.className = 'score';
+    feedbackAudio.style.display = 'none';
+  }
+
+  function stopRecording(processResult = true) {
+    if (!isRecording) return;
+
+    isRecording = false;
+    recordBtn.textContent = '● Record';
+    recordBtn.classList.remove('recording');
+    statusDot.classList.remove('recording');
+
+    if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
+
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+      mediaRecorder.onstop = () => {
+        if (audioChunks.length > 0 && processResult) {
+          const blob = new Blob(audioChunks, { type: 'audio/webm' });
+          const url = URL.createObjectURL(blob);
+          recordings[currentIdx] = url;
+          recordingPlayback.src = url;
+          feedbackAudio.style.display = 'flex';
+        }
+      };
+    }
+
+    if (processResult) {
+      setTimeout(() => evaluateAttempt(), 500);
+    }
+  }
+
+  function evaluateAttempt() {
+    const target = sentences[currentIdx];
+    const userSaid = currentUserTranscript.trim();
+
+    if (!userSaid) {
+      userText.textContent = hasRecognition ? '(no speech detected — try again)' : '(recognition not supported in this browser)';
+      userText.classList.add('empty');
+      scoreValue.textContent = '—';
+      scoreLabel.textContent = 'No attempt';
+      statusText.textContent = 'No speech detected · Try again';
+      return;
+    }
+
+    const targetWords = target.split(/\s+/).filter(w => w.length > 0);
+    const userWords = userSaid.split(/\s+/).filter(w => w.length > 0);
+
+    const targetNorm = targetWords.map(normalize);
+    const userNorm = userWords.map(normalize);
+
+    // Build expanded token arrays with back-references to original indices
+    const targetExp = [];
+    const targetExpToOrig = [];
+    targetNorm.forEach((w, i) => {
+      expandWord(w).split(' ').forEach(e => { targetExp.push(e); targetExpToOrig.push(i); });
+    });
+
+    const userExp = [];
+    const userExpToOrig = [];
+    userNorm.forEach((w, i) => {
+      expandWord(w).split(' ').forEach(e => { userExp.push(e); userExpToOrig.push(i); });
+    });
+
+    const { aMatched: tExpMatched, bMatched: uExpMatched } = lcsAlign(targetExp, userExp);
+
+    // Map back
+    const targetMatched = Array(targetWords.length).fill(false);
+    const userMatched = Array(userWords.length).fill(false);
+    tExpMatched.forEach((m, i) => { if (m) targetMatched[targetExpToOrig[i]] = true; });
+    uExpMatched.forEach((m, i) => { if (m) userMatched[userExpToOrig[i]] = true; });
+
+    const correct = targetMatched.filter(Boolean).length;
+    const total = targetWords.length;
+    const score = Math.round((correct / total) * 100);
+
+    scores[currentIdx] = score;
+
+    targetText.innerHTML = targetWords.map((w, i) => {
+      const cls = targetMatched[i] ? 'correct' : 'missed';
+      return `<span class="word ${cls}">${escapeHtml(w)}</span>`;
+    }).join(' ');
+
+    userText.innerHTML = userWords.map((w, i) => {
+      const cls = userMatched[i] ? 'correct' : 'incorrect';
+      return `<span class="word ${cls}">${escapeHtml(w)}</span>`;
+    }).join(' ');
+    userText.classList.remove('empty');
+
+    scoreValue.textContent = score + '%';
+    scoreValue.className = 'score ' + scoreClass(score);
+    scoreLabel.textContent = score >= 85 ? 'Excellent' : score >= 65 ? 'Good' : 'Needs work';
+
+    const missed = total - correct;
+    const extra = userWords.length - userMatched.filter(Boolean).length;
+    feedbackStats.innerHTML = `
+      <span class="stat"><span class="stat-dot green"></span>${correct} matched</span>
+      ${missed > 0 ? `<span class="stat"><span class="stat-dot gray"></span>${missed} missed</span>` : ''}
+      ${extra > 0 ? `<span class="stat"><span class="stat-dot red"></span>${extra} extra / misspoken</span>` : ''}
+      <span class="stat">${userWords.length} spoken / ${total} target</span>
+    `;
+
+    statusDot.classList.add('success');
+    statusText.textContent = score >= 85 ? 'Excellent · Press N for next' : score >= 65 ? 'Good · Try again or press N' : 'Keep practicing · Replay and try again';
+
+    renderSentenceList();
+  }
+
+  function escapeHtml(t) {
+    const d = document.createElement('div');
+    d.textContent = t;
+    return d.innerHTML;
+  }
+
+  function showPreviousFeedback(idx) {
+    if (scores[idx] === undefined) { feedbackPanel.classList.remove('visible'); return; }
+    feedbackPanel.classList.add('visible');
+    targetText.textContent = sentences[idx];
+    userText.textContent = '(Previous attempt — press Record to try again)';
+    userText.classList.add('empty');
+    scoreValue.textContent = scores[idx] + '%';
+    scoreValue.className = 'score ' + scoreClass(scores[idx]);
+    scoreLabel.textContent = scores[idx] >= 85 ? 'Excellent' : scores[idx] >= 65 ? 'Good' : 'Needs work';
+    feedbackStats.innerHTML = '';
+    if (recordings[idx]) {
+      recordingPlayback.src = recordings[idx];
+      feedbackAudio.style.display = 'flex';
+    } else {
+      feedbackAudio.style.display = 'none';
+    }
+  }
+
+  recordBtn.addEventListener('click', () => {
+    if (isRecording) stopRecording(true); else startRecording();
+  });
+
+  nextBtn.addEventListener('click', () => {
+    stopRecording(false);
+    if (currentIdx < sentences.length - 1) {
+      playSentence(currentIdx + 1);
+    } else {
+      clearTimeout(autoReplayTimer);
+      speechSynthesis.cancel();
+      statusDot.classList.remove('playing', 'paused', 'recording');
+      statusDot.classList.add('success');
+      const vals = Object.values(scores);
+      const avg = vals.length > 0 ? Math.round(vals.reduce((a,b) => a+b, 0) / vals.length) : 0;
+      statusText.textContent = `Completed · Avg score: ${avg}%`;
+      nextBtn.disabled = true;
+      stage.style.setProperty('--progress', '100%');
+    }
+  });
+
+  replayBtn.addEventListener('click', () => {
+    stopRecording(false);
+    clearTimeout(autoReplayTimer);
+    speakCurrent();
+  });
+
+  pauseBtn.addEventListener('click', () => {
+    if (isPaused) {
+      isPaused = false;
+      clearTimeout(autoReplayTimer);
+      pauseBtn.textContent = '⏸ Pause';
+      statusDot.classList.remove('paused');
+      speakCurrent();
+    } else {
+      isPaused = true;
+      clearTimeout(autoReplayTimer);
+      speechSynthesis.cancel();
+      stopRecording(false);
+      pauseBtn.textContent = '▶ Resume';
+      statusDot.classList.remove('playing', 'recording');
+      statusDot.classList.add('paused');
+      statusText.textContent = 'Paused';
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (document.activeElement === textInput) return;
+    if (e.code === 'Space') { e.preventDefault(); if (!recordBtn.disabled) recordBtn.click(); }
+    else if (e.key === 'n' || e.key === 'N' || e.key === 'ArrowRight') { e.preventDefault(); if (!nextBtn.disabled) nextBtn.click(); }
+    else if (e.key === 'r' || e.key === 'R') { if (!replayBtn.disabled) replayBtn.click(); }
+    else if (e.key === 'p' || e.key === 'P') { if (!pauseBtn.disabled) pauseBtn.click(); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); if (currentIdx > 0) playSentence(currentIdx - 1); }
+  });
+
+  window.addEventListener('beforeunload', () => {
+    speechSynthesis.cancel();
+    clearTimeout(autoReplayTimer);
+    if (recognition) try { recognition.stop(); } catch(e){}
+    if (audioStream) audioStream.getTracks().forEach(t => t.stop());
+    Object.values(recordings).forEach(url => URL.revokeObjectURL(url));
+  });
+</script>
+</body>
+</html>
