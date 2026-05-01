@@ -85,9 +85,12 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <p>設定實驗條件，產生房號讓學生加入</p>
   </div>
 
-  <div style="width:100%;display:flex;gap:.6rem;margin-bottom:1rem;">
-    <button class="btn btn-primary" style="flex:1;background:#7c6af7;" onclick="void 0">⚖️ 囚犯困境（目前）</button>
-    <button class="btn btn-ghost" style="flex:1;" onclick="location.href='/teacher-bank'">🏦 改用銀行擠兌實驗 →</button>
+  <div style="width:100%;display:flex;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap;">
+    <button class="btn btn-ghost" style="flex:1;min-width:140px;" onclick="location.href='/hub'">📚 所有實驗</button>
+    <button class="btn btn-primary" style="flex:1;min-width:140px;background:#7c6af7;" onclick="void 0">⚖️ 囚犯困境（目前）</button>
+    <button class="btn btn-ghost" style="flex:1;min-width:140px;" onclick="location.href='/teacher-bank'">🏦 銀行擠兌</button>
+    <button class="btn btn-ghost" style="flex:1;min-width:140px;" onclick="location.href='/teacher-ultimatum'">💰 最後通牒</button>
+    <button class="btn btn-ghost" style="flex:1;min-width:140px;" onclick="location.href='/teacher-trust'">🤝 信任遊戲</button>
   </div>
 
   <div class="card">

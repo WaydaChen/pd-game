@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>課堂實驗中心 — Classroom Experiments Hub</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0d0e14;--bg2:#13141c;--bg3:#1a1c27;
+  --surface:#1e2030;
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.16);
+  --text:#e8e9f0;--text2:#9a9db8;--text3:#5c5f7a;
+  --accent:#7c6af7;--accent2:#a594ff;--green:#4ecb8a;--amber:#f0b429;--blue:#4a9eff;--pink:#ff7eb6;--cyan:#42d4f4;
+}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans TC',sans-serif;font-weight:300;min-height:100vh;}
+.wrap{max-width:1080px;margin:0 auto;padding:3rem 1.5rem 4rem;}
+.hero{text-align:center;margin-bottom:2.5rem;}
+.hero h1{font-family:'Noto Serif TC',serif;font-size:2.2rem;font-weight:700;background:linear-gradient(135deg,#a594ff,#4a9eff,#42d4f4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.6rem;}
+.hero p{color:var(--text2);font-size:1rem;}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.2rem;}
+.mod{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.6rem 1.4rem;cursor:pointer;transition:all .25s;text-decoration:none;color:inherit;display:flex;flex-direction:column;}
+.mod:hover{transform:translateY(-3px);border-color:var(--border2);box-shadow:0 12px 30px rgba(0,0,0,.4);}
+.mod .ic{font-size:2.6rem;margin-bottom:.6rem;}
+.mod h3{font-family:'Noto Serif TC',serif;font-size:1.2rem;font-weight:600;margin-bottom:.4rem;}
+.mod p{color:var(--text2);font-size:.86rem;line-height:1.6;flex:1;}
+.mod .tags{margin-top:.9rem;display:flex;gap:.4rem;flex-wrap:wrap;}
+.tag{background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:.2rem .6rem;font-size:.7rem;color:var(--text2);}
+.foot{text-align:center;margin-top:2.5rem;color:var(--text3);font-size:.78rem;}
+.row-acc-pd .ic{color:#7c6af7;}
+.row-acc-bk .ic{color:#4ecb8a;}
+.row-acc-sh .ic{color:#f0b429;}
+.row-acc-ul .ic{color:#ff7eb6;}
+.row-acc-tr .ic{color:#42d4f4;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <h1>📚 課堂實驗中心</h1>
+    <p>挑一個模組開始：行為經濟學 · 銀行與金融 · 語言練習</p>
+  </div>
+
+  <div class="grid">
+    <a class="mod row-acc-pd" href="/teacher">
+      <div class="ic">⚖️</div>
+      <h3>囚犯困境</h3>
+      <p>合作 vs 背叛的經典賽局；可選 AI 對手或同學互玩，觀察重複賽局的合作演化。</p>
+      <div class="tags"><span class="tag">Nash 均衡</span><span class="tag">合作演化</span></div>
+    </a>
+
+    <a class="mod row-acc-bk" href="/teacher-bank">
+      <div class="ic">🏦</div>
+      <h3>銀行擠兌</h3>
+      <p>Diamond–Dybvig 模型：T1（無保險）/ T2（存款保險）/ T3（公共保險+保費），含成就與排行榜。</p>
+      <div class="tags"><span class="tag">流動性</span><span class="tag">道德風險</span></div>
+    </a>
+
+    <a class="mod row-acc-ul" href="/teacher-ultimatum">
+      <div class="ic">💰</div>
+      <h3>最後通牒</h3>
+      <p>提案者分配 $100，回應者接受或拒絕（拒絕雙方都得 0）；觀察公平偏好如何違背理性自利預測。</p>
+      <div class="tags"><span class="tag">公平偏好</span><span class="tag">行為經濟</span></div>
+    </a>
+
+    <a class="mod row-acc-tr" href="/teacher-trust">
+      <div class="ic">🤝</div>
+      <h3>信任遊戲</h3>
+      <p>投資者送出金額被乘 3 倍，受托人決定回送多少；測量信任水準與互惠回報。</p>
+      <div class="tags"><span class="tag">信任</span><span class="tag">互惠</span></div>
+    </a>
+
+    <a class="mod row-acc-sh" href="/shadow">
+      <div class="ic">🎙️</div>
+      <h3>跟讀練習 Shadow Reading</h3>
+      <p>貼上英文文章 → 逐句聆聽 → 跟讀 → 即時辨識比對 → 自動評分與標記錯誤。</p>
+      <div class="tags"><span class="tag">語言學習</span><span class="tag">語音辨識</span></div>
+    </a>
+  </div>
+
+  <p class="foot">想直接給學生用？老師建立房間後分享 QR code 或 4 碼房號即可。</p>
+</div>
+</body>
+</html>

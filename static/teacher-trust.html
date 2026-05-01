@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>老師後台 — 信任遊戲</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#0d0e14;--bg2:#13141c;--bg3:#1a1c27;--surface:#1e2030;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.16);--text:#e8e9f0;--text2:#9a9db8;--text3:#5c5f7a;--accent:#42d4f4;--accent2:#8cf;--green:#4ecb8a;--amber:#f0b429;--blue:#4a9eff;--red:#f06060;--r:12px;--rs:8px;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans TC',sans-serif;font-weight:300;min-height:100vh;}
+header{background:var(--bg2);border-bottom:1px solid var(--border);padding:.9rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+.logo{font-family:'Noto Serif TC',serif;font-size:1.05rem;font-weight:700;color:var(--accent2);}
+.container{max-width:1080px;margin:0 auto;padding:2rem 1.5rem;}
+.screen{display:none;}.screen.active{display:block;}
+.hero{text-align:center;padding:1rem 0 1.5rem;}
+.hero h1{font-family:'Noto Serif TC',serif;font-size:1.7rem;font-weight:700;background:linear-gradient(135deg,#42d4f4,#4a9eff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.4rem;}
+.hero p{color:var(--text2);font-size:.9rem;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.4rem;margin-bottom:1.2rem;}
+.card-title{font-family:'Noto Serif TC',serif;font-size:1rem;font-weight:600;margin-bottom:.65rem;}
+.fg{display:flex;flex-direction:column;gap:.4rem;margin-bottom:.9rem;}
+label{font-size:.78rem;color:var(--text2);font-weight:500;}
+input[type=text],input[type=number]{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:.65rem .9rem;color:var(--text);font-size:.92rem;outline:none;}
+input:focus{border-color:var(--accent);}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;}
+.btn{padding:.7rem 1.4rem;border-radius:var(--rs);font-size:.92rem;font-weight:500;cursor:pointer;border:none;transition:all .2s;width:100%;font-family:'Noto Sans TC',sans-serif;}
+.btn-primary{background:var(--accent);color:#0d0e14;font-weight:700;}.btn-primary:hover{background:var(--accent2);}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);}
+.btn-green{background:var(--green);color:#0d0e14;}.btn-red{background:var(--red);color:#fff;}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;}
+.room-code{font-size:3rem;font-weight:700;letter-spacing:.4em;color:var(--accent2);text-align:center;padding:1.2rem;background:var(--bg3);border-radius:var(--rs);border:1px dashed var(--border2);font-variant-numeric:tabular-nums;}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.8rem;}
+.stat{background:var(--bg3);border-radius:var(--rs);padding:.9rem;text-align:center;}
+.stat .lbl{font-size:.72rem;color:var(--text3);margin-bottom:.3rem;}
+.stat .val{font-size:1.6rem;font-weight:700;color:var(--accent2);}
+.stat .val.green{color:var(--green);}.stat .val.amber{color:var(--amber);}.stat .val.blue{color:var(--blue);}.stat .val.red{color:var(--red);}
+table{width:100%;border-collapse:collapse;font-size:.85rem;}th,td{padding:.55rem .5rem;text-align:left;border-bottom:1px solid var(--border);}
+th{color:var(--text2);font-weight:500;font-size:.76rem;background:var(--bg3);}
+.flex-between{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;}
+.text-xs{font-size:.73rem;color:var(--text3);}
+.phase-tag{display:inline-block;padding:.25rem .7rem;border-radius:20px;font-size:.75rem;font-weight:500;}
+.phase-tag.lobby{background:rgba(240,180,41,.12);color:var(--amber);border:1px solid rgba(240,180,41,.3);}
+.phase-tag.playing{background:rgba(78,203,138,.12);color:var(--green);border:1px solid rgba(78,203,138,.3);}
+.phase-tag.ended{background:rgba(124,106,247,.12);color:var(--accent2);border:1px solid rgba(124,106,247,.3);}
+.bar-row{display:flex;align-items:center;gap:.5rem;margin:.2rem 0;font-size:.8rem;}
+.bar-row .lbl{width:50px;color:var(--text2);text-align:right;}
+.bar-row .bar{flex:1;height:18px;background:var(--bg3);border-radius:4px;overflow:hidden;}
+.bar-row .bar .fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));}
+.bar-row .v{width:30px;color:var(--text);font-weight:600;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">🤝 信任遊戲 — 老師後台</div>
+  <div id="header-info" class="text-xs"></div>
+</header>
+
+<div class="container">
+<div class="screen active" id="screen-setup">
+  <div class="hero"><h1>建立信任遊戲實驗</h1><p>投資者送出 $X → 受托人收到 ${'{'}multiplier{'}'} × X，再決定回送多少</p></div>
+  <div style="display:flex;gap:.5rem;margin-bottom:1rem;">
+    <button class="btn btn-ghost" style="flex:1;" onclick="location.href='/hub'">← 回實驗中心</button>
+  </div>
+  <div class="card">
+    <p class="card-title">📝 房間設定</p>
+    <div class="fg"><label>實驗標題</label><input type="text" id="i-title" value="信任遊戲"></div>
+    <div class="row2">
+      <div class="fg"><label>每人初始額 ($)</label><input type="number" id="i-end" value="10" min="1"></div>
+      <div class="fg"><label>送出乘數</label><input type="number" id="i-mul" value="3" min="1.1" step="0.1"></div>
+    </div>
+    <div class="fg"><label><input type="checkbox" id="i-anon" checked> 匿名模式（顯示動物化名）</label></div>
+  </div>
+  <button class="btn btn-primary" onclick="createRoom()">建立房間 →</button>
+</div>
+
+<div class="screen" id="screen-dash">
+  <div class="hero"><h1 id="d-title">信任遊戲</h1><p>房間 <span class="phase-tag" id="d-phase">lobby</span></p></div>
+  <div class="card">
+    <div class="flex-between">
+      <div><div class="text-xs">房號</div><div class="room-code" id="d-code">----</div></div>
+      <div style="text-align:center;">
+        <div style="background:#fff;padding:.6rem;border-radius:8px;display:inline-block;line-height:0;">
+          <img id="qr-img" alt="QR" width="160" height="160" style="display:block;">
+        </div>
+        <div class="text-xs" style="margin-top:.4rem;" id="qr-url">—</div>
+      </div>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-green" id="btn-start" onclick="startGame()">▶ 開始（隨機配對）</button>
+    <button class="btn btn-red" id="btn-end" onclick="endGame()" disabled>⏹ 結束實驗</button>
+  </div>
+  <div class="card" style="margin-top:1rem;">
+    <p class="card-title">📊 即時統計</p>
+    <div class="stats-grid">
+      <div class="stat"><div class="lbl">學生</div><div class="val" id="s-n">0</div></div>
+      <div class="stat"><div class="lbl">配對數</div><div class="val blue" id="s-pairs">0</div></div>
+      <div class="stat"><div class="lbl">已送出</div><div class="val amber" id="s-sent">0</div></div>
+      <div class="stat"><div class="lbl">已完成</div><div class="val green" id="s-done">0</div></div>
+      <div class="stat"><div class="lbl">平均送出</div><div class="val" id="s-avg">—</div></div>
+      <div class="stat"><div class="lbl">平均回送比</div><div class="val green" id="s-ret">—</div></div>
+      <div class="stat"><div class="lbl">投資者淨利</div><div class="val" id="s-net">—</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <p class="card-title">📈 投資金額分配</p>
+    <div id="hist-area"><p class="text-xs">尚無送出資料</p></div>
+  </div>
+  <div class="card">
+    <p class="card-title">👥 配對明細</p>
+    <table id="pairs-table"><thead><tr><th>投資者</th><th>受托人</th><th>送出</th><th>放大後</th><th>回送</th><th>投資者得</th><th>受托人得</th></tr></thead>
+    <tbody id="pairs-tbody"><tr><td colspan="7" class="text-xs">尚無資料</td></tr></tbody></table>
+  </div>
+</div>
+
+</div>
+
+<script>
+let CODE='', TOKEN='', TIMER=null, MUL=3;
+
+async function createRoom(){
+  const body={title:document.getElementById('i-title').value.trim()||'信任遊戲',
+              endowment:parseInt(document.getElementById('i-end').value)||10,
+              multiplier:parseFloat(document.getElementById('i-mul').value)||3,
+              anonymous_mode:document.getElementById('i-anon').checked};
+  try{
+    const r=await fetch('/api/teacher/trust-rooms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok) throw new Error('建立失敗');
+    const d=await r.json();
+    CODE=d.code; TOKEN=d.teacher_token; MUL=body.multiplier;
+    document.getElementById('d-code').textContent=CODE;
+    document.getElementById('d-title').textContent=body.title;
+    const url=`${location.origin}/trust?room=${CODE}`;
+    document.getElementById('qr-url').textContent=url;
+    document.getElementById('qr-img').src=`https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=8&data=${encodeURIComponent(url)}`;
+    document.getElementById('screen-setup').classList.remove('active');
+    document.getElementById('screen-dash').classList.add('active');
+    document.getElementById('header-info').textContent='房間 '+CODE;
+    if(TIMER) clearInterval(TIMER);
+    TIMER=setInterval(refresh,1500); refresh();
+  }catch(e){alert('建立房間失敗：'+e.message);}
+}
+
+async function startGame(){
+  if(!confirm('開始實驗後將隨機配對 — 確定嗎？')) return;
+  const r=await fetch(`/api/teacher/exp-rooms/${CODE}/start?token=${encodeURIComponent(TOKEN)}`,{method:'POST'});
+  if(!r.ok){alert('啟動失敗');return;}
+  document.getElementById('btn-start').disabled=true; document.getElementById('btn-end').disabled=false;
+}
+
+async function endGame(){
+  if(!confirm('結束實驗並公開統計？')) return;
+  await fetch(`/api/teacher/exp-rooms/${CODE}/end?token=${encodeURIComponent(TOKEN)}`,{method:'POST'});
+}
+
+async function refresh(){
+  try{
+    const r=await fetch(`/api/teacher/exp-rooms/${CODE}?token=${encodeURIComponent(TOKEN)}`);
+    if(!r.ok) return;
+    const d=await r.json();
+    const phaseEl=document.getElementById('d-phase');
+    phaseEl.textContent=d.phase; phaseEl.className='phase-tag '+d.phase;
+    if(d.phase==='lobby'){document.getElementById('btn-start').disabled=false;document.getElementById('btn-end').disabled=true;}
+    if(d.phase==='playing'){document.getElementById('btn-start').disabled=true;document.getElementById('btn-end').disabled=false;}
+    if(d.phase==='ended'){document.getElementById('btn-start').disabled=true;document.getElementById('btn-end').disabled=true;}
+    document.getElementById('s-n').textContent=d.player_count;
+    const st=d.stats||{};
+    document.getElementById('s-pairs').textContent=d.pairs.length;
+    document.getElementById('s-sent').textContent=d.pairs.filter(p=>p.sent!=null).length;
+    document.getElementById('s-done').textContent=d.pairs.filter(p=>p.resolved).length;
+    document.getElementById('s-avg').textContent=st.avg_sent!=null?'$'+st.avg_sent:'—';
+    document.getElementById('s-ret').textContent=st.avg_return_ratio!=null?(st.avg_return_ratio*100).toFixed(0)+'%':'—';
+    const netEl=document.getElementById('s-net');
+    if(st.avg_net_investor!=null){
+      netEl.textContent=(st.avg_net_investor>=0?'+':'')+'$'+st.avg_net_investor;
+      netEl.className='val '+(st.avg_net_investor>=0?'green':'red');
+    }else netEl.textContent='—';
+    const hist=st.sent_hist||[];
+    if(hist.length){
+      const max=Math.max(...hist.map(h=>h[1]));
+      document.getElementById('hist-area').innerHTML=hist.map(([k,v])=>{
+        const pct=(v/max*100).toFixed(0);
+        return `<div class="bar-row"><div class="lbl">$${k}</div><div class="bar"><div class="fill" style="width:${pct}%;"></div></div><div class="v">${v}</div></div>`;
+      }).join('');
+    }else document.getElementById('hist-area').innerHTML='<p class="text-xs">尚無送出資料</p>';
+    const tbody=document.getElementById('pairs-tbody');
+    if(d.pairs.length){
+      tbody.innerHTML=d.pairs.map(p=>{
+        const pool=p.sent!=null?Math.round(p.sent*MUL):null;
+        return `<tr><td>${p.investor_name||'—'}</td><td>${p.trustee_name||'—'}</td>
+          <td>${p.sent!=null?'$'+p.sent:'<span class="text-xs">—</span>'}</td>
+          <td>${pool!=null?'$'+pool:'—'}</td>
+          <td>${p.returned!=null?'$'+p.returned:'<span class="text-xs">—</span>'}</td>
+          <td>${p.payout_i!=null?'$'+p.payout_i:'—'}</td>
+          <td>${p.payout_t!=null?'$'+p.payout_t:'—'}</td></tr>`;
+      }).join('');
+    }
+  }catch(e){}
+}
+</script>
+</body>
+</html>
