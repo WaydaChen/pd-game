@@ -56,6 +56,21 @@ class ReturnReq(BaseModel):
     amount: int  # trustee 回送
 
 
+class GGSettings(BaseModel):
+    title: str = "全域博弈：擠兌實驗"
+    theta_min: int = 0
+    theta_max: int = 100
+    sigma: int = 10                  # 私有訊號雜訊半幅
+    payoff_stay_survive: int = 10    # 留下且銀行存活
+    payoff_stay_fail: int = -10      # 留下但銀行倒閉
+    payoff_withdraw: int = 0         # 擠兌（保本）
+    anonymous_mode: bool = True
+
+
+class ChoiceReq(BaseModel):
+    action: str  # "withdraw" | "stay"
+
+
 # ─────────────────────────── 共用工具 ───────────────────────────
 def _alias_pool():
     nicks = ["小柯","小芙","小翰","小娜","小皓","小琦","小恩","小宇","小棠","小謙",
@@ -96,7 +111,7 @@ def _make_room(rooms: dict, kind: str, settings: dict, lock) -> tuple[str, str]:
 
 def _join(rooms: dict, code: str, sid: str, name: str, lock) -> str:
     room = rooms.get(code)
-    if not room or room["type"] not in ("ult", "trust"):
+    if not room or room["type"] not in ("ult", "trust", "gg"):
         raise HTTPException(404, "找不到房間")
     if room["phase"] != "lobby":
         # 仍允許進入觀看結果，但不再分組
@@ -178,11 +193,13 @@ def _start(rooms: dict, code: str, token: str, lock):
 
 def _end(rooms: dict, code: str, token: str, lock):
     room = rooms.get(code)
-    if not room or room["type"] not in ("ult", "trust"):
+    if not room or room["type"] not in ("ult", "trust", "gg"):
         raise HTTPException(404, "找不到房間")
     if room["teacher_token"] != token:
         raise HTTPException(403, "權限錯誤")
     with lock:
+        if room["type"] == "gg":
+            _gg_resolve(room)
         room["phase"] = "ended"
     return {"ok": True}
 
@@ -287,8 +304,10 @@ def _trust_return(rooms: dict, code: str, pid: str, amount: int, lock):
 # ─────────────────────────── 玩家狀態 ───────────────────────────
 def _player_state(rooms: dict, code: str, pid: str):
     room = rooms.get(code)
-    if not room or room["type"] not in ("ult", "trust"):
+    if not room or room["type"] not in ("ult", "trust", "gg"):
         raise HTTPException(404, "找不到房間")
+    if room["type"] == "gg":
+        return _gg_player_state(rooms, code, pid)
     p = room["players"].get(pid)
     if not p:
         raise HTTPException(404, "玩家未註冊")
@@ -464,6 +483,199 @@ def _dashboard(rooms: dict, code: str, token: str):
     }
 
 
+# ─────────────────────────── Global Game (Bank Run) ───────────────────────────
+def _gg_start(rooms: dict, code: str, token: str, lock):
+    """抽取 θ 與每位玩家的私有訊號，進入 playing。"""
+    room = rooms.get(code)
+    if not room or room["type"] != "gg":
+        raise HTTPException(404, "找不到房間")
+    if room["teacher_token"] != token:
+        raise HTTPException(403, "權限錯誤")
+    s = room["settings"]
+    tmin, tmax = int(s.get("theta_min", 0)), int(s.get("theta_max", 100))
+    sigma = max(0, int(s.get("sigma", 10)))
+    with lock:
+        theta = random.uniform(tmin, tmax)
+        room["theta"] = round(theta, 2)
+        room["outcome"] = None
+        for pid, p in room["players"].items():
+            noise = random.uniform(-sigma, sigma) if sigma > 0 else 0
+            sig = max(tmin - sigma, min(tmax + sigma, theta + noise))
+            p["signal"] = round(sig, 2)
+            p["choice"] = None
+            p["payoff"] = None
+            p["role"] = "depositor"
+        room["phase"] = "playing"
+    return {"ok": True, "n": len(room["players"])}
+
+
+def _gg_choose(rooms: dict, code: str, pid: str, action: str, lock):
+    room = rooms.get(code)
+    if not room or room["type"] != "gg":
+        raise HTTPException(404, "找不到房間")
+    if room["phase"] != "playing":
+        raise HTTPException(400, "未在遊戲中")
+    if action not in ("withdraw", "stay"):
+        raise HTTPException(400, "action 必須是 withdraw 或 stay")
+    with lock:
+        p = room["players"].get(pid)
+        if not p:
+            raise HTTPException(404, "玩家未註冊")
+        if p.get("signal") is None:
+            raise HTTPException(400, "尚未取得訊號")
+        if p.get("choice") is not None:
+            raise HTTPException(400, "已決定")
+        p["choice"] = action
+    return {"ok": True}
+
+
+def _gg_resolve(room: dict):
+    """結算：依 withdraw 比例與 θ 判定銀行是否倒閉，計算每位玩家的報酬。"""
+    s = room["settings"]
+    tmax = max(1, int(s.get("theta_max", 100)))
+    pay_ok = int(s.get("payoff_stay_survive", 10))
+    pay_bad = int(s.get("payoff_stay_fail", -10))
+    pay_w = int(s.get("payoff_withdraw", 0))
+    theta = room.get("theta", 0)
+    decided = [p for p in room["players"].values() if p.get("choice") is not None]
+    n = len(decided)
+    withdraws = sum(1 for p in decided if p["choice"] == "withdraw")
+    withdraw_rate = withdraws / n if n else 0
+    # 銀行存活條件：withdraw 比例 ≤ θ / theta_max（θ 越高、銀行體質越好 → 較能承受擠兌）
+    survives = withdraw_rate <= (theta / tmax)
+    for p in room["players"].values():
+        if p.get("choice") == "withdraw":
+            p["payoff"] = pay_w
+        elif p.get("choice") == "stay":
+            p["payoff"] = pay_ok if survives else pay_bad
+        else:
+            p["payoff"] = 0  # 未決定者不結算
+    room["outcome"] = {
+        "n_decided": n,
+        "withdraws": withdraws,
+        "stays": n - withdraws,
+        "withdraw_rate": round(withdraw_rate, 3),
+        "fail_threshold_rate": round(theta / tmax, 3),
+        "survives": bool(survives),
+    }
+
+
+def _gg_stats(room: dict) -> dict:
+    s = room["settings"]
+    tmin = int(s.get("theta_min", 0))
+    tmax = int(s.get("theta_max", 100))
+    sigma = int(s.get("sigma", 10))
+    players = list(room["players"].values())
+    decided = [p for p in players if p.get("choice") is not None]
+    n = len(decided)
+    base = {
+        "n_total": len(players),
+        "n_decided": n,
+        "theta_min": tmin, "theta_max": tmax, "sigma": sigma,
+        "theta": room.get("theta"),
+        "outcome": room.get("outcome"),
+    }
+    if n == 0:
+        base["histogram"] = []
+        base["choice_curve"] = []
+        return base
+    # 訊號直方圖（每 5 一格）
+    span = max(1, tmax - tmin)
+    bin_w = max(1, span // 20)
+    bins_w = {}
+    bins_s = {}
+    for p in decided:
+        k = int(p["signal"] // bin_w) * bin_w
+        if p["choice"] == "withdraw":
+            bins_w[k] = bins_w.get(k, 0) + 1
+        else:
+            bins_s[k] = bins_s.get(k, 0) + 1
+    keys = sorted(set(list(bins_w.keys()) + list(bins_s.keys())))
+    histogram = [(k, bins_w.get(k, 0), bins_s.get(k, 0)) for k in keys]
+    # 經驗閾值：擠兌的最大訊號 vs 留下的最小訊號
+    w_sigs = [p["signal"] for p in decided if p["choice"] == "withdraw"]
+    s_sigs = [p["signal"] for p in decided if p["choice"] == "stay"]
+    base["bin_w"] = bin_w
+    base["histogram"] = histogram
+    base["max_withdraw_signal"] = max(w_sigs) if w_sigs else None
+    base["min_stay_signal"] = min(s_sigs) if s_sigs else None
+    base["avg_withdraw_signal"] = round(sum(w_sigs) / len(w_sigs), 2) if w_sigs else None
+    base["avg_stay_signal"] = round(sum(s_sigs) / len(s_sigs), 2) if s_sigs else None
+    # 理論閾值：在無策略不確定下，留下的期望報酬 = 擠兌時，
+    # 即 p_survive * pay_ok + (1-p_survive) * pay_bad = pay_w
+    # 解出 p_survive* = (pay_w - pay_bad) / (pay_ok - pay_bad)；
+    # 若以「銀行存活機率 = θ/tmax」近似，θ* = p_survive* * tmax。
+    pay_ok = int(s.get("payoff_stay_survive", 10))
+    pay_bad = int(s.get("payoff_stay_fail", -10))
+    pay_w = int(s.get("payoff_withdraw", 0))
+    denom = pay_ok - pay_bad
+    if denom > 0:
+        p_star = max(0.0, min(1.0, (pay_w - pay_bad) / denom))
+        base["theory_threshold"] = round(p_star * tmax, 2)
+    else:
+        base["theory_threshold"] = None
+    return base
+
+
+def _gg_player_state(rooms: dict, code: str, pid: str):
+    room = rooms.get(code)
+    if not room or room["type"] != "gg":
+        raise HTTPException(404, "找不到房間")
+    p = room["players"].get(pid)
+    if not p:
+        raise HTTPException(404, "玩家未註冊")
+    base = {
+        "type": "gg",
+        "phase": room["phase"],
+        "settings": room["settings"],
+        "my_nickname": p.get("nickname"),
+        "my_avatar": p.get("avatar"),
+        "player_count": len(room["players"]),
+        "signal": p.get("signal"),
+        "choice": p.get("choice"),
+        "payoff": p.get("payoff"),
+    }
+    if room["phase"] == "lobby":
+        base["status"] = "waiting"
+        return base
+    if room["phase"] == "ended":
+        base["status"] = "ended"
+        base["theta"] = room.get("theta")
+        base["outcome"] = room.get("outcome")
+        base["stats"] = _gg_stats(room)
+        return base
+    base["status"] = "decided" if p.get("choice") else "playing"
+    return base
+
+
+def _gg_dashboard(rooms: dict, code: str, token: str):
+    room = rooms.get(code)
+    if not room or room["type"] != "gg":
+        raise HTTPException(404, "找不到房間")
+    if room["teacher_token"] != token:
+        raise HTTPException(403, "權限錯誤")
+    players = []
+    for pid, p in room["players"].items():
+        players.append({
+            "pid": pid, "sid": p["sid"], "name": p["name"],
+            "nickname": p.get("nickname"), "avatar": p.get("avatar"),
+            "signal": p.get("signal"), "choice": p.get("choice"),
+            "payoff": p.get("payoff"),
+        })
+    return {
+        "code": code,
+        "type": "gg",
+        "phase": room["phase"],
+        "settings": room["settings"],
+        "created_at": room["created_at"],
+        "player_count": len(room["players"]),
+        "players": players,
+        "theta": room.get("theta"),
+        "outcome": room.get("outcome"),
+        "stats": _gg_stats(room),
+    }
+
+
 # ─────────────────────────── 路由註冊 ───────────────────────────
 def register(app, rooms: dict, lock):
     """Register routes onto a FastAPI app, sharing rooms dict + threading lock."""
@@ -522,7 +734,7 @@ def register(app, rooms: dict, lock):
     @app.get("/api/exp-rooms/{code}")
     def get_room(code: str):
         room = rooms.get(code)
-        if not room or room["type"] not in ("ult", "trust"):
+        if not room or room["type"] not in ("ult", "trust", "gg"):
             raise HTTPException(404, "找不到房間")
         return {
             "code": code, "type": room["type"],
@@ -551,3 +763,35 @@ def register(app, rooms: dict, lock):
     @app.post("/api/exp-rooms/{code}/players/{pid}/return")
     def trust_return(code: str, pid: str, req: ReturnReq):
         return _trust_return(rooms, code, pid, req.amount, lock)
+
+    # ===== Global Game (Bank Run) =====
+    @app.get("/teacher-globalgame")
+    def _pgg1():
+        from fastapi.responses import FileResponse
+        return FileResponse("static/teacher-globalgame.html")
+
+    @app.get("/globalgame")
+    def _pgg2():
+        from fastapi.responses import FileResponse
+        return FileResponse("static/globalgame.html")
+
+    @app.post("/api/teacher/gg-rooms")
+    def create_gg(s: GGSettings):
+        code, token = _make_room(rooms, "gg", s.dict(), lock)
+        return {"code": code, "teacher_token": token}
+
+    @app.post("/api/teacher/gg-rooms/{code}/start")
+    def gg_start(code: str, token: str):
+        return _gg_start(rooms, code, token, lock)
+
+    @app.post("/api/teacher/gg-rooms/{code}/end")
+    def gg_end(code: str, token: str):
+        return _end(rooms, code, token, lock)
+
+    @app.get("/api/teacher/gg-rooms/{code}")
+    def gg_dashboard(code: str, token: str):
+        return _gg_dashboard(rooms, code, token)
+
+    @app.post("/api/exp-rooms/{code}/players/{pid}/choose")
+    def gg_choose(code: str, pid: str, req: ChoiceReq):
+        return _gg_choose(rooms, code, pid, req.action, lock)
