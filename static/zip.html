@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZIP-Code 期貨交易 — 學生端</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#0d0e14;--bg2:#13141c;--bg3:#1a1c27;--surface:#1e2030;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.16);--text:#e8e9f0;--text2:#9a9db8;--text3:#5c5f7a;--accent:#ff8a5c;--accent2:#ffb08a;--green:#4ecb8a;--amber:#f0b429;--blue:#4a9eff;--red:#f06060;--r:14px;--rs:10px;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans TC',sans-serif;font-weight:300;min-height:100vh;}
+.wrap{max-width:560px;margin:0 auto;padding:1.2rem 1rem 3rem;}
+.screen{display:none;}.screen.active{display:block;}
+.hero{text-align:center;padding:1rem 0;}
+.hero-icon{font-size:2.6rem;margin-bottom:.3rem;}
+.hero h1{font-family:'Noto Serif TC',serif;font-size:1.4rem;font-weight:700;margin-bottom:.3rem;color:var(--accent);}
+.hero p{color:var(--text2);font-size:.84rem;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.1rem;margin-bottom:.9rem;}
+.card-title{font-family:'Noto Serif TC',serif;font-weight:600;margin-bottom:.6rem;font-size:.95rem;}
+.fg{display:flex;flex-direction:column;gap:.35rem;margin-bottom:.7rem;}
+label{font-size:.76rem;color:var(--text2);}
+input[type=text],input[type=number]{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:.7rem .9rem;color:var(--text);font-size:1rem;outline:none;}
+input:focus{border-color:var(--accent);}
+.btn{padding:.8rem 1.2rem;border-radius:var(--rs);font-size:.95rem;font-weight:500;cursor:pointer;border:none;width:100%;font-family:inherit;transition:all .15s;}
+.btn-primary{background:var(--accent);color:#0d0e14;}.btn-primary:hover{background:var(--accent2);}
+.btn-green{background:var(--green);color:#0d0e14;}.btn-red{background:var(--red);color:#fff;}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.alert{padding:.6rem .85rem;border-radius:var(--rs);font-size:.82rem;margin-bottom:.7rem;border:1px solid;}
+.alert.warn{background:rgba(240,180,41,.08);border-color:rgba(240,180,41,.25);color:var(--amber);}
+.alert.info{background:rgba(74,158,255,.08);border-color:rgba(74,158,255,.25);color:var(--blue);}
+.alert.err{background:rgba(240,96,96,.1);border-color:rgba(240,96,96,.3);color:var(--red);}
+
+/* header */
+.topbar{display:flex;align-items:center;gap:.6rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:.7rem .9rem;margin-bottom:.9rem;flex-wrap:wrap;}
+.badge{display:inline-flex;align-items:center;gap:.35rem;font-weight:700;font-size:.95rem;padding:.25rem .6rem;border-radius:8px;background:var(--bg3);}
+.stat{display:flex;flex-direction:column;line-height:1.1;}
+.stat .l{font-size:.66rem;color:var(--text3);}
+.stat .v{font-size:1rem;font-weight:700;font-variant-numeric:tabular-nums;}
+.spacer{flex:1;}
+.countdown{font-size:1.3rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--amber);}
+.phase-tag{font-size:.72rem;padding:.2rem .55rem;border-radius:12px;background:var(--bg3);color:var(--text2);}
+
+/* digits */
+.digits{display:flex;gap:.4rem;justify-content:center;margin:.2rem 0 .3rem;}
+.dgt{width:44px;height:56px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:700;font-family:'Noto Serif TC',serif;}
+.dgt.revealed{background:linear-gradient(135deg,rgba(255,138,92,.25),rgba(255,138,92,.05));border-color:rgba(255,138,92,.4);color:var(--accent2);}
+.dgt.blank{color:var(--text3);}
+.expected{text-align:center;font-size:.78rem;color:var(--text2);margin-bottom:.3rem;}
+
+/* book */
+.book{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
+.book-col{background:var(--bg3);border-radius:var(--rs);padding:.5rem;}
+.book-col h4{font-size:.72rem;text-align:center;margin-bottom:.4rem;color:var(--text2);}
+.book-col.bids h4{color:var(--green);}
+.book-col.offers h4{color:var(--red);}
+.olist{display:flex;flex-direction:column;gap:.3rem;min-height:40px;}
+.orow{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.35rem .55rem;font-size:.86rem;}
+.orow.best{border-color:var(--accent);box-shadow:0 0 0 1px rgba(255,138,92,.3);}
+.orow.mine{border-color:var(--blue);}
+.orow .px{font-weight:700;font-variant-numeric:tabular-nums;}
+.orow .bd{font-size:.68rem;color:var(--text3);}
+.mini{padding:.2rem .5rem;border-radius:6px;font-size:.72rem;border:none;cursor:pointer;font-family:inherit;}
+.mini.take-b{background:var(--green);color:#0d0e14;}
+.mini.take-o{background:var(--red);color:#fff;}
+.mini.wd{background:transparent;border:1px solid var(--border2);color:var(--text2);}
+.empty{text-align:center;color:var(--text3);font-size:.75rem;padding:.6rem 0;}
+
+/* quote controls */
+.qrow{display:flex;gap:.5rem;align-items:flex-end;}
+.qrow .fg{flex:1;margin-bottom:0;}
+.take-row{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.7rem;}
+
+/* trades */
+.trade-list{display:flex;flex-direction:column;gap:.3rem;max-height:200px;overflow-y:auto;}
+.trow{display:flex;justify-content:space-between;font-size:.8rem;padding:.3rem .5rem;background:var(--bg3);border-radius:6px;}
+.trow .r{color:var(--text3);font-size:.7rem;}
+.pill{font-size:.68rem;padding:.1rem .4rem;border-radius:10px;font-weight:600;}
+.pill.buy{background:rgba(78,203,138,.15);color:var(--green);}
+.pill.sell{background:rgba(240,96,96,.15);color:var(--red);}
+
+/* settlement */
+.settle-box{background:linear-gradient(135deg,rgba(255,138,92,.15),rgba(255,138,92,.03));border:1px solid rgba(255,138,92,.35);border-radius:var(--r);padding:1.2rem;text-align:center;margin-bottom:.9rem;}
+.settle-box .dp{font-size:2.4rem;font-weight:700;color:var(--accent2);}
+.settle-box .pnl{font-size:1.8rem;font-weight:700;margin-top:.3rem;}
+.pos{color:var(--green);}.neg{color:var(--red);}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;}
+.conn-dot.off{background:var(--red);}
+.hint{font-size:.74rem;color:var(--text3);margin-top:.3rem;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 進場 -->
+  <div class="screen active" id="screen-join">
+    <div class="hero">
+      <div class="hero-icon">📈</div>
+      <h1>ZIP-Code 期貨交易</h1>
+      <p>交割價 = 五個祕密數字之和，逐輪揭曉。掛買賣價成交，第五輪後結算損益。</p>
+    </div>
+    <div class="card">
+      <div id="join-alert"></div>
+      <div class="fg">
+        <label>房間代碼</label>
+        <input type="text" id="in-code" placeholder="例如 K7M3PQ" maxlength="6" autocapitalize="characters" style="text-transform:uppercase">
+      </div>
+      <div class="fg">
+        <label>姓名或學號</label>
+        <input type="text" id="in-name" placeholder="輸入你的姓名或學號">
+      </div>
+      <button class="btn btn-primary" id="btn-join">進場</button>
+      <p class="hint">重新整理後輸入同一組資料即可恢復部位。教師請由 <a href="/teacher-zip" style="color:var(--accent)">教師端</a> 建立房間。</p>
+    </div>
+  </div>
+
+  <!-- 交易 -->
+  <div class="screen" id="screen-trade">
+    <div class="topbar">
+      <span class="badge" id="my-badge">—</span>
+      <div class="stat"><span class="l">淨部位</span><span class="v" id="my-net">0</span></div>
+      <div class="stat"><span class="l">現金流</span><span class="v" id="my-cash">0</span></div>
+      <div class="spacer"></div>
+      <span class="phase-tag" id="phase-tag">大廳</span>
+      <span class="countdown" id="countdown">--</span>
+    </div>
+
+    <div id="trade-alert"></div>
+
+    <div class="card">
+      <div class="card-title">交割價數字（第 <span id="round-no">0</span> / 5 輪）</div>
+      <div class="digits" id="digits"></div>
+      <div class="expected" id="expected"></div>
+    </div>
+
+    <!-- 結算面板 -->
+    <div class="settle-box" id="settle-box" style="display:none">
+      <div style="font-size:.8rem;color:var(--text2)">交割價</div>
+      <div class="dp" id="settle-dp">—</div>
+      <div style="font-size:.8rem;color:var(--text2);margin-top:.5rem">你的總損益</div>
+      <div class="pnl" id="settle-pnl">—</div>
+    </div>
+
+    <div class="card" id="book-card">
+      <div class="card-title">委託簿 <span id="mode-tag" class="phase-tag"></span></div>
+      <div class="book">
+        <div class="book-col bids"><h4>買價 BID</h4><div class="olist" id="bids"></div></div>
+        <div class="book-col offers"><h4>賣價 OFFER</h4><div class="olist" id="offers"></div></div>
+      </div>
+
+      <div class="take-row" id="take-row">
+        <button class="btn btn-green" id="btn-take-bid" disabled>賣給最佳買價 <span id="tb-px"></span></button>
+        <button class="btn btn-red" id="btn-take-offer" disabled>買進最佳賣價 <span id="to-px"></span></button>
+      </div>
+
+      <div class="qrow" style="margin-top:.8rem">
+        <div class="fg">
+          <label>價格（0–99 整數）</label>
+          <input type="number" id="in-price" min="0" max="99" placeholder="22">
+        </div>
+      </div>
+      <div class="take-row" style="margin-top:.5rem">
+        <button class="btn btn-green" id="btn-bid">掛買價</button>
+        <button class="btn btn-red" id="btn-offer">掛賣價</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">成交紀錄</div>
+      <div class="trade-list" id="trades"><div class="empty">尚無成交</div></div>
+    </div>
+
+    <p class="hint"><span class="conn-dot" id="conn-dot"></span> <span id="conn-text">已連線</span></p>
+  </div>
+
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let ws=null, code=null, name=null, state=null, myTid=null, myBadge=null, reconnectTimer=null;
+
+function showAlert(sel, msg, kind='err'){
+  const el=$(sel); if(!msg){el.innerHTML='';return;}
+  el.innerHTML=`<div class="alert ${kind}">${msg}</div>`;
+}
+function flashTradeAlert(msg,kind='err'){
+  showAlert('#trade-alert',msg,kind);
+  setTimeout(()=>{if($('#trade-alert').textContent===msg)showAlert('#trade-alert','');},3500);
+}
+
+// ── 進場 ──
+$('#btn-join').onclick=()=>{
+  code=$('#in-code').value.trim().toUpperCase();
+  name=$('#in-name').value.trim();
+  if(!code){showAlert('#join-alert','請輸入房間代碼');return;}
+  if(!name){showAlert('#join-alert','請輸入姓名或學號');return;}
+  connect();
+};
+$('#in-name').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-join').click();});
+
+function connect(){
+  const proto=location.protocol==='https:'?'wss':'ws';
+  ws=new WebSocket(`${proto}://${location.host}/ws/${code}`);
+  ws.onopen=()=>{
+    setConn(true);
+    ws.send(JSON.stringify({type:'join',name}));
+  };
+  ws.onmessage=ev=>{
+    const m=JSON.parse(ev.data);
+    if(m.type==='error'){ 
+      if($('#screen-join').classList.contains('active')) showAlert('#join-alert',m.message);
+      else flashTradeAlert(m.message);
+      return;
+    }
+    if(m.type==='joined'){
+      myTid=m.trader_id; myBadge=m.badge;
+      $('#screen-join').classList.remove('active');
+      $('#screen-trade').classList.add('active');
+      return;
+    }
+    if(m.type==='reveal'){ /* 由 state 一起更新，這裡可加動畫 */ return; }
+    if(m.type==='state'){ state=m; render(); }
+  };
+  ws.onclose=()=>{ setConn(false); scheduleReconnect(); };
+  ws.onerror=()=>{ setConn(false); };
+}
+function scheduleReconnect(){
+  if(reconnectTimer)return;
+  reconnectTimer=setTimeout(()=>{reconnectTimer=null; if(code&&name)connect();},1500);
+}
+function setConn(ok){
+  $('#conn-dot').classList.toggle('off',!ok);
+  $('#conn-text').textContent=ok?'已連線':'連線中斷，重新連線中…';
+}
+
+// ── 送出 ──
+function send(obj){ if(ws&&ws.readyState===1) ws.send(JSON.stringify(obj)); }
+$('#btn-bid').onclick=()=>quote('bid');
+$('#btn-offer').onclick=()=>quote('offer');
+function quote(side){
+  const p=parseInt($('#in-price').value,10);
+  if(isNaN(p)||p<0||p>99){flashTradeAlert('價格需為 0–99 的整數');return;}
+  send({type:'quote',side,price:p});
+  $('#in-price').value='';
+}
+$('#in-price').addEventListener('keydown',e=>{if(e.key==='Enter')quote('bid');});
+$('#btn-take-bid').onclick=()=>{ if(state&&state.best_bid_id) send({type:'take',order_id:state.best_bid_id}); };
+$('#btn-take-offer').onclick=()=>{ if(state&&state.best_offer_id) send({type:'take',order_id:state.best_offer_id}); };
+
+// ── 倒數 ──
+setInterval(()=>{
+  if(!state){return;}
+  const cd=$('#countdown');
+  if(state.phase==='open'&&state.round_ends_at){
+    const remain=Math.max(0,Math.round(state.round_ends_at-(Date.now()/1000)));
+    const mm=String(Math.floor(remain/60)).padStart(1,'0');
+    const ss=String(remain%60).padStart(2,'0');
+    cd.textContent=`${mm}:${ss}`;
+    cd.style.color=remain<=10?'var(--red)':'var(--amber)';
+  }else{ cd.textContent='--'; cd.style.color='var(--text3)'; }
+},250);
+
+// ── 繪製 ──
+const PHASE_LABEL={lobby:'大廳',open:'交易中',closed:'本輪結束',settled:'已結算'};
+function render(){
+  if(!state)return;
+  const me=state.me||{net:0,cash:0,pnl:0};
+  $('#my-badge').textContent='🎫 '+(state.me?state.me.badge:myBadge||'—');
+  $('#my-net').textContent=me.net;
+  $('#my-net').className='v '+(me.net>0?'pos':me.net<0?'neg':'');
+  $('#my-cash').textContent=me.cash;
+  $('#phase-tag').textContent=PHASE_LABEL[state.phase]||state.phase;
+  $('#round-no').textContent=state.round;
+  $('#mode-tag').textContent=state.mode==='outcry'?'喊價模式':'電子撮合';
+
+  // 數字
+  const dg=$('#digits'); dg.innerHTML='';
+  state.revealed.forEach((d,i)=>{
+    const el=document.createElement('div');
+    if(d!==null){el.className='dgt revealed';el.textContent=d;}
+    else{el.className='dgt blank';el.textContent='?';}
+    dg.appendChild(el);
+  });
+  // 輪初預期交割價（僅顯示提示，非機密）
+  if(state.phase!=='settled'){
+    const revealed=state.revealed.filter(d=>d!==null);
+    const priorSum=revealed.reduce((a,b)=>a+b,0);
+    const remaining=5-revealed.length;
+    const exp=(priorSum+remaining*4.5).toFixed(1);
+    $('#expected').textContent=`目前預期交割價 ≈ ${exp}（已揭 ${revealed.length} 位，其餘各期望 4.5）`;
+  }else{ $('#expected').textContent=''; }
+
+  // 委託簿
+  const canTrade=state.phase==='open';
+  renderBook(canTrade);
+
+  // take 按鈕（電子模式）
+  const tr=$('#take-row');
+  if(state.mode==='electronic'){
+    tr.style.display='grid';
+    const bb=state.best_bid, bo=state.best_offer;
+    $('#btn-take-bid').disabled=!(canTrade&&bb!==null);
+    $('#btn-take-offer').disabled=!(canTrade&&bo!==null);
+    $('#tb-px').textContent=bb!==null?bb:'';
+    $('#to-px').textContent=bo!==null?bo:'';
+  }else{
+    tr.style.display='none';  // 喊價模式：每張可見報價各自可點
+  }
+
+  // 成交
+  renderTrades();
+
+  // 結算
+  if(state.phase==='settled'&&state.delivery_price!==null){
+    $('#settle-box').style.display='block';
+    $('#settle-dp').textContent=state.delivery_price;
+    const pnl=me.pnl;
+    const el=$('#settle-pnl');
+    el.textContent=(pnl>=0?'+':'')+pnl;
+    el.className='pnl '+(pnl>=0?'pos':'neg');
+    $('#book-card').style.opacity=.5;
+  }else{
+    $('#settle-box').style.display='none';
+    $('#book-card').style.opacity=1;
+  }
+}
+
+function renderBook(canTrade){
+  const outcry=state.mode==='outcry';
+  const bids=state.book.filter(o=>o.side==='bid').sort((a,b)=>b.price-a.price||a.ts-b.ts);
+  const offers=state.book.filter(o=>o.side==='offer').sort((a,b)=>a.price-b.price||a.ts-b.ts);
+  $('#bids').innerHTML=bids.length?bids.map(o=>orow(o,'bid',canTrade,outcry)).join(''):'<div class="empty">—</div>';
+  $('#offers').innerHTML=offers.length?offers.map(o=>orow(o,'offer',canTrade,outcry)).join(''):'<div class="empty">—</div>';
+  // 綁定按鈕
+  document.querySelectorAll('[data-take]').forEach(b=>b.onclick=()=>send({type:'take',order_id:b.dataset.take}));
+  document.querySelectorAll('[data-wd]').forEach(b=>b.onclick=()=>send({type:'withdraw',order_id:b.dataset.wd}));
+}
+function orow(o,side,canTrade,outcry){
+  const isBest=(side==='bid'&&o.id===state.best_bid_id)||(side==='offer'&&o.id===state.best_offer_id);
+  const isMine=(state.my_orders||[]).some(x=>x.id===o.id);
+  let btn='';
+  if(isMine){
+    btn=`<button class="mini wd" data-wd="${o.id}">撤單</button>`;
+  }else if(canTrade){
+    if(outcry){
+      // 喊價：任何看得見的都可成交
+      btn=side==='bid'?`<button class="mini take-b" data-take="${o.id}">賣</button>`
+                      :`<button class="mini take-o" data-take="${o.id}">買</button>`;
+    }else if(isBest){
+      btn=side==='bid'?`<button class="mini take-b" data-take="${o.id}">賣</button>`
+                      :`<button class="mini take-o" data-take="${o.id}">買</button>`;
+    }
+  }
+  const bd=outcry&&o.badge?`<span class="bd">${o.badge}</span>`:'';
+  const cls=['orow',isBest?'best':'',isMine?'mine':''].join(' ');
+  return `<div class="${cls}"><span class="px">${o.price}</span>${bd}${btn}</div>`;
+}
+function renderTrades(){
+  const el=$('#trades');
+  const list=(state.trades||[]).slice().reverse().slice(0,30);
+  if(!list.length){el.innerHTML='<div class="empty">尚無成交</div>';return;}
+  el.innerHTML=list.map(t=>{
+    let role='';
+    if(t.role==='buy')role='<span class="pill buy">我買進</span>';
+    else if(t.role==='sell')role='<span class="pill sell">我賣出</span>';
+    const cp=(t.buyer_badge&&state.mode==='outcry')?`<span class="r">${t.seller_badge}→${t.buyer_badge}</span>`:'';
+    return `<div class="trow"><span class="r">R${t.round}</span><span class="px" style="font-weight:700">${t.price}</span>${role}${cp}</div>`;
+  }).join('');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZIP-Code 期貨交易 — 教師端</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#0d0e14;--bg2:#13141c;--bg3:#1a1c27;--surface:#1e2030;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.16);--text:#e8e9f0;--text2:#9a9db8;--text3:#5c5f7a;--accent:#ff8a5c;--accent2:#ffb08a;--green:#4ecb8a;--amber:#f0b429;--blue:#4a9eff;--red:#f06060;--r:14px;--rs:10px;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans TC',sans-serif;font-weight:300;min-height:100vh;}
+.wrap{max-width:1080px;margin:0 auto;padding:1.4rem 1.2rem 3rem;}
+.screen{display:none;}.screen.active{display:block;}
+.hero{text-align:center;padding:1rem 0 1.2rem;}
+.hero-icon{font-size:2.6rem;}
+.hero h1{font-family:'Noto Serif TC',serif;font-size:1.6rem;font-weight:700;color:var(--accent);margin:.2rem 0;}
+.hero p{color:var(--text2);font-size:.86rem;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.2rem;margin-bottom:1rem;}
+.card-title{font-family:'Noto Serif TC',serif;font-weight:600;margin-bottom:.7rem;}
+.fg{display:flex;flex-direction:column;gap:.35rem;margin-bottom:.8rem;}
+label{font-size:.78rem;color:var(--text2);}
+input,select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:.65rem .85rem;color:var(--text);font-size:.95rem;outline:none;font-family:inherit;}
+input:focus,select:focus{border-color:var(--accent);}
+.btn{padding:.75rem 1.2rem;border-radius:var(--rs);font-size:.92rem;font-weight:500;cursor:pointer;border:none;font-family:inherit;transition:all .15s;}
+.btn-primary{background:var(--accent);color:#0d0e14;}.btn-primary:hover{background:var(--accent2);}
+.btn-green{background:var(--green);color:#0d0e14;}.btn-red{background:var(--red);color:#fff;}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);}
+.btn-block{width:100%;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;}
+.alert{padding:.6rem .85rem;border-radius:var(--rs);font-size:.82rem;margin-bottom:.7rem;border:1px solid;}
+.alert.warn{background:rgba(240,180,41,.08);border-color:rgba(240,180,41,.25);color:var(--amber);}
+.alert.info{background:rgba(74,158,255,.08);border-color:rgba(74,158,255,.25);color:var(--blue);}
+.alert.err{background:rgba(240,96,96,.1);border-color:rgba(240,96,96,.3);color:var(--red);}
+.alert.green{background:rgba(78,203,138,.08);border-color:rgba(78,203,138,.25);color:var(--green);}
+
+.codebox{display:flex;gap:1rem;flex-wrap:wrap;}
+.codebox .b{flex:1;min-width:140px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:.8rem 1rem;text-align:center;}
+.codebox .b .l{font-size:.72rem;color:var(--text3);}
+.codebox .b .v{font-size:1.6rem;font-weight:700;letter-spacing:2px;font-family:'Noto Serif TC',serif;color:var(--accent2);}
+
+.dash-top{display:grid;grid-template-columns:1.2fr 1fr;gap:1rem;margin-bottom:1rem;}
+@media(max-width:760px){.dash-top{grid-template-columns:1fr;}.grid2{grid-template-columns:1fr;}}
+.digits{display:flex;gap:.5rem;justify-content:center;margin:.4rem 0;}
+.dgt{width:52px;height:64px;border-radius:12px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:700;font-family:'Noto Serif TC',serif;}
+.dgt.revealed{background:linear-gradient(135deg,rgba(255,138,92,.25),rgba(255,138,92,.05));border-color:rgba(255,138,92,.4);color:var(--accent2);}
+.dgt.blank{color:var(--text3);}
+.countdown{font-size:2rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--amber);text-align:center;}
+.phase-tag{font-size:.74rem;padding:.2rem .6rem;border-radius:12px;background:var(--bg3);color:var(--text2);}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-top:.7rem;}
+
+table{width:100%;border-collapse:collapse;font-size:.82rem;}
+th,td{padding:.4rem .5rem;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;}
+th:first-child,td:first-child{text-align:left;}
+th{color:var(--text2);font-weight:500;font-size:.74rem;}
+.pos{color:var(--green);}.neg{color:var(--red);}
+.scroll{overflow-x:auto;}
+.book{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
+.book-col{background:var(--bg3);border-radius:var(--rs);padding:.5rem;}
+.book-col h4{font-size:.72rem;text-align:center;margin-bottom:.4rem;}
+.book-col.bids h4{color:var(--green);}.book-col.offers h4{color:var(--red);}
+.orow{display:flex;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.25rem .5rem;font-size:.82rem;margin-bottom:.25rem;}
+.orow.best{border-color:var(--accent);}
+.export-row{display:flex;gap:.6rem;flex-wrap:wrap;}
+.trade-list{max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:.25rem;}
+.trow{display:flex;justify-content:space-between;font-size:.78rem;background:var(--bg3);border-radius:6px;padding:.25rem .5rem;}
+.hint{font-size:.74rem;color:var(--text3);margin-top:.4rem;}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;}
+.conn-dot.off{background:var(--red);}
+canvas{background:var(--bg3);border-radius:var(--rs);width:100%;}
+.margin-ctrl{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.6rem;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 建立 / 接手 -->
+  <div class="screen active" id="screen-setup">
+    <div class="hero">
+      <div class="hero-icon">📈</div>
+      <h1>ZIP-Code 期貨交易 — 教師端</h1>
+      <p>建立一個即時期貨市場，主持五輪交易並匯出完整資料。</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">建立新房間</div>
+      <div id="setup-alert"></div>
+      <div class="grid2">
+        <div class="fg">
+          <label>撮合模式</label>
+          <select id="s-mode">
+            <option value="electronic">電子撮合（匿名、嚴格價格優先）</option>
+            <option value="outcry">喊價模式（部分可見、顯示對手代號）</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>每輪秒數（30–600）</label>
+          <input type="number" id="s-seconds" value="180" min="30" max="600">
+        </div>
+      </div>
+      <div class="grid2" id="outcry-opts" style="display:none">
+        <div class="fg">
+          <label>可見比例（喊價模式，0.1–1.0）</label>
+          <input type="number" id="s-visible" value="0.4" min="0.1" max="1" step="0.05">
+        </div>
+        <div class="fg">
+          <label>重抽間隔秒數</label>
+          <input type="number" id="s-resample" value="3" min="1" max="30">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" id="btn-create">建立房間</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">以主持碼接手（重新整理後）</div>
+      <div class="grid2">
+        <div class="fg"><label>房間代碼</label><input type="text" id="r-code" maxlength="6" style="text-transform:uppercase"></div>
+        <div class="fg"><label>主持碼</label><input type="text" id="r-key" maxlength="4" style="text-transform:uppercase"></div>
+      </div>
+      <button class="btn btn-ghost btn-block" id="btn-resume">接手主持</button>
+    </div>
+  </div>
+
+  <!-- 主持面板 -->
+  <div class="screen" id="screen-dash">
+    <div class="card">
+      <div class="codebox">
+        <div class="b"><div class="l">房間代碼（給學生）</div><div class="v" id="d-code">—</div></div>
+        <div class="b"><div class="l">主持碼（接手用）</div><div class="v" id="d-key">—</div></div>
+        <div class="b"><div class="l">模式</div><div class="v" id="d-mode" style="font-size:1.1rem">—</div></div>
+        <div class="b"><div class="l">已進場</div><div class="v" id="d-count">0</div></div>
+      </div>
+      <p class="hint">學生入口：<span id="d-url" style="color:var(--accent)"></span></p>
+    </div>
+
+    <div class="dash-top">
+      <div class="card">
+        <div class="card-title">交割價數字 · 第 <span id="d-round">0</span>/5 輪 <span class="phase-tag" id="d-phase">大廳</span></div>
+        <div class="digits" id="digits"></div>
+        <div class="countdown" id="countdown">--</div>
+        <div class="controls">
+          <button class="btn btn-green" id="btn-open">開始本輪</button>
+          <button class="btn btn-red" id="btn-close">結束本輪並揭露</button>
+        </div>
+        <p class="hint" id="flow-hint"></p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">委託簿（即時）</div>
+        <div class="book">
+          <div class="book-col bids"><h4>買價 BID</h4><div id="d-bids"></div></div>
+          <div class="book-col offers"><h4>賣價 OFFER</h4><div id="d-offers"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">交易者部位與損益</div>
+      <div class="scroll">
+        <table id="traders-tbl">
+          <thead><tr><th>代號</th><th>姓名</th><th>成交數</th><th>淨部位</th><th>現金流</th><th>總損益</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">成交紀錄</div>
+        <div class="trade-list" id="d-trades"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">資料匯出</div>
+        <div class="export-row">
+          <button class="btn btn-ghost" onclick="exportCsv('trades')">匯出成交 trades.csv</button>
+          <button class="btn btn-ghost" onclick="exportCsv('orders')">匯出委託 orders.csv</button>
+          <button class="btn btn-ghost" onclick="exportCsv('summary')">匯出摘要 summary.csv</button>
+        </div>
+        <p class="hint">CSV 為 UTF-8 with BOM，Excel 直接開啟不亂碼。完整事件流另存於伺服器 data/{代碼}.jsonl。</p>
+      </div>
+    </div>
+
+    <!-- 檢討面板 -->
+    <div class="card" id="review-card" style="display:none">
+      <div class="card-title">📊 檢討面板</div>
+      <div class="scroll">
+        <table id="review-tbl">
+          <thead><tr><th>輪</th><th>揭露數字</th><th>成交量</th><th>結算價</th><th>未平倉</th><th>輪初預期交割價</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div style="margin-top:1rem">
+        <div class="card-title" style="font-size:.9rem">逐日結算（Marking to Market）</div>
+        <div class="margin-ctrl">
+          <div class="fg"><label>原始保證金</label><input type="number" id="m-orig" value="10"></div>
+          <div class="fg"><label>維持保證金</label><input type="number" id="m-maint" value="8"></div>
+        </div>
+        <div class="scroll"><table id="mtm-tbl"><thead></thead><tbody></tbody></table></div>
+      </div>
+      <div style="margin-top:1rem">
+        <div class="card-title" style="font-size:.9rem">成交價 vs 輪初預期交割價</div>
+        <canvas id="scatter" height="220"></canvas>
+      </div>
+    </div>
+
+    <p class="hint"><span class="conn-dot" id="conn-dot"></span> <span id="conn-text">已連線</span></p>
+  </div>
+
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let ws=null, code=null, hostKey=null, state=null, reconnectTimer=null;
+
+function showAlert(sel,msg,kind='err'){const el=$(sel);el.innerHTML=msg?`<div class="alert ${kind}">${msg}</div>`:'';}
+
+$('#s-mode').onchange=e=>{ $('#outcry-opts').style.display=e.target.value==='outcry'?'grid':'none'; };
+
+// ── 建立房間 ──
+$('#btn-create').onclick=async()=>{
+  const body={
+    mode:$('#s-mode').value,
+    round_seconds:parseInt($('#s-seconds').value,10)||180,
+    visible_fraction:parseFloat($('#s-visible').value)||0.4,
+    resample_seconds:parseInt($('#s-resample').value,10)||3,
+  };
+  try{
+    const r=await fetch('/api/zip/room',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok)throw new Error('建立失敗');
+    const d=await r.json();
+    code=d.code; hostKey=d.host_key;
+    enterDash();
+  }catch(e){ showAlert('#setup-alert','建立房間失敗，請稍後再試'); }
+};
+
+$('#btn-resume').onclick=()=>{
+  code=$('#r-code').value.trim().toUpperCase();
+  hostKey=$('#r-key').value.trim().toUpperCase();
+  if(!code||!hostKey){showAlert('#setup-alert','請輸入房間代碼與主持碼');return;}
+  enterDash();
+};
+
+function enterDash(){
+  $('#screen-setup').classList.remove('active');
+  $('#screen-dash').classList.add('active');
+  $('#d-code').textContent=code;
+  $('#d-key').textContent=hostKey;
+  $('#d-url').textContent=`${location.origin}/zip`;
+  connect();
+}
+
+function connect(){
+  const proto=location.protocol==='https:'?'wss':'ws';
+  ws=new WebSocket(`${proto}://${location.host}/ws/${code}`);
+  ws.onopen=()=>{ setConn(true); ws.send(JSON.stringify({type:'host',host_key:hostKey})); };
+  ws.onmessage=ev=>{
+    const m=JSON.parse(ev.data);
+    if(m.type==='error'){ showAlert('#setup-alert',m.message); return; }
+    if(m.type==='hosted'){ return; }
+    if(m.type==='reveal'){ return; }
+    if(m.type==='state'&&m.role==='host'){ state=m; render(); }
+  };
+  ws.onclose=()=>{ setConn(false); scheduleReconnect(); };
+}
+function scheduleReconnect(){ if(reconnectTimer)return; reconnectTimer=setTimeout(()=>{reconnectTimer=null;if(code&&hostKey)connect();},1500); }
+function setConn(ok){ $('#conn-dot').classList.toggle('off',!ok); $('#conn-text').textContent=ok?'已連線':'連線中斷，重新連線中…'; }
+function send(o){ if(ws&&ws.readyState===1)ws.send(JSON.stringify(o)); }
+
+$('#btn-open').onclick=()=>send({type:'open_round'});
+$('#btn-close').onclick=()=>send({type:'close_round'});
+
+// 倒數
+setInterval(()=>{
+  if(!state)return;
+  const cd=$('#countdown');
+  if(state.phase==='open'&&state.round_ends_at){
+    const remain=Math.max(0,Math.round(state.round_ends_at-Date.now()/1000));
+    cd.textContent=`${Math.floor(remain/60)}:${String(remain%60).padStart(2,'0')}`;
+    cd.style.color=remain<=10?'var(--red)':'var(--amber)';
+  }else{ cd.textContent='--'; cd.style.color='var(--text3)'; }
+},250);
+
+const PHASE={lobby:'大廳',open:'交易中',closed:'本輪結束',settled:'已結算'};
+function render(){
+  if(!state)return;
+  $('#d-mode').textContent=state.mode==='outcry'?'喊價':'電子';
+  $('#d-count').textContent=state.trader_count;
+  $('#d-round').textContent=state.round;
+  $('#d-phase').textContent=PHASE[state.phase]||state.phase;
+
+  const dg=$('#digits'); dg.innerHTML='';
+  state.revealed.forEach(d=>{
+    const el=document.createElement('div');
+    if(d!==null){el.className='dgt revealed';el.textContent=d;}
+    else{el.className='dgt blank';el.textContent='?';}
+    dg.appendChild(el);
+  });
+
+  // 控制按鈕狀態
+  const canOpen=(state.phase==='lobby'||state.phase==='closed')&&state.round<state.total_rounds;
+  $('#btn-open').disabled=!canOpen;
+  $('#btn-close').disabled=state.phase!=='open';
+  let hint='';
+  if(state.phase==='lobby')hint='等待學生進場，按「開始本輪」開盤第 1 輪。';
+  else if(state.phase==='open')hint='交易進行中。時間到會自動收盤並揭露數字。';
+  else if(state.phase==='closed')hint=`第 ${state.round} 輪已結束，按「開始本輪」開盤下一輪。`;
+  else if(state.phase==='settled')hint='五輪結束，已結算。可查看檢討面板並匯出資料。';
+  $('#flow-hint').textContent=hint;
+
+  // 委託簿
+  const bids=state.book.filter(o=>o.side==='bid').sort((a,b)=>b.price-a.price||a.ts-b.ts);
+  const offers=state.book.filter(o=>o.side==='offer').sort((a,b)=>a.price-b.price||a.ts-b.ts);
+  $('#d-bids').innerHTML=bids.length?bids.map(o=>obk(o,o.id===state.best_bid_id)).join(''):'<div class="hint" style="text-align:center">—</div>';
+  $('#d-offers').innerHTML=offers.length?offers.map(o=>obk(o,o.id===state.best_offer_id)).join(''):'<div class="hint" style="text-align:center">—</div>';
+
+  // 交易者
+  const tb=$('#traders-tbl tbody');
+  tb.innerHTML=(state.traders||[]).map(t=>`<tr>
+    <td><b style="color:${t.color}">${t.badge}</b></td><td>${esc(t.name)}</td>
+    <td>${t.n_trades}</td>
+    <td class="${cls(t.net)}">${t.net}</td>
+    <td class="${cls(t.cash)}">${t.cash}</td>
+    <td class="${cls(t.pnl)}">${t.pnl}</td></tr>`).join('')||'<tr><td colspan="6" class="hint">尚無交易者</td></tr>';
+
+  // 成交
+  const tl=(state.trades||[]).slice().reverse().slice(0,40);
+  $('#d-trades').innerHTML=tl.length?tl.map(t=>`<div class="trow"><span>R${t.round}　${t.seller_badge}→${t.buyer_badge}</span><b>${t.price}</b></div>`).join(''):'<div class="hint">尚無成交</div>';
+
+  // 檢討
+  if(state.phase==='settled'&&state.review){ renderReview(state.review); }
+  else{ $('#review-card').style.display='none'; }
+}
+function obk(o,best){return `<div class="orow ${best?'best':''}"><span>${o.badge||''}</span><b>${o.price}</b></div>`;}
+function cls(v){return v>0?'pos':v<0?'neg':'';}
+function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+// ── 檢討面板 ──
+let reviewData=null;
+function renderReview(rv){
+  reviewData=rv;
+  $('#review-card').style.display='block';
+  $('#review-tbl tbody').innerHTML=rv.rounds.map(r=>`<tr>
+    <td>${r.round}</td><td>${r.revealed_digit??'—'}</td><td>${r.volume}</td>
+    <td>${r.settle_price??'<span class="hint">無成交</span>'}</td>
+    <td>${r.open_interest}</td><td>${r.expected_delivery.toFixed(1)}</td></tr>`).join('');
+  renderMtm();
+  drawScatter(rv);
+}
+$('#m-orig').oninput=renderMtm; $('#m-maint').oninput=renderMtm;
+function renderMtm(){
+  if(!reviewData||!state)return;
+  const orig=parseFloat($('#m-orig').value)||10, maint=parseFloat($('#m-maint').value)||8;
+  // 逐日結算：對每位交易者，以各輪結算價計算當日損益與帳戶餘額
+  const settles=reviewData.rounds.map(r=>r.settle_price);
+  const dp=reviewData.delivery_price;
+  const seq=settles.concat([dp]); // 交割日視為額外一期
+  const head=['交易者'].concat(reviewData.rounds.map(r=>'R'+r.round)).concat(['交割']);
+  $('#mtm-tbl thead').innerHTML='<tr>'+head.map(h=>`<th>${h}</th>`).join('')+'</tr>';
+  // 需每輪每位交易者的成交明細 → 從 state.trades 重建
+  const trades=state.trades||[];
+  const rows=(state.traders||[]).map(t=>{
+    let prevPos=0, prevSettle=null, balance=orig;
+    const cells=[];
+    seq.forEach((s,i)=>{
+      const rnd=i+1;
+      const rt=trades.filter(x=>x.round===rnd&&(x.buyer_badge===t.badge||x.seller_badge===t.badge));
+      let daily=0;
+      if(prevSettle!==null && s!==null) daily+=prevPos*(s-prevSettle);
+      rt.forEach(x=>{ const dir=x.buyer_badge===t.badge?1:-1; if(s!==null) daily+=dir*(s-x.price); prevPos+=dir; });
+      balance+=daily;
+      let mark=(prevPos!==0&&balance<maint)?' ⚠️':'';
+      if(prevPos!==0&&balance<maint) balance=orig; // 追繳至原始保證金
+      cells.push(`<td class="${cls(daily)}">${daily.toFixed(1)}${mark}</td>`);
+      if(s!==null)prevSettle=s;
+    });
+    return `<tr><td><b style="color:${t.color}">${t.badge}</b></td>${cells.join('')}</tr>`;
+  });
+  $('#mtm-tbl tbody').innerHTML=rows.join('')||'<tr><td class="hint">尚無資料</td></tr>';
+}
+
+function drawScatter(rv){
+  const cv=$('#scatter'); const ctx=cv.getContext('2d');
+  const W=cv.width=cv.clientWidth, H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  const pad=36;
+  const trades=state.trades||[];
+  const pts=trades.map(t=>{
+    const r=rv.rounds[t.round-1];
+    return {x:r?r.expected_delivery:0,y:t.price};
+  });
+  const dp=rv.delivery_price;
+  const maxV=Math.max(45,dp+5,...pts.map(p=>Math.max(p.x,p.y)),1);
+  const sx=v=>pad+(v/maxV)*(W-pad*1.4);
+  const sy=v=>H-pad-(v/maxV)*(H-pad*1.6);
+  // 對角線 y=x
+  ctx.strokeStyle='rgba(255,255,255,.15)';ctx.beginPath();ctx.moveTo(sx(0),sy(0));ctx.lineTo(sx(maxV),sy(maxV));ctx.stroke();
+  // 交割價水平線
+  ctx.strokeStyle='rgba(255,138,92,.5)';ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(sx(0),sy(dp));ctx.lineTo(sx(maxV),sy(dp));ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='rgba(255,138,92,.8)';ctx.font='11px sans-serif';ctx.fillText('交割價 '+dp,sx(maxV)-70,sy(dp)-4);
+  // 軸
+  ctx.strokeStyle='rgba(255,255,255,.25)';ctx.beginPath();ctx.moveTo(pad,H-pad);ctx.lineTo(W-8,H-pad);ctx.moveTo(pad,H-pad);ctx.lineTo(pad,8);ctx.stroke();
+  ctx.fillStyle='#9a9db8';ctx.fillText('輪初預期交割價 →',pad+4,H-pad+16);
+  ctx.save();ctx.translate(12,H-pad);ctx.rotate(-Math.PI/2);ctx.fillText('成交價 →',0,0);ctx.restore();
+  // 點
+  pts.forEach(p=>{ ctx.fillStyle='#4a9eff';ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),3.5,0,7);ctx.fill(); });
+}
+
+// ── 匯出 ──
+function exportCsv(kind){
+  const url=`/api/zip/room/${code}/export.csv?kind=${kind}&host_key=${encodeURIComponent(hostKey)}`;
+  window.open(url,'_blank');
+}
+</script>
+</body>
+</html>

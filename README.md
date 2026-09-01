@@ -1,6 +1,33 @@
 # 囚犯困境 課堂賽局平台
 
+## 課堂實驗中心（入口）
+
+啟動後開 `http://localhost:8000/hub`，選擇模組。各遊戲教師端入口：
+
+| 遊戲 | 教師端 | 學生端 |
+|------|--------|--------|
+| 囚犯困境 | `/teacher` | `/` |
+| 銀行擠兌 | `/teacher-bank` | `/bank` |
+| 最後通牒 | `/teacher-ultimatum` | `/ultimatum` |
+| 信任遊戲 | `/teacher-trust` | `/trust` |
+| 全域博弈 | `/teacher-globalgame` | `/globalgame` |
+| ZIP-Code 期貨交易 | `/teacher-zip` | `/zip` |
+
+## ZIP-Code 期貨交易遊戲
+
+多人即時期貨市場（WebSocket）。教師於 `/teacher-zip` 建立房間，取得 6 碼房間代碼與 4 碼主持碼；
+學生於 `/zip` 輸入房間代碼與姓名/學號進場。五輪逐位揭曉交割價（＝五個祕密數字之和），第五輪後結算。
+
+- 兩種撮合模式：**電子撮合**（匿名、嚴格價格優先）與**喊價模式**（部分可見、顯示對手代號），僅大廳階段可切換。
+- 倒數歸零由伺服器自動收盤；教師重新整理後可用主持碼接手。
+- 事件同步寫入 `data/{房間代碼}.jsonl`（容器重啟不遺失）。
+- 教師端可匯出 `trades / orders / summary` 三種 CSV（UTF-8 with BOM，Excel 相容）。
+- 後台端點 `/admin/rooms`、`/admin/export` 以環境變數 `ADMIN_TOKEN` 保護（未設定則停用）。
+
+> 部署到 Railway 時請掛載 volume 到 `/app/data`（docker-compose 已設定 `zip-data` volume），並可選擇設定 `ADMIN_TOKEN`。
+
 ## 專案結構
+
 
 ```
 pd-game/

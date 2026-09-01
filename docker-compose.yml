@@ -5,4 +5,10 @@ services:
       - "8000:8000"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ADMIN_TOKEN=${ADMIN_TOKEN:-}
+    volumes:
+      - zip-data:/app/data
     restart: unless-stopped
+
+volumes:
+  zip-data:

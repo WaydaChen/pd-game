@@ -7,7 +7,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY main.py .
 COPY experiments.py .
+COPY zip_game.py .
 COPY static/ static/
+
+RUN mkdir -p data
 
 EXPOSE 8000
 

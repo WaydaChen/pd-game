@@ -8,3 +8,6 @@ dist/
 build/
 .venv/
 venv/
+
+# ZIP 遊戲事件日誌（執行時產生，不進版控）
+data/*.jsonl
