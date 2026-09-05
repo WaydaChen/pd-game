@@ -30,6 +30,7 @@ ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
 
 TOTAL_ROUNDS = 5
 DIGIT_EXPECTED = 4.5           # 單一數字期望值
+STARTING_CASH = 100000.0       # 每位交易者起始現金 / starting cash
 CONFUSING = set("O0I1l")      # 房間代碼避開的易混淆字元
 BADGE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 COLORS = ["#7c6af7", "#4ecb8a", "#f0b429", "#4a9eff", "#ff7eb6", "#42d4f4",
@@ -94,6 +95,8 @@ class Market:
     resample_seconds: int = 3
     orig_margin: float = 10.0
     maint_margin: float = 8.0
+    starting_cash: float = STARTING_CASH   # 起始現金 / starting cash
+    margin_enabled: bool = False           # 是否啟用保證金 / margin requirement on
     secret_digits: list = field(default_factory=list)   # 永不外送
     revealed: list = field(default_factory=list)
     round: int = 0
@@ -196,8 +199,8 @@ def _is_visible(market: Market, viewer_id: Optional[str], order: Order) -> bool:
 
 
 def _positions(market: Market):
-    """由成交紀錄計算每位交易者的部位與現金流。"""
-    pos = {tid: {"net": 0, "cash": 0.0, "buys": 0, "sells": 0,
+    """由成交紀錄計算每位交易者的部位與現金（含起始現金）。"""
+    pos = {tid: {"net": 0, "cash": market.starting_cash, "buys": 0, "sells": 0,
                  "n_trades": 0, "rounds": set()} for tid in market.traders}
     for tr in market.trades:
         for tid, sign in ((tr.buyer_id, +1), (tr.seller_id, -1)):
@@ -220,6 +223,32 @@ def _total_pnl(market: Market, p: dict) -> float:
     if dp is None:
         return p["cash"]
     return p["cash"] + p["net"] * dp
+
+
+def _used_margin(market: Market, p: dict) -> float:
+    """已凍結保證金 = |淨部位| × 原始保證金（未啟用時為 0）。"""
+    if not market.margin_enabled:
+        return 0.0
+    return abs(p["net"]) * market.orig_margin
+
+
+def _available(market: Market, p: dict) -> float:
+    """可用資金 = 現金 − 已凍結保證金。"""
+    return p["cash"] - _used_margin(market, p)
+
+
+def _would_breach_margin(market: Market, trader_id: str, side: str, price: int) -> bool:
+    """模擬以 price 成交一口 side（bid=買 / offer=賣）後，可用資金是否會 < 0。"""
+    if not market.margin_enabled:
+        return False
+    p = _positions(market).get(trader_id)
+    if not p:
+        return False
+    if side == "bid":                      # 買進：現金 −price、淨部位 +1
+        cash2, net2 = p["cash"] - price, p["net"] + 1
+    else:                                  # 賣出：現金 +price、淨部位 −1
+        cash2, net2 = p["cash"] + price, p["net"] - 1
+    return (cash2 - abs(net2) * market.orig_margin) < 0
 
 
 # ── 視角化狀態 ────────────────────────────────────────────────────────
@@ -280,6 +309,10 @@ def build_state(market: Market, role: str, trader_id: Optional[str]) -> dict:
             "round_seconds": market.round_seconds,
             "visible_fraction": market.visible_fraction,
             "resample_seconds": market.resample_seconds,
+            "margin_enabled": market.margin_enabled,
+            "orig_margin": market.orig_margin,
+            "maint_margin": market.maint_margin,
+            "starting_cash": market.starting_cash,
         },
     }
 
@@ -298,6 +331,8 @@ def build_state(market: Market, role: str, trader_id: Optional[str]) -> dict:
             traders_view.append({
                 "id": tid, "name": t.name, "badge": t.badge, "color": t.color,
                 "net": p["net"], "cash": round(p["cash"], 2),
+                "used_margin": round(_used_margin(market, p), 2),
+                "available": round(_available(market, p), 2),
                 "n_trades": p["n_trades"], "pnl": round(_total_pnl(market, p), 2),
             })
         base["traders"] = sorted(traders_view, key=lambda x: x["badge"])
@@ -319,6 +354,8 @@ def build_state(market: Market, role: str, trader_id: Optional[str]) -> dict:
         base["me"] = {
             "id": t.id, "name": t.name, "badge": t.badge, "color": t.color,
             "net": p["net"], "cash": round(p["cash"], 2),
+            "used_margin": round(_used_margin(market, p), 2),
+            "available": round(_available(market, p), 2),
             "n_trades": p["n_trades"], "pnl": round(_total_pnl(market, p), 2),
         }
         # 自己的 live 報價（可撤單）
@@ -524,6 +561,10 @@ async def _handle_quote(market: Market, conn: Conn, msg: dict):
     if not (0 <= price <= 99):
         await _send(conn, {"type": "error", "message": "價格需在 0–99 之間"})
         return
+    if _would_breach_margin(market, conn.trader_id, side, price):
+        await _send(conn, {"type": "error",
+                           "message": "保證金不足，無法下單 / Insufficient margin to place order"})
+        return
     o = Order(id=secrets.token_urlsafe(6), trader_id=conn.trader_id,
               side=side, price=price, round=market.round, ts=_now())
     market.book.append(o)
@@ -577,7 +618,11 @@ async def _handle_take(market: Market, conn: Conn, msg: dict):
         if not _is_visible(market, conn.trader_id, o):
             await _send(conn, {"type": "error", "message": "那張報價已經不在了"})
             return
-
+    taker_side = "offer" if o.side == "bid" else "bid"
+    if _would_breach_margin(market, conn.trader_id, taker_side, o.price):
+        await _send(conn, {"type": "error",
+                           "message": "保證金不足，無法成交 / Insufficient margin"})
+        return
     _record_trade(market, o, conn.trader_id)
     if o in market.book:
         market.book.remove(o)
@@ -607,9 +652,18 @@ async def _handle_config(market: Market, conn: Conn, msg: dict):
             market.resample_seconds = max(1, min(30, int(msg["resample_seconds"])))
         except (TypeError, ValueError):
             pass
+    if "margin_enabled" in msg:
+        market.margin_enabled = bool(msg["margin_enabled"])
+    if "orig_margin" in msg:
+        try:
+            market.orig_margin = max(0.0, float(msg["orig_margin"]))
+        except (TypeError, ValueError):
+            pass
     _log_event(market.code, "set_config",
                {"round_seconds": market.round_seconds, "mode": market.mode,
-                "visible_fraction": market.visible_fraction})
+                "visible_fraction": market.visible_fraction,
+                "margin_enabled": market.margin_enabled,
+                "orig_margin": market.orig_margin})
 
 
 HANDLERS = {
@@ -698,6 +752,8 @@ class ZipRoomSettings(BaseModel):
     resample_seconds: int = 3
     orig_margin: float = 10.0
     maint_margin: float = 8.0
+    starting_cash: float = STARTING_CASH
+    margin_enabled: bool = False
 
 
 @router.post("/api/zip/room")
@@ -712,6 +768,8 @@ def create_room(settings: ZipRoomSettings):
         visible_fraction=max(0.1, min(1.0, settings.visible_fraction)),
         resample_seconds=max(1, min(30, settings.resample_seconds)),
         orig_margin=settings.orig_margin, maint_margin=settings.maint_margin,
+        starting_cash=max(0.0, settings.starting_cash),
+        margin_enabled=bool(settings.margin_enabled),
         secret_digits=[random.randint(0, 9) for _ in range(TOTAL_ROUNDS)],
     )
     MARKETS[code] = market
@@ -762,9 +820,12 @@ def _export_rows(market: Market, kind: str):
     badge_of = {tid: t.badge for tid, t in market.traders.items()}
 
     if kind == "trades":
-        header = ["room", "mode", "round", "ts_iso", "price", "buyer_name",
-                  "seller_name", "maker_badge", "taker_badge", "best_bid_at_trade",
-                  "best_offer_at_trade", "execution_slippage"]
+        header = ["房間 room", "模式 mode", "輪次 round", "時間 ts_iso", "成交價 price",
+                  "買方姓名 buyer_name", "賣方姓名 seller_name",
+                  "掛單方代號 maker_badge", "成交方代號 taker_badge",
+                  "成交時最佳買價 best_bid_at_trade",
+                  "成交時最佳賣價 best_offer_at_trade",
+                  "執行滑價 execution_slippage"]
         rows = [header]
         for tr in market.trades:
             rows.append([
@@ -776,8 +837,9 @@ def _export_rows(market: Market, kind: str):
         return rows
 
     if kind == "orders":
-        header = ["room", "mode", "round", "ts_iso", "order_id", "trader_name",
-                  "side", "price", "status", "lifetime_seconds"]
+        header = ["房間 room", "模式 mode", "輪次 round", "時間 ts_iso", "委託編號 order_id",
+                  "交易者姓名 trader_name", "方向 side", "價格 price", "狀態 status",
+                  "存續秒數 lifetime_seconds"]
         rows = [header]
         for o in market.all_orders:
             life = round((o.ended_at - o.ts), 2) if o.ended_at else ""
@@ -788,18 +850,22 @@ def _export_rows(market: Market, kind: str):
         return rows
 
     if kind == "summary":
-        header = ["room", "mode", "trader_name", "badge", "n_trades", "n_buys",
-                  "n_sells", "net_position", "cash_flow", "delivery_price",
-                  "total_pnl", "rounds_active"]
+        header = ["房間 room", "模式 mode", "交易者姓名 trader_name", "代號 badge",
+                  "成交數 n_trades", "買進次數 n_buys", "賣出次數 n_sells",
+                  "淨部位 net_position", "現金餘額 cash_balance",
+                  "已凍保證金 used_margin", "可用資金 available",
+                  "交割價 delivery_price", "結算總資產 total_equity",
+                  "參與輪數 rounds_active"]
         rows = [header]
         pos = _positions(market)
         dp = market.delivery_price
         for tid, t in market.traders.items():
-            p = pos.get(tid, {"net": 0, "cash": 0.0, "buys": 0, "sells": 0,
-                              "n_trades": 0, "rounds": set()})
+            p = pos.get(tid, {"net": 0, "cash": market.starting_cash, "buys": 0,
+                              "sells": 0, "n_trades": 0, "rounds": set()})
             rows.append([
                 market.code, market.mode, t.name, t.badge, p["n_trades"],
                 p["buys"], p["sells"], p["net"], round(p["cash"], 2),
+                round(_used_margin(market, p), 2), round(_available(market, p), 2),
                 dp if dp is not None else "", round(_total_pnl(market, p), 2),
                 len(p["rounds"]),
             ])

@@ -96,21 +96,21 @@ input:focus{border-color:var(--accent);}
   <div class="screen active" id="screen-join">
     <div class="hero">
       <div class="hero-icon">📈</div>
-      <h1>ZIP-Code 期貨交易</h1>
-      <p>交割價 = 五個祕密數字之和，逐輪揭曉。掛買賣價成交，第五輪後結算損益。</p>
+      <h1>ZIP-Code 期貨交易<br><span style="font-size:.7em;font-weight:400;color:var(--text2)">ZIP-Code Futures Trading</span></h1>
+      <p>交割價 = 五個祕密數字之和，逐輪揭曉。掛買賣價成交，第五輪後結算損益。<br>Delivery price = sum of five secret digits, revealed round by round. Quote to trade; settle after round 5.</p>
     </div>
     <div class="card">
       <div id="join-alert"></div>
       <div class="fg">
-        <label>房間代碼</label>
+        <label>房間代碼 / Room Code</label>
         <input type="text" id="in-code" placeholder="例如 K7M3PQ" maxlength="6" autocapitalize="characters" style="text-transform:uppercase">
       </div>
       <div class="fg">
-        <label>姓名或學號</label>
+        <label>姓名或學號 / Name or Student ID</label>
         <input type="text" id="in-name" placeholder="輸入你的姓名或學號">
       </div>
-      <button class="btn btn-primary" id="btn-join">進場</button>
-      <p class="hint">重新整理後輸入同一組資料即可恢復部位。教師請由 <a href="/teacher-zip" style="color:var(--accent)">教師端</a> 建立房間。</p>
+      <button class="btn btn-primary" id="btn-join">進場 / Enter</button>
+      <p class="hint">重新整理後輸入同一組資料即可恢復部位。教師請由 <a href="/teacher-zip" style="color:var(--accent)">教師端</a> 建立房間。<br>Re-enter the same details after refresh to restore your position.</p>
     </div>
   </div>
 
@@ -118,59 +118,60 @@ input:focus{border-color:var(--accent);}
   <div class="screen" id="screen-trade">
     <div class="topbar">
       <span class="badge" id="my-badge">—</span>
-      <div class="stat"><span class="l">淨部位</span><span class="v" id="my-net">0</span></div>
-      <div class="stat"><span class="l">現金流</span><span class="v" id="my-cash">0</span></div>
+      <div class="stat"><span class="l">淨部位 Net</span><span class="v" id="my-net">0</span></div>
+      <div class="stat"><span class="l">現金 Cash</span><span class="v" id="my-cash">0</span></div>
+      <div class="stat" id="stat-avail" style="display:none"><span class="l">可用 Avail.</span><span class="v" id="my-avail">0</span></div>
       <div class="spacer"></div>
-      <span class="phase-tag" id="phase-tag">大廳</span>
+      <span class="phase-tag" id="phase-tag">大廳 Lobby</span>
       <span class="countdown" id="countdown">--</span>
     </div>
 
     <div id="trade-alert"></div>
 
     <div class="card">
-      <div class="card-title">交割價數字（第 <span id="round-no">0</span> / 5 輪）</div>
+      <div class="card-title">交割價數字 Delivery-price digits（第 <span id="round-no">0</span> / 5 輪 Round）</div>
       <div class="digits" id="digits"></div>
       <div class="expected" id="expected"></div>
     </div>
 
     <!-- 結算面板 -->
     <div class="settle-box" id="settle-box" style="display:none">
-      <div style="font-size:.8rem;color:var(--text2)">交割價</div>
+      <div style="font-size:.8rem;color:var(--text2)">交割價 Delivery Price</div>
       <div class="dp" id="settle-dp">—</div>
-      <div style="font-size:.8rem;color:var(--text2);margin-top:.5rem">你的總損益</div>
+      <div style="font-size:.8rem;color:var(--text2);margin-top:.5rem">你的結算總資產 Your Final Equity</div>
       <div class="pnl" id="settle-pnl">—</div>
     </div>
 
     <div class="card" id="book-card">
-      <div class="card-title">委託簿 <span id="mode-tag" class="phase-tag"></span></div>
+      <div class="card-title">委託簿 Order Book <span id="mode-tag" class="phase-tag"></span></div>
       <div class="book">
         <div class="book-col bids"><h4>買價 BID</h4><div class="olist" id="bids"></div></div>
         <div class="book-col offers"><h4>賣價 OFFER</h4><div class="olist" id="offers"></div></div>
       </div>
 
       <div class="take-row" id="take-row">
-        <button class="btn btn-green" id="btn-take-bid" disabled>賣給最佳買價 <span id="tb-px"></span></button>
-        <button class="btn btn-red" id="btn-take-offer" disabled>買進最佳賣價 <span id="to-px"></span></button>
+        <button class="btn btn-green" id="btn-take-bid" disabled>賣給最佳買價 Sell @bid <span id="tb-px"></span></button>
+        <button class="btn btn-red" id="btn-take-offer" disabled>買進最佳賣價 Buy @offer <span id="to-px"></span></button>
       </div>
 
       <div class="qrow" style="margin-top:.8rem">
         <div class="fg">
-          <label>價格（0–99 整數）</label>
+          <label>價格（0–99 整數） Price (0–99)</label>
           <input type="number" id="in-price" min="0" max="99" placeholder="22">
         </div>
       </div>
       <div class="take-row" style="margin-top:.5rem">
-        <button class="btn btn-green" id="btn-bid">掛買價</button>
-        <button class="btn btn-red" id="btn-offer">掛賣價</button>
+        <button class="btn btn-green" id="btn-bid">掛買價 Post BID</button>
+        <button class="btn btn-red" id="btn-offer">掛賣價 Post OFFER</button>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-title">成交紀錄</div>
-      <div class="trade-list" id="trades"><div class="empty">尚無成交</div></div>
+      <div class="card-title">成交紀錄 Trade History</div>
+      <div class="trade-list" id="trades"><div class="empty">尚無成交 No trades yet</div></div>
     </div>
 
-    <p class="hint"><span class="conn-dot" id="conn-dot"></span> <span id="conn-text">已連線</span></p>
+    <p class="hint"><span class="conn-dot" id="conn-dot"></span> <span id="conn-text">已連線 Connected</span></p>
   </div>
 
 </div>
@@ -192,8 +193,8 @@ function flashTradeAlert(msg,kind='err'){
 $('#btn-join').onclick=()=>{
   code=$('#in-code').value.trim().toUpperCase();
   name=$('#in-name').value.trim();
-  if(!code){showAlert('#join-alert','請輸入房間代碼');return;}
-  if(!name){showAlert('#join-alert','請輸入姓名或學號');return;}
+  if(!code){showAlert('#join-alert','請輸入房間代碼 / Please enter room code');return;}
+  if(!name){showAlert('#join-alert','請輸入姓名或學號 / Please enter name or ID');return;}
   connect();
 };
 $('#in-name').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-join').click();});
@@ -230,7 +231,7 @@ function scheduleReconnect(){
 }
 function setConn(ok){
   $('#conn-dot').classList.toggle('off',!ok);
-  $('#conn-text').textContent=ok?'已連線':'連線中斷，重新連線中…';
+  $('#conn-text').textContent=ok?'已連線 Connected':'連線中斷，重新連線中… Reconnecting…';
 }
 
 // ── 送出 ──
@@ -239,7 +240,7 @@ $('#btn-bid').onclick=()=>quote('bid');
 $('#btn-offer').onclick=()=>quote('offer');
 function quote(side){
   const p=parseInt($('#in-price').value,10);
-  if(isNaN(p)||p<0||p>99){flashTradeAlert('價格需為 0–99 的整數');return;}
+  if(isNaN(p)||p<0||p>99){flashTradeAlert('價格需為 0–99 的整數 / Price must be an integer 0–99');return;}
   send({type:'quote',side,price:p});
   $('#in-price').value='';
 }
@@ -261,17 +262,24 @@ setInterval(()=>{
 },250);
 
 // ── 繪製 ──
-const PHASE_LABEL={lobby:'大廳',open:'交易中',closed:'本輪結束',settled:'已結算'};
+const PHASE_LABEL={lobby:'大廳 Lobby',open:'交易中 Trading',closed:'本輪結束 Round closed',settled:'已結算 Settled'};
 function render(){
   if(!state)return;
-  const me=state.me||{net:0,cash:0,pnl:0};
+  const me=state.me||{net:0,cash:0,pnl:0,available:0};
   $('#my-badge').textContent='🎫 '+(state.me?state.me.badge:myBadge||'—');
   $('#my-net').textContent=me.net;
   $('#my-net').className='v '+(me.net>0?'pos':me.net<0?'neg':'');
   $('#my-cash').textContent=me.cash;
+  // 保證金：啟用時顯示可用資金
+  const marginOn=!!(state.config&&state.config.margin_enabled);
+  $('#stat-avail').style.display=marginOn?'flex':'none';
+  if(marginOn){
+    $('#my-avail').textContent=me.available;
+    $('#my-avail').className='v '+(me.available>0?'pos':me.available<0?'neg':'');
+  }
   $('#phase-tag').textContent=PHASE_LABEL[state.phase]||state.phase;
   $('#round-no').textContent=state.round;
-  $('#mode-tag').textContent=state.mode==='outcry'?'喊價模式':'電子撮合';
+  $('#mode-tag').textContent=state.mode==='outcry'?'嗊價模式 Outcry':'電子撮合 Electronic';
 
   // 數字
   const dg=$('#digits'); dg.innerHTML='';
@@ -287,7 +295,9 @@ function render(){
     const priorSum=revealed.reduce((a,b)=>a+b,0);
     const remaining=5-revealed.length;
     const exp=(priorSum+remaining*4.5).toFixed(1);
-    $('#expected').textContent=`目前預期交割價 ≈ ${exp}（已揭 ${revealed.length} 位，其餘各期望 4.5）`;
+    let txt=`目前預期交割價 ≈ ${exp}（已揭 ${revealed.length} 位，其餘各期望 4.5） / Expected delivery ≈ ${exp}`;
+    if(marginOn) txt+=`　·　每口保證金 Margin/contract: ${state.config.orig_margin}`;
+    $('#expected').textContent=txt;
   }else{ $('#expected').textContent=''; }
 
   // 委託簿
@@ -358,11 +368,11 @@ function orow(o,side,canTrade,outcry){
 function renderTrades(){
   const el=$('#trades');
   const list=(state.trades||[]).slice().reverse().slice(0,30);
-  if(!list.length){el.innerHTML='<div class="empty">尚無成交</div>';return;}
+  if(!list.length){el.innerHTML='<div class="empty">尚無成交 No trades yet</div>';return;}
   el.innerHTML=list.map(t=>{
     let role='';
-    if(t.role==='buy')role='<span class="pill buy">我買進</span>';
-    else if(t.role==='sell')role='<span class="pill sell">我賣出</span>';
+    if(t.role==='buy')role='<span class="pill buy">我買進 Bought</span>';
+    else if(t.role==='sell')role='<span class="pill sell">我賣出 Sold</span>';
     const cp=(t.buyer_badge&&state.mode==='outcry')?`<span class="r">${t.seller_badge}→${t.buyer_badge}</span>`:'';
     return `<div class="trow"><span class="r">R${t.round}</span><span class="px" style="font-weight:700">${t.price}</span>${role}${cp}</div>`;
   }).join('');

@@ -164,6 +164,172 @@
   }
   button.sample:hover:not(:disabled) { background: var(--paper); color: var(--ink); border-color: var(--ink); }
 
+  /* ── Gemini generator panel ── */
+  .gen-section {
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--gold);
+    padding: 1.5rem;
+    border-radius: 2px;
+    margin-bottom: 1.5rem;
+    transition: all 0.3s;
+  }
+  .gen-section.collapsed { padding: 0.75rem 1.5rem; }
+  .gen-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+  .gen-section.collapsed .gen-header { margin-bottom: 0; }
+  .gen-body { transition: all 0.3s; overflow: hidden; }
+  .gen-section.collapsed .gen-body { max-height: 0; margin: 0; }
+
+  /* ── Script Library panel ── */
+  .library-section {
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--green);
+    padding: 1.5rem;
+    border-radius: 2px;
+    margin-bottom: 1.5rem;
+    transition: all 0.3s;
+  }
+  .library-section.collapsed { padding: 0.75rem 1.5rem; }
+  .library-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 0.6rem; }
+  .library-section.collapsed .library-header { margin-bottom: 0; }
+  .library-body { transition: all 0.3s; overflow: hidden; }
+  .library-section.collapsed .library-body { max-height: 0; margin: 0; }
+  .library-actions { display: flex; gap: 0.5rem; align-items: center; }
+  .library-actions .lib-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--ink-whisper);
+    margin-right: 0.4rem;
+  }
+  .library-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 280px;
+    overflow-y: auto;
+    padding-right: 0.4rem;
+  }
+  .library-list::-webkit-scrollbar { width: 4px; }
+  .library-list::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+  .library-empty {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--ink-whisper);
+    text-align: center;
+    padding: 1.2rem 0.5rem;
+    font-style: italic;
+  }
+  .lib-item {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-left: 2px solid transparent;
+    border-radius: 2px;
+    padding: 0.7rem 0.9rem;
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 0.6rem;
+    align-items: center;
+    transition: all 0.2s;
+  }
+  .lib-item:hover { border-left-color: var(--green); }
+  .lib-item .lib-info { min-width: 0; display: flex; flex-direction: column; gap: 0.2rem; }
+  .lib-item .lib-title {
+    font-family: 'Fraunces', serif;
+    font-size: 0.95rem;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+  }
+  .lib-item .lib-title:hover { color: var(--accent); }
+  .lib-item .lib-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--ink-whisper);
+    letter-spacing: 0.05em;
+  }
+  .lib-item button {
+    padding: 0.35rem 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    cursor: pointer;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+  }
+  .lib-item button.del {
+    background: transparent;
+    color: var(--ink-whisper);
+    border: 1px solid var(--line);
+  }
+  .lib-item button.del:hover { color: var(--accent); border-color: var(--accent); }
+  .lib-item button.load-btn:hover { background: var(--green); }
+
+  .gen-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.9rem;
+    margin-bottom: 0.9rem;
+  }
+  .gen-field { display: flex; flex-direction: column; gap: 0.35rem; }
+  .gen-field label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    color: var(--ink-whisper);
+    text-transform: uppercase;
+  }
+  .gen-field input, .gen-field select {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    padding: 0.5rem 0.65rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--ink);
+    outline: none;
+    border-radius: 2px;
+  }
+  .gen-field input:focus, .gen-field select:focus { border-color: var(--ink); }
+
+  .gen-prompt {
+    width: 100%;
+    min-height: 90px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    padding: 0.8rem 1rem;
+    font-family: 'Fraunces', serif;
+    font-size: 0.95rem;
+    color: var(--ink);
+    resize: vertical;
+    outline: none;
+    line-height: 1.6;
+    border-radius: 2px;
+  }
+  .gen-prompt:focus { border-color: var(--ink); }
+
+  .gen-actions { display: flex; gap: 0.75rem; margin-top: 0.9rem; flex-wrap: wrap; align-items: center; }
+  .gen-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--ink-whisper);
+    margin-left: auto;
+  }
+  .gen-status.ok { color: var(--green); }
+  .gen-status.err { color: var(--red); }
+  .gen-status.busy { color: var(--gold); }
+
+  button.gold {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--ink);
+  }
+  button.gold:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: var(--paper); }
+
   .settings {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -522,11 +688,451 @@
   .warning-banner.visible { display: block; }
   .warning-banner strong { color: var(--ink); font-weight: 600; }
 
+  .provider-row {
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 1rem;
+    align-items: center;
+  }
+  .provider-row label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    color: var(--ink-whisper);
+    text-transform: uppercase;
+  }
+  .provider-row select, .provider-row input[type="password"], .provider-row input[type="text"] {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    padding: 0.3rem 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--ink);
+    outline: none;
+    width: 100%;
+  }
+  .provider-row input:focus, .provider-row select:focus { border-bottom-color: var(--ink); }
+  .provider-row .api-key-wrap { display: none; grid-column: 1 / -1; grid-template-columns: auto 1fr auto auto; gap: 0.75rem; align-items: center; }
+  .provider-row.eleven .api-key-wrap { display: grid; }
+  .provider-row .api-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--ink-whisper);
+    white-space: nowrap;
+  }
+  .provider-row .api-status.ok { color: var(--green); }
+  .provider-row .api-status.err { color: var(--red); }
+  .provider-row button.mini {
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 0.4rem 0.9rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+  .provider-row button.mini:hover { background: var(--accent); }
+
+  /* ───── Scoring engine row (Azure pronunciation assessment) ───── */
+  .scoring-row {
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 1rem;
+    align-items: center;
+  }
+  .scoring-row label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    color: var(--ink-whisper);
+    text-transform: uppercase;
+  }
+  .scoring-row select,
+  .scoring-row input[type="password"],
+  .scoring-row input[type="text"] {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    padding: 0.3rem 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--ink);
+    outline: none;
+    width: 100%;
+  }
+  .scoring-row input:focus, .scoring-row select:focus { border-bottom-color: var(--ink); }
+  .scoring-row .azure-config {
+    display: none;
+    grid-column: 1 / -1;
+    grid-template-columns: auto 1.6fr auto 1fr auto;
+    gap: 0.75rem;
+    align-items: center;
+  }
+  .scoring-row.azure .azure-config { display: grid; }
+  .scoring-row .scoring-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--ink-whisper);
+    white-space: nowrap;
+  }
+  .scoring-row .scoring-status.ok { color: var(--green); }
+  .scoring-row .scoring-status.err { color: var(--red); }
+  .scoring-row .scoring-status.busy { color: var(--gold); }
+  .scoring-row button.mini {
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 0.4rem 0.9rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+  .scoring-row button.mini:hover { background: var(--accent); }
+
+  /* ───── YouTube import row ───── */
+  .youtube-row {
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 1rem;
+    align-items: center;
+  }
+  .youtube-row label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    color: var(--ink-whisper);
+    text-transform: uppercase;
+  }
+  .youtube-row input[type="text"] {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    padding: 0.3rem 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--ink);
+    outline: none;
+    width: 100%;
+  }
+  .youtube-row input:focus { border-bottom-color: var(--ink); }
+  .youtube-row button {
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 0.55rem 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  .youtube-row button:hover { background: var(--accent); }
+  .youtube-row .youtube-status {
+    grid-column: 1 / -1;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--ink-whisper);
+  }
+  .youtube-row .youtube-status.ok { color: var(--green); }
+  .youtube-row .youtube-status.err { color: var(--red); }
+  .youtube-row .youtube-status.busy { color: var(--gold); }
+  .youtube-row details.yt-manual {
+    grid-column: 1 / -1;
+    border-top: 1px dashed var(--line);
+    padding-top: 0.75rem;
+    margin-top: 0.15rem;
+  }
+  .youtube-row details.yt-manual summary {
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--ink-soft);
+    user-select: none;
+    margin-bottom: 0.6rem;
+  }
+  .youtube-row .yt-manual-help {
+    font-size: 0.74rem;
+    color: var(--ink-whisper);
+    margin-bottom: 0.55rem;
+  }
+  .youtube-row textarea {
+    width: 100%;
+    min-height: 120px;
+    resize: vertical;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 0.55rem 0.65rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.76rem;
+    color: var(--ink);
+    line-height: 1.45;
+    margin-bottom: 0.55rem;
+  }
+  .youtube-row .yt-manual-actions {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .youtube-row .yt-manual-actions .hint {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--ink-whisper);
+  }
+  .youtube-player-host {
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* ───── 4-score breakdown pills (Azure) ───── */
+  .score-breakdown {
+    display: none;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.6rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--line);
+  }
+  .score-breakdown.visible { display: grid; }
+  .score-pill {
+    text-align: center;
+    padding: 0.7rem 0.4rem;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+  }
+  .score-pill .val {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 1.5rem;
+    line-height: 1;
+    display: block;
+    color: var(--ink);
+  }
+  .score-pill .lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-whisper);
+    margin-top: 0.45rem;
+    display: block;
+  }
+  .score-pill.excellent .val { color: var(--green); }
+  .score-pill.good .val { color: var(--gold); }
+  .score-pill.needs-work .val { color: var(--accent); }
+
+  /* ───── Per-word pronunciation coloring (Azure) ───── */
+  .word.pron-excellent { color: var(--green); border-bottom: 2px solid rgba(74,124,89,0.55); }
+  .word.pron-good { color: var(--gold); border-bottom: 2px solid rgba(200,160,85,0.65); }
+  .word.pron-poor { color: var(--accent); border-bottom: 2px solid rgba(194,59,34,0.55); }
+  .word.pron-omitted { color: var(--ink-whisper); text-decoration: line-through; opacity: 0.55; }
+  .word.pron-inserted { color: var(--accent); font-style: italic; opacity: 0.7; }
+  .word.pron-clickable { cursor: pointer; padding: 1px 3px; border-radius: 2px; }
+  .word.pron-clickable:hover { background: var(--paper-deep); }
+  .word.pron-active { background: rgba(200, 160, 85, 0.28); }
+
+  /* ───── Phoneme detail panel ───── */
+  .phoneme-detail {
+    display: none;
+    margin-top: 1rem;
+    padding: 1rem 1.1rem;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+  }
+  .phoneme-detail.visible { display: block; }
+  .phoneme-detail .word-header {
+    font-family: 'Fraunces', serif;
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin-bottom: 0.8rem;
+    color: var(--ink);
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+  .phoneme-detail .word-header .word-score {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: var(--ink-whisper);
+  }
+  .phoneme-detail .word-header .err-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 2px 7px;
+    border-radius: 2px;
+    background: rgba(194,59,34,0.12);
+    color: var(--accent);
+  }
+  .phoneme-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .phoneme-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.45rem 0.6rem;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    min-width: 38px;
+    background: var(--paper-deep);
+  }
+  .phoneme-cell .ph {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .phoneme-cell .sc {
+    font-size: 0.62rem;
+    margin-top: 3px;
+    color: var(--ink-whisper);
+  }
+  .phoneme-cell.ph-excellent { background: rgba(74,124,89,0.22); }
+  .phoneme-cell.ph-excellent .ph { color: var(--green); }
+  .phoneme-cell.ph-good { background: rgba(200,160,85,0.22); }
+  .phoneme-cell.ph-good .ph { color: var(--gold); }
+  .phoneme-cell.ph-poor { background: rgba(194,59,34,0.18); }
+  .phoneme-cell.ph-poor .ph { color: var(--accent); }
+  .phoneme-cell.clickable { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
+  .phoneme-cell.clickable:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(26,22,18,0.08); }
+  .phoneme-cell.coach-active { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  /* ───── Word play buttons + coaching panel ───── */
+  .word-play-btn {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    padding: 2px 9px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+    font-family: inherit;
+    line-height: 1.2;
+  }
+  .word-play-btn:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .word-play-btn.slow { font-size: 0.78rem; }
+
+  .coaching-panel {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--line);
+    display: none;
+  }
+  .coaching-panel.visible { display: block; }
+  .coaching-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.7rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.8rem;
+  }
+  .coaching-symbol {
+    font-family: 'Fraunces', serif;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .coaching-ipa {
+    font-family: 'Fraunces', serif;
+    font-size: 1.1rem;
+    font-style: italic;
+    color: var(--accent);
+  }
+  .coaching-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--ink-whisper);
+    letter-spacing: 0.05em;
+  }
+  .coaching-row {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 0.6rem;
+    margin-bottom: 0.55rem;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+  }
+  .coaching-row .lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-whisper);
+    padding-top: 4px;
+  }
+  .coaching-row .lbl.warn { color: var(--accent); }
+  .practice-words {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.25rem;
+  }
+  .practice-chip {
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    padding: 0.35rem 0.7rem;
+    border-radius: 14px;
+    font-family: 'Fraunces', serif;
+    font-size: 0.88rem;
+    cursor: pointer;
+    color: var(--ink);
+    transition: all 0.15s;
+  }
+  .practice-chip:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .coaching-tip {
+    margin-top: 0.7rem;
+    padding: 0.55rem 0.8rem;
+    background: rgba(200,160,85,0.08);
+    border-left: 2px solid var(--gold);
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+
   @media (max-width: 680px) {
     .wrapper { padding: 2rem 1.25rem 3rem; }
     .logo { font-size: 1.7rem; }
     .current-sentence { font-size: 1.25rem; }
     .stage { padding: 2rem 1.25rem; min-height: 200px; }
+    .youtube-row,
+    .provider-row,
+    .scoring-row { grid-template-columns: 1fr; }
     .controls-grid { grid-template-columns: 1fr 1fr; }
     .hints { display: none; }
     .transcript-row { grid-template-columns: 1fr; gap: 0.3rem; }
@@ -545,6 +1151,54 @@
       <strong>⚠ Browser notice:</strong> <span id="warningText"></span>
     </div>
 
+    <div class="gen-section collapsed" id="genSection">
+      <div class="gen-header">
+        <span class="input-label">— AI Script Generator (Gemini)</span>
+        <button class="toggle-btn" id="toggleGen">Expand ▼</button>
+      </div>
+      <div class="gen-body">
+        <div class="gen-grid">
+          <div class="gen-field">
+            <label for="geminiKey">Gemini API Key</label>
+            <input type="password" id="geminiKey" placeholder="AIza..." autocomplete="off" spellcheck="false">
+          </div>
+          <div class="gen-field">
+            <label for="geminiModel">Model</label>
+            <select id="geminiModel">
+              <option value="gemini-2.5-flash">gemini-2.5-flash (fast)</option>
+              <option value="gemini-2.5-pro">gemini-2.5-pro (best)</option>
+              <option value="gemini-2.0-flash">gemini-2.0-flash (legacy)</option>
+            </select>
+          </div>
+          <div class="gen-field">
+            <label for="genStyle">Style</label>
+            <select id="genStyle">
+              <option value="lecture">Academic lecture</option>
+              <option value="conference">Conference speech</option>
+              <option value="ted">TED-style talk</option>
+              <option value="conversation">Conversational</option>
+              <option value="news">News broadcast</option>
+              <option value="story">Storytelling</option>
+            </select>
+          </div>
+          <div class="gen-field">
+            <label for="genLength">Length</label>
+            <select id="genLength">
+              <option value="short">Short (~150 words)</option>
+              <option value="medium" selected>Medium (~300 words)</option>
+              <option value="long">Long (~600 words)</option>
+            </select>
+          </div>
+        </div>
+        <textarea class="gen-prompt" id="genPrompt" placeholder="Describe the topic, source material, or rough outline. e.g. 'Explain how bank runs happen, using the SVB 2023 collapse as an example. Target: intermediate ESL listener.'"></textarea>
+        <div class="gen-actions">
+          <button class="gold" id="genBtn">✦ Generate Script</button>
+          <button class="ghost" id="genClearKeyBtn" title="Clear saved API key">Clear key</button>
+          <span class="gen-status" id="genStatus">Idle</span>
+        </div>
+      </div>
+    </div>
+
     <div class="input-section" id="inputSection">
       <div class="input-header">
         <span class="input-label">— Paste your text</span>
@@ -556,6 +1210,39 @@
           <button id="loadBtn">Load Text →</button>
           <button class="ghost" id="clearBtn">Clear</button>
           <button class="sample" id="sampleBtn">Load Sample Speech</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="youtube-row" id="youtubeRow">
+      <label for="youtubeUrlInput">YouTube URL</label>
+      <input type="text" id="youtubeUrlInput" placeholder="https://www.youtube.com/watch?v=..." spellcheck="false">
+      <button id="youtubeLoadBtn">Load YouTube</button>
+      <div class="youtube-status" id="youtubeStatus">Paste a YouTube link to auto-build sentence-by-sentence practice from captions + original audio.</div>
+      <details class="yt-manual" id="ytManualDetails">
+        <summary>Caption blocked? Paste transcript (supports YouTube transcript / SRT / VTT)</summary>
+        <div class="yt-manual-help">Paste lines with timestamps (e.g. 0:00, 01:23 or SRT/VTT format), then click Load From Transcript.</div>
+        <textarea id="ytManualTranscript" placeholder="0:00\nWelcome everyone...\n0:06\nToday we discuss options and futures...\n\n--- or paste SRT/VTT blocks ---"></textarea>
+        <div class="yt-manual-actions">
+          <button id="ytManualLoadBtn">Load From Transcript</button>
+          <span class="hint">Still uses YouTube original audio; transcript is only for sentence timing.</span>
+        </div>
+      </details>
+    </div>
+
+    <div class="library-section collapsed" id="librarySection">
+      <div class="library-header">
+        <span class="input-label">— Script Library (saved locally)</span>
+        <div class="library-actions">
+          <span class="lib-count" id="libCount">0 scripts</span>
+          <button class="toggle-btn" id="saveLibBtn" title="Save current text to library">Save current</button>
+          <button class="toggle-btn" id="clearLibBtn" title="Remove all saved scripts">Clear all</button>
+          <button class="toggle-btn" id="toggleLib">Expand ▼</button>
+        </div>
+      </div>
+      <div class="library-body">
+        <div class="library-list" id="libraryList">
+          <div class="library-empty" id="libraryEmpty">No saved scripts yet. Load any text and it will be saved here automatically.</div>
         </div>
       </div>
     </div>
@@ -578,6 +1265,39 @@
           <input type="range" id="gapRange" min="1000" max="6000" step="250" value="3000">
           <span class="range-value" id="gapValue">3.0s</span>
         </div>
+      </div>
+    </div>
+
+    <div class="provider-row" id="providerRow">
+      <label for="providerSelect">TTS Provider</label>
+      <select id="providerSelect">
+        <option value="browser">Browser (built-in)</option>
+        <option value="elevenlabs">ElevenLabs (API key required)</option>
+      </select>
+      <span class="api-status" id="providerStatus">Browser voices active</span>
+
+      <div class="api-key-wrap">
+        <label for="elevenKey">API Key</label>
+        <input type="password" id="elevenKey" placeholder="sk_..." autocomplete="off" spellcheck="false">
+        <button class="mini" id="elevenLoadBtn">Load voices</button>
+        <button class="mini" id="elevenClearBtn" title="Clear stored key">Clear</button>
+      </div>
+    </div>
+
+    <div class="scoring-row" id="scoringRow">
+      <label for="scoringSelect">Scoring Engine</label>
+      <select id="scoringSelect">
+        <option value="builtin">Built-in (word match · offline)</option>
+        <option value="azure">Azure Speech (phoneme-level · API key)</option>
+      </select>
+      <span class="scoring-status" id="scoringStatus">Built-in scoring active</span>
+
+      <div class="azure-config">
+        <label for="azureKey">Azure Key</label>
+        <input type="password" id="azureKey" placeholder="subscription key" autocomplete="off" spellcheck="false">
+        <label for="azureRegion">Region</label>
+        <input type="text" id="azureRegion" placeholder="eastus" value="eastus" spellcheck="false">
+        <button class="mini" id="azureClearBtn" title="Clear stored key">Clear</button>
       </div>
     </div>
 
@@ -611,6 +1331,10 @@
 
       <div class="feedback-stats" id="feedbackStats"></div>
 
+      <div class="score-breakdown" id="scoreBreakdown"></div>
+
+      <div class="phoneme-detail" id="phonemeDetail"></div>
+
       <div class="feedback-audio" id="feedbackAudio" style="display: none;">
         <span class="transcript-label" style="min-width: auto;">Playback</span>
         <audio id="recordingPlayback" controls></audio>
@@ -629,19 +1353,28 @@
       <span class="hint"><kbd>N</kbd> Next</span>
       <span class="hint"><kbd>R</kbd> Replay audio</span>
       <span class="hint"><kbd>P</kbd> Pause</span>
-      <span class="hint"><kbd>←</kbd> Previous</span>
+      <span class="hint"><kbd>[</kbd> Previous · <kbd>]</kbd> Next</span>
     </div>
 
     <div class="sentence-list" id="sentenceList" style="display: none;">
       <div class="list-header">
         <span class="list-title">— All sentences</span>
-        <span class="list-count" id="listCount">0 sentences</span>
+        <span class="list-count">
+          <span id="memStatus" title="Audio blobs + Azure results held in memory" style="margin-right: 0.8rem; opacity: 0.75;"></span>
+          <a href="#" id="clearCacheBtn" title="Free up memory: revoke audio blobs and Azure results" style="color: var(--ink-whisper); text-decoration: none; border-bottom: 1px dotted var(--ink-whisper); margin-right: 0.8rem;">Clear cache</a>
+          <span id="listCount">0 sentences</span>
+        </span>
       </div>
       <div class="sentences" id="sentencesContainer"></div>
     </div>
 
+    <div class="youtube-player-host" id="youtubePlayerHost">
+      <div id="youtubePlayer"></div>
+    </div>
+
   </div>
 
+<script src="https://www.youtube.com/iframe_api"></script>
 <script>
   let sentences = [];
   let scores = {};
@@ -658,12 +1391,70 @@
   let audioChunks = [];
   let currentUserTranscript = '';
   let audioStream = null;
+  let sourceMode = 'text'; // 'text' | 'youtube'
+  let sentenceTimings = []; // [{start,end}] for youtube mode
+  let youtubeVideoId = null;
+  let ytPlayer = null;
+  let ytReady = false;
+  let ytSegmentTimer = null;
+
+  // True the moment the user *intends* to record (set in startRecording before any
+  // async wait). Stays true through the recording. Cleared in stopRecording.
+  // Used by TTS onend / autoReplayTimer to avoid speaking over a take.
+  let wantsToRecord = false;
+
+  // ── Memory hygiene ──
+  const RECORDING_CAP = 25;          // keep at most N audio blobs alive
+  const AZURE_RESULT_CAP = 60;       // keep at most N Azure scoring results
+  let recognitionRestartCount = 0;
+  let recognitionRestartWindow = 0;
+  let azureInflight = false;
+  let speakTextInflight = false;
+
+  function revokeRecording(idx) {
+    const url = recordings[idx];
+    if (url) { try { URL.revokeObjectURL(url); } catch (_) {} }
+    delete recordings[idx];
+  }
+  function revokeAllRecordings() {
+    Object.keys(recordings).forEach(k => revokeRecording(k));
+    recordings = {};
+  }
+  function trimRecordings() {
+    const keys = Object.keys(recordings).map(Number).sort((a, b) => a - b);
+    if (keys.length <= RECORDING_CAP) return;
+    // Keep the most-recently-added (highest idx) and the current one
+    const keep = new Set(keys.slice(-RECORDING_CAP));
+    keep.add(currentIdx);
+    keys.forEach(k => { if (!keep.has(k)) revokeRecording(k); });
+  }
+  function trimAzureResults() {
+    const keys = Object.keys(azureResults || {}).map(Number).sort((a, b) => a - b);
+    if (keys.length <= AZURE_RESULT_CAP) return;
+    const keep = new Set(keys.slice(-AZURE_RESULT_CAP));
+    keep.add(currentIdx);
+    keys.forEach(k => { if (!keep.has(k)) delete azureResults[k]; });
+  }
+  function memoryStatusText() {
+    const rec = Object.keys(recordings).length;
+    const az = Object.keys(azureResults || {}).length;
+    return `${rec} recording${rec === 1 ? '' : 's'} · ${az} scored`;
+  }
+  function updateMemoryStatus() {
+    if (memStatusEl) memStatusEl.textContent = memoryStatusText();
+  }
 
   const $ = id => document.getElementById(id);
   const textInput = $('textInput');
   const loadBtn = $('loadBtn');
   const clearBtn = $('clearBtn');
   const sampleBtn = $('sampleBtn');
+  const youtubeUrlInput = $('youtubeUrlInput');
+  const youtubeLoadBtn = $('youtubeLoadBtn');
+  const youtubeStatus = $('youtubeStatus');
+  const ytManualDetails = $('ytManualDetails');
+  const ytManualTranscript = $('ytManualTranscript');
+  const ytManualLoadBtn = $('ytManualLoadBtn');
   const voiceSelect = $('voiceSelect');
   const rateRange = $('rateRange');
   const rateValue = $('rateValue');
@@ -681,6 +1472,8 @@
   const sentenceList = $('sentenceList');
   const listCount = $('listCount');
   const sentencesContainer = $('sentencesContainer');
+  const memStatusEl = $('memStatus');
+  const clearCacheBtn = $('clearCacheBtn');
   const toggleInput = $('toggleInput');
   const inputSection = $('inputSection');
   const feedbackPanel = $('feedbackPanel');
@@ -693,10 +1486,611 @@
   const recordingPlayback = $('recordingPlayback');
   const warningBanner = $('warningBanner');
   const warningText = $('warningText');
+  const scoreBreakdown = $('scoreBreakdown');
+  const phonemeDetail = $('phonemeDetail');
+
+  // ───── Diagnostic: track who hides phonemeDetail ─────
+  // Watches the visible class and shows in the warning banner who removed it,
+  // so we can pinpoint the actual call site instead of guessing.
+  (() => {
+    let wasVisible = false;
+    const obs = new MutationObserver(() => {
+      const nowVisible = phonemeDetail.classList.contains('visible');
+      if (wasVisible && !nowVisible) {
+        try {
+          const stack = (new Error()).stack || '';
+          const frames = stack.split('\n').slice(2, 6).map(l => l.trim().replace(/^at /, '')).join(' ← ');
+          warningBanner.classList.add('visible');
+          warningText.textContent = `[debug] phoneme panel hidden by: ${frames.slice(0, 400)}`;
+          console.warn('phonemeDetail hidden — stack:', stack);
+        } catch (_) {}
+      }
+      wasVisible = nowVisible;
+    });
+    obs.observe(phonemeDetail, { attributes: true, attributeFilter: ['class'] });
+  })();
+  // ───── end diagnostic ─────
+
+  function setYouTubeStatus(text, cls) {
+    youtubeStatus.textContent = text;
+    youtubeStatus.classList.remove('ok', 'err', 'busy');
+    if (cls) youtubeStatus.classList.add(cls);
+  }
+
+  function parseYouTubeTimestampToSeconds(raw) {
+    const s = String(raw || '').trim();
+    if (!s) return 0;
+    if (/^\d+$/.test(s)) return Math.max(0, parseInt(s, 10));
+    // Supports "1h2m3s" / "2m10s" / "45s"
+    const m = s.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i);
+    if (m) {
+      const h = parseInt(m[1] || '0', 10);
+      const min = parseInt(m[2] || '0', 10);
+      const sec = parseInt(m[3] || '0', 10);
+      return Math.max(0, h * 3600 + min * 60 + sec);
+    }
+    return 0;
+  }
+
+  function parseYouTubeVideoId(urlOrId) {
+    const s = String(urlOrId || '').trim();
+    if (!s) return { videoId: null, startSec: 0 };
+    if (/^[A-Za-z0-9_-]{11}$/.test(s)) return { videoId: s, startSec: 0 };
+    try {
+      const u = new URL(s);
+      const tRaw = u.searchParams.get('t') || u.searchParams.get('start') || '';
+      const startSec = parseYouTubeTimestampToSeconds(tRaw);
+      if (u.hostname.includes('youtu.be')) {
+        const id = u.pathname.split('/').filter(Boolean)[0] || '';
+        return /^[A-Za-z0-9_-]{11}$/.test(id) ? { videoId: id, startSec } : { videoId: null, startSec: 0 };
+      }
+      const v = u.searchParams.get('v') || '';
+      if (/^[A-Za-z0-9_-]{11}$/.test(v)) return { videoId: v, startSec };
+      const seg = u.pathname.split('/').filter(Boolean);
+      const embedIdx = seg.findIndex(x => x === 'embed' || x === 'shorts' || x === 'live');
+      if (embedIdx >= 0 && seg[embedIdx + 1] && /^[A-Za-z0-9_-]{11}$/.test(seg[embedIdx + 1])) {
+        return { videoId: seg[embedIdx + 1], startSec };
+      }
+    } catch (_) {}
+    return { videoId: null, startSec: 0 };
+  }
+
+  function decodeHtmlEntities(s) {
+    const t = document.createElement('textarea');
+    t.innerHTML = s;
+    return t.value;
+  }
+
+  function normalizeCaptionText(raw) {
+    return decodeHtmlEntities(String(raw || ''))
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\[[^\]]+\]/g, ' ')
+      .replace(/\([^)]*music[^)]*\)/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  async function fetchTextWithFallback(urls) {
+    const errors = [];
+    for (const url of urls) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const txt = await res.text();
+        if (txt && txt.trim()) return { text: txt, source: url };
+        errors.push(`${url} -> empty response`);
+      } catch (e) {
+        const msg = (e && e.message) ? e.message : String(e);
+        errors.push(`${url} -> ${msg}`);
+      }
+    }
+    const err = new Error(errors.join(' | '));
+    err.details = errors;
+    throw err;
+  }
+
+  async function fetchInvidiousCaptions(videoId) {
+    // Public fallback when youtube timedtext is CORS-blocked in file:// context.
+    const inst = 'https://inv.nadeko.net';
+    const listUrl = `${inst}/api/v1/captions/${encodeURIComponent(videoId)}`;
+    const listRes = await fetch(listUrl);
+    if (!listRes.ok) throw new Error(`Invidious list HTTP ${listRes.status}`);
+    const list = await listRes.json();
+    const caps = Array.isArray(list.captions) ? list.captions : [];
+    if (!caps.length) throw new Error('Invidious returned no captions');
+
+    const cap =
+      caps.find(c => /english/i.test(c.label || '')) ||
+      caps.find(c => /^en(-|$)/i.test(c.languageCode || '')) ||
+      caps[0];
+    const rel = cap.url || '';
+    if (!rel) throw new Error('Invidious caption URL missing');
+    const capUrl = rel.startsWith('http') ? rel : `${inst}${rel}`;
+    const capRes = await fetch(capUrl);
+    if (!capRes.ok) throw new Error(`Invidious captions HTTP ${capRes.status}`);
+    const body = await capRes.text();
+    if (!body || !body.trim()) throw new Error('Invidious caption track is empty');
+
+    // Invidious serves XML-ish format similar to timedtext
+    const doc = new DOMParser().parseFromString(body, 'text/xml');
+    const cueNodes = Array.from(doc.getElementsByTagName('text'));
+    const cues = cueNodes.map(n => {
+      const start = parseFloat(n.getAttribute('start') || '0');
+      const dur = parseFloat(n.getAttribute('dur') || '0');
+      const text = normalizeCaptionText(n.textContent || '');
+      return { start, dur, end: start + Math.max(0.2, dur), text };
+    }).filter(c => c.text && Number.isFinite(c.start) && Number.isFinite(c.end));
+    if (!cues.length) throw new Error('Invidious captions parsed to zero cues');
+    return cues;
+  }
+
+  async function fetchYouTubeCaptions(videoId) {
+    const listBase = `https://www.youtube.com/api/timedtext?type=list&v=${encodeURIComponent(videoId)}`;
+    const listUrls = [
+      listBase,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(listBase)}`,
+      `https://cors.isomorphic-git.org/${listBase}`
+    ];
+
+    const { text: listXml } = await fetchTextWithFallback(listUrls);
+    const listDoc = new DOMParser().parseFromString(listXml, 'text/xml');
+    const tracks = Array.from(listDoc.getElementsByTagName('track')).map(t => ({
+      lang: t.getAttribute('lang_code') || '',
+      name: t.getAttribute('name') || '',
+      kind: t.getAttribute('kind') || '',
+      isAsr: t.getAttribute('kind') === 'asr'
+    }));
+
+    if (!tracks.length) {
+      // Try direct ASR fallbacks even if track list is blocked/empty
+      const asrLangs = ['en', 'en-US'];
+      for (const lang of asrLangs) {
+        try {
+          const asrBase = `https://www.youtube.com/api/timedtext?v=${encodeURIComponent(videoId)}&lang=${encodeURIComponent(lang)}&kind=asr`;
+          const { text: asrXml } = await fetchTextWithFallback([
+            asrBase,
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(asrBase)}`
+          ]);
+          const asrDoc = new DOMParser().parseFromString(asrXml, 'text/xml');
+          const asrNodes = Array.from(asrDoc.getElementsByTagName('text'));
+          const asrCues = asrNodes.map(n => {
+            const start = parseFloat(n.getAttribute('start') || '0');
+            const dur = parseFloat(n.getAttribute('dur') || '0');
+            const text = normalizeCaptionText(n.textContent || '');
+            return { start, dur, end: start + Math.max(0.2, dur), text };
+          }).filter(c => c.text && Number.isFinite(c.start) && Number.isFinite(c.end));
+          if (asrCues.length) return asrCues;
+        } catch (_) {}
+      }
+
+      // Final fallback: invidious mirror
+      try {
+        return await fetchInvidiousCaptions(videoId);
+      } catch (_) {}
+
+      throw new Error('No accessible captions found. This video may have subtitles disabled/private, or browser CORS blocked caption endpoints.');
+    }
+
+    const track =
+      tracks.find(t => /^en(-|$)/i.test(t.lang) && !t.isAsr) ||
+      tracks.find(t => /^en(-|$)/i.test(t.lang)) ||
+      tracks.find(t => !t.isAsr) ||
+      tracks[0];
+
+    const p = new URLSearchParams({ v: videoId, lang: track.lang });
+    if (track.name) p.set('name', track.name);
+    if (track.kind) p.set('kind', track.kind);
+    const capBase = `https://www.youtube.com/api/timedtext?${p.toString()}`;
+    const capUrls = [
+      capBase,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(capBase)}`,
+      `https://cors.isomorphic-git.org/${capBase}`
+    ];
+    const { text: capXml } = await fetchTextWithFallback(capUrls);
+    const capDoc = new DOMParser().parseFromString(capXml, 'text/xml');
+    const cueNodes = Array.from(capDoc.getElementsByTagName('text'));
+
+    const cues = cueNodes.map(n => {
+      const start = parseFloat(n.getAttribute('start') || '0');
+      const dur = parseFloat(n.getAttribute('dur') || '0');
+      const text = normalizeCaptionText(n.textContent || '');
+      return { start, dur, end: start + Math.max(0.2, dur), text };
+    }).filter(c => c.text && Number.isFinite(c.start) && Number.isFinite(c.end));
+
+    if (!cues.length) {
+      try {
+        return await fetchInvidiousCaptions(videoId);
+      } catch (_) {}
+      throw new Error('Caption track is empty or inaccessible for this video');
+    }
+    return cues;
+  }
+
+  function cuesToSentenceChunks(cues) {
+    const out = [];
+    let curText = '';
+    let curStart = 0;
+    let curEnd = 0;
+
+    const flush = () => {
+      const text = curText.trim();
+      if (!text) return;
+      const words = text.split(/\s+/).filter(Boolean).length;
+      if (words < 2) return;
+      out.push({ text, start: curStart, end: Math.max(curStart + 0.6, curEnd) });
+    };
+
+    cues.forEach((c, idx) => {
+      if (!curText) {
+        curText = c.text;
+        curStart = c.start;
+        curEnd = c.end;
+      } else {
+        curText += (/[\-\u2014]$/.test(curText) ? '' : ' ') + c.text;
+        curEnd = c.end;
+      }
+
+      const words = curText.split(/\s+/).filter(Boolean).length;
+      const duration = curEnd - curStart;
+      const hasTerminal = /[.!?。！？]$/.test(curText);
+      const nextGap = idx < cues.length - 1 ? (cues[idx + 1].start - c.end) : 0;
+      const hardBreak = nextGap > 1.2;
+
+      if (hasTerminal || duration >= 8 || words >= 24 || hardBreak) {
+        flush();
+        curText = '';
+        curStart = 0;
+        curEnd = 0;
+      }
+    });
+
+    if (curText) flush();
+    return out;
+  }
+
+  function timestampToSecondsFlexible(raw) {
+    const s = String(raw || '').trim().replace(',', '.');
+    if (!s) return null;
+    if (/^\d+(?:\.\d+)?$/.test(s)) return parseFloat(s);
+    const parts = s.split(':').map(x => x.trim());
+    if (parts.some(x => !/^\d+(?:\.\d+)?$/.test(x))) return null;
+    if (parts.length === 2) {
+      const mm = parseFloat(parts[0]);
+      const ss = parseFloat(parts[1]);
+      return mm * 60 + ss;
+    }
+    if (parts.length === 3) {
+      const hh = parseFloat(parts[0]);
+      const mm = parseFloat(parts[1]);
+      const ss = parseFloat(parts[2]);
+      return hh * 3600 + mm * 60 + ss;
+    }
+    return null;
+  }
+
+  function parseCuesFromSrtOrVtt(raw) {
+    const lines = String(raw || '').replace(/\r/g, '').split('\n');
+    const cues = [];
+    const timeRangeRe = new RegExp('^(\\\\d{1,2}:\\\\d{2}(?::\\\\d{2})?(?:[.,]\\\\d+)?)\\\\s*-->\\\\s*(\\\\d{1,2}:\\\\d{2}(?::\\\\d{2})?(?:[.,]\\\\d+)?)');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      const m = line.match(timeRangeRe);
+      if (!m) continue;
+      const start = timestampToSecondsFlexible(m[1]);
+      const end = timestampToSecondsFlexible(m[2]);
+      if (start == null || end == null || end <= start) continue;
+
+      const textLines = [];
+      let j = i + 1;
+      while (j < lines.length && lines[j].trim() !== '') {
+        textLines.push(lines[j]);
+        j++;
+      }
+      const text = normalizeCaptionText(textLines.join(' '));
+      if (text) cues.push({ start, dur: end - start, end, text });
+      i = j;
+    }
+    return cues;
+  }
+
+  function parseCuesFromYoutubeTranscriptText(raw) {
+    const lines = String(raw || '').replace(/\r/g, '').split('\n').map(l => l.trim()).filter(Boolean);
+    const cues = [];
+    for (let i = 0; i < lines.length; i++) {
+      const t = timestampToSecondsFlexible(lines[i]);
+      if (t == null) continue;
+      const textLines = [];
+      let j = i + 1;
+      while (j < lines.length && timestampToSecondsFlexible(lines[j]) == null) {
+        textLines.push(lines[j]);
+        j++;
+      }
+      const text = normalizeCaptionText(textLines.join(' '));
+      if (!text) { i = j - 1; continue; }
+      const nextT = (j < lines.length) ? timestampToSecondsFlexible(lines[j]) : null;
+      const end = (nextT != null && nextT > t) ? nextT : (t + 3.0);
+      cues.push({ start: t, dur: Math.max(0.2, end - t), end, text });
+      i = j - 1;
+    }
+    return cues;
+  }
+
+  function parseManualTranscriptCues(raw) {
+    const srt = parseCuesFromSrtOrVtt(raw);
+    if (srt.length) return srt;
+    const yt = parseCuesFromYoutubeTranscriptText(raw);
+    if (yt.length) return yt;
+    return [];
+  }
+
+  async function activateYouTubeChunks(videoId, chunks, statusPrefix) {
+    sentences = chunks.map(c => c.text);
+    sentenceTimings = chunks.map(c => ({ start: c.start, end: c.end }));
+    sourceMode = 'youtube';
+    youtubeVideoId = videoId;
+    scores = {};
+    currentIdx = 0;
+    revokeAllRecordings();
+    azureResults = {};
+    updateMemoryStatus();
+
+    await ensureYouTubePlayer(videoId);
+
+    renderSentenceList();
+    sentenceList.style.display = 'block';
+    listCount.textContent = `${sentences.length} sentence${sentences.length > 1 ? 's' : ''}`;
+    nextBtn.disabled = false;
+    replayBtn.disabled = false;
+    pauseBtn.disabled = false;
+    recordBtn.disabled = !(hasRecognition || hasRecorder);
+    inputSection.classList.add('collapsed');
+    toggleInput.textContent = 'Expand ▼';
+    feedbackPanel.classList.remove('visible');
+    persistState();
+
+    setYouTubeStatus(`${statusPrefix} ${sentences.length} sentence chunks.`, 'ok');
+    playSentence(0);
+  }
+
+  function ensureYouTubePlayer(videoId) {
+    return new Promise((resolve, reject) => {
+      const startTimeout = setTimeout(() => reject(new Error('YouTube player init timed out')), 12000);
+      const create = () => {
+        try {
+          if (ytPlayer && ytReady) {
+            try { ytPlayer.loadVideoById(videoId, 0); } catch (_) {}
+            clearTimeout(startTimeout);
+            resolve();
+            return;
+          }
+
+          ytPlayer = new YT.Player('youtubePlayer', {
+            height: '1',
+            width: '1',
+            videoId,
+            playerVars: {
+              autoplay: 0,
+              controls: 0,
+              disablekb: 1,
+              modestbranding: 1,
+              rel: 0,
+              playsinline: 1
+            },
+            events: {
+              onReady: () => {
+                ytReady = true;
+                clearTimeout(startTimeout);
+                resolve();
+              },
+              onError: (e) => {
+                clearTimeout(startTimeout);
+                reject(new Error(`YouTube player error: ${e.data}`));
+              }
+            }
+          });
+        } catch (e) {
+          clearTimeout(startTimeout);
+          reject(e);
+        }
+      };
+
+      if (window.YT && window.YT.Player) {
+        create();
+        return;
+      }
+
+      const prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
+        try { if (typeof prev === 'function') prev(); } catch (_) {}
+        create();
+      };
+    });
+  }
+
+  function stopYouTubePlayback() {
+    clearInterval(ytSegmentTimer);
+    ytSegmentTimer = null;
+    if (ytPlayer && ytReady) {
+      try { ytPlayer.pauseVideo(); } catch (_) {}
+    }
+    isPlaying = false;
+  }
+
+  function applyYouTubeRate() {
+    if (!ytPlayer || !ytReady) return;
+    const desired = parseFloat(rateRange.value);
+    try {
+      const available = ytPlayer.getAvailablePlaybackRates();
+      if (!Array.isArray(available) || !available.length) return;
+      const closest = available.reduce((best, x) =>
+        Math.abs(x - desired) < Math.abs(best - desired) ? x : best
+      , available[0]);
+      ytPlayer.setPlaybackRate(closest);
+    } catch (_) {}
+  }
+
+  function speakCurrentYouTube() {
+    if (!ytPlayer || !ytReady) {
+      statusText.textContent = 'YouTube player still loading…';
+      return;
+    }
+    if (currentIdx < 0 || currentIdx >= sentenceTimings.length) {
+      statusText.textContent = 'No segment timing for this sentence.';
+      return;
+    }
+    const seg = sentenceTimings[currentIdx];
+    if (!seg) return;
+
+    clearInterval(ytSegmentTimer);
+    ytSegmentTimer = null;
+    applyYouTubeRate();
+
+    statusDot.classList.remove('paused', 'recording', 'success');
+    statusDot.classList.add('playing');
+    statusText.textContent = 'Listening (YouTube) · Get ready to speak';
+    isPlaying = true;
+
+    try {
+      ytPlayer.seekTo(Math.max(0, seg.start - 0.02), true);
+      ytPlayer.playVideo();
+    } catch (_) {}
+
+    ytSegmentTimer = setInterval(() => {
+      if (!ytPlayer || !ytReady) return;
+      let t = 0;
+      try { t = ytPlayer.getCurrentTime(); } catch (_) {}
+      if (t >= seg.end) {
+        clearInterval(ytSegmentTimer);
+        ytSegmentTimer = null;
+        try { ytPlayer.pauseVideo(); } catch (_) {}
+        isPlaying = false;
+        statusDot.classList.remove('playing');
+        statusText.textContent = 'Your turn · Press Space to record';
+
+        if (!isPaused && !wantsToRecord && !isRecording && scores[currentIdx] === undefined) {
+          clearTimeout(autoReplayTimer);
+          autoReplayTimer = setTimeout(() => {
+            if (!isPaused && !wantsToRecord && !isRecording) speakCurrent();
+          }, parseInt(gapRange.value));
+        }
+      }
+    }, 80);
+  }
+
+  async function loadYouTubePractice() {
+    const parsed = parseYouTubeVideoId(youtubeUrlInput.value);
+    const videoId = parsed.videoId;
+    const startSec = parsed.startSec || 0;
+    if (!videoId) {
+      setYouTubeStatus('Invalid YouTube URL (or ID).', 'err');
+      return;
+    }
+
+    setYouTubeStatus('Fetching captions from YouTube…', 'busy');
+    try {
+      const cues = await fetchYouTubeCaptions(videoId);
+      let chunks = cuesToSentenceChunks(cues);
+      if (startSec > 0) {
+        chunks = chunks.filter(c => c.end >= startSec);
+      }
+      if (!chunks.length) throw new Error('Could not build sentence chunks from captions at this timestamp.');
+      await activateYouTubeChunks(videoId, chunks, 'Loaded from YouTube captions:');
+    } catch (e) {
+      console.error('YouTube load failed:', e);
+      const msg = (e && e.message) || String(e);
+      const details = Array.isArray(e && e.details) ? e.details.join(' | ') : '';
+
+      if (/No accessible captions found|subtitles disabled|Caption track is empty|inaccessible/i.test(msg)) {
+        setYouTubeStatus('Failed: this video does not expose readable captions to web clients. Try another video with public subtitles, or switch to text mode.', 'err');
+        return;
+      }
+
+      if (/Failed to fetch/i.test(msg)) {
+        if (location.protocol === 'file:') {
+          setYouTubeStatus('Failed: browser blocked cross-origin caption fetch on file://. Start a local server and open http://localhost:5500/shadow_reading_3.html', 'err');
+        } else {
+          setYouTubeStatus('Failed: caption endpoints are blocked or unreachable from this network/browser. Try VPN/another network, or another video with public captions.', 'err');
+        }
+        ytManualDetails.open = true;
+        return;
+      }
+
+      setYouTubeStatus(`Failed: ${msg}${details ? ' | ' + details.slice(0, 260) : ''}`, 'err');
+      ytManualDetails.open = true;
+    }
+  }
+
+  async function loadYouTubePracticeFromManualTranscript() {
+    const parsed = parseYouTubeVideoId(youtubeUrlInput.value);
+    const videoId = parsed.videoId;
+    const startSec = parsed.startSec || 0;
+    if (!videoId) {
+      setYouTubeStatus('Please enter a valid YouTube URL first.', 'err');
+      return;
+    }
+
+    const raw = (ytManualTranscript.value || '').trim();
+    if (!raw) {
+      setYouTubeStatus('Paste transcript text with timestamps first.', 'err');
+      return;
+    }
+
+    setYouTubeStatus('Parsing pasted transcript…', 'busy');
+    try {
+      const cues = parseManualTranscriptCues(raw);
+      if (!cues.length) {
+        throw new Error('No timestamps detected. Paste YouTube transcript lines (0:00 + text) or SRT/VTT blocks.');
+      }
+      let chunks = cuesToSentenceChunks(cues);
+      if (startSec > 0) chunks = chunks.filter(c => c.end >= startSec);
+      if (!chunks.length) throw new Error('No usable sentence chunks after timestamp filter.');
+
+      await activateYouTubeChunks(videoId, chunks, 'Loaded from pasted transcript:');
+    } catch (e) {
+      setYouTubeStatus(`Failed: ${(e && e.message) || String(e)}`, 'err');
+    }
+  }
+
+  const providerRow = $('providerRow');
+  const providerSelect = $('providerSelect');
+  const providerStatus = $('providerStatus');
+  const elevenKey = $('elevenKey');
+  const elevenLoadBtn = $('elevenLoadBtn');
+  const elevenClearBtn = $('elevenClearBtn');
+
+  const scoringRow = $('scoringRow');
+  const scoringSelect = $('scoringSelect');
+  const scoringStatus = $('scoringStatus');
+  const azureKey = $('azureKey');
+  const azureRegion = $('azureRegion');
+  const azureClearBtn = $('azureClearBtn');
+
+  // ───── TTS provider state ─────
+  let ttsProvider = 'browser'; // 'browser' | 'elevenlabs'
+  let elevenVoices = [];       // [{voice_id, name, labels, preview_url}]
+  let elevenSelectedId = null;
+  let elevenAudio = null;      // active <audio> element for ElevenLabs playback
+
+  const ELEVEN_KEY_STORAGE = 'shadowread_eleven_key';
+  const ELEVEN_VOICE_STORAGE = 'shadowread_eleven_voice';
+  const ELEVEN_PROVIDER_STORAGE = 'shadowread_tts_provider';
+
+  // Restore saved provider + key
+  try {
+    const savedKey = localStorage.getItem(ELEVEN_KEY_STORAGE);
+    if (savedKey) elevenKey.value = savedKey;
+    const savedProvider = localStorage.getItem(ELEVEN_PROVIDER_STORAGE);
+    if (savedProvider === 'elevenlabs') providerSelect.value = 'elevenlabs';
+  } catch (_) {}
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const hasRecognition = !!SpeechRecognition;
   const hasRecorder = !!(navigator.mediaDevices && window.MediaRecorder);
+
+  if (location.protocol === 'file:') {
+    warningBanner.classList.add('visible');
+    warningText.textContent = 'Tip: YouTube import can fail on file:// due to CORS. Use a local server (python -m http.server 5500) and open http://localhost:5500/shadow_reading_3.html';
+  }
 
   if (!hasRecognition && !hasRecorder) {
     warningBanner.classList.add('visible');
@@ -706,17 +2100,43 @@
     warningText.textContent = 'Speech recognition unavailable (try Chrome/Edge). Recording works, but auto-scoring is disabled.';
   }
 
-  function loadVoices() {
-    voices = speechSynthesis.getVoices();
-    const englishVoices = voices.filter(v => v.lang.startsWith('en'));
-    voiceSelect.innerHTML = '';
+  const hasTTS = 'speechSynthesis' in window;
+  let voicesLoaded = false;
+  let voicePollTimer = null;
+  let voicePollCount = 0;
 
-    if (englishVoices.length === 0) {
-      const opt = document.createElement('option');
-      opt.textContent = 'Loading voices...';
-      voiceSelect.appendChild(opt);
+  function loadVoices() {
+    if (!hasTTS) {
+      if (ttsProvider !== 'elevenlabs') {
+        voiceSelect.innerHTML = '';
+        const opt = document.createElement('option');
+        opt.textContent = 'Text-to-speech not supported in this browser';
+        opt.disabled = true;
+        voiceSelect.appendChild(opt);
+      }
+      warningBanner.classList.add('visible');
+      warningText.textContent = 'Browser text-to-speech is not supported. ElevenLabs is still available with an API key.';
       return;
     }
+
+    voices = speechSynthesis.getVoices() || [];
+    const englishVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+
+    if (englishVoices.length === 0) {
+      if (ttsProvider !== 'elevenlabs') {
+        voiceSelect.innerHTML = '';
+        const opt = document.createElement('option');
+        opt.textContent = voicePollCount < 20 ? 'Loading voices…' : 'No English voices found — tap anywhere to retry';
+        opt.disabled = true;
+        voiceSelect.appendChild(opt);
+      }
+      return;
+    }
+
+    voicesLoaded = true;
+    if (voicePollTimer) { clearInterval(voicePollTimer); voicePollTimer = null; }
+
+    const prevName = selectedVoice ? selectedVoice.name : null;
 
     const priorityNames = ['Samantha', 'Daniel', 'Karen', 'Google US English', 'Microsoft Aria', 'Microsoft Jenny', 'Alex'];
     const sorted = englishVoices.sort((a, b) => {
@@ -728,30 +2148,1031 @@
       return a.name.localeCompare(b.name);
     });
 
-    sorted.forEach(v => {
-      const opt = document.createElement('option');
-      opt.value = v.name;
-      opt.textContent = `${v.name} (${v.lang})`;
-      voiceSelect.appendChild(opt);
-    });
+    // Prefer a local (offline) voice as default — network voices often fail silently.
+    const restored = prevName && sorted.find(v => v.name === prevName);
+    const localDefault = sorted.find(v => v.localService);
+    selectedVoice = restored || localDefault || sorted[0];
 
-    selectedVoice = sorted[0];
-    voiceSelect.value = selectedVoice.name;
+    // Only paint the dropdown when the user is actually on the browser provider.
+    if (ttsProvider !== 'elevenlabs') {
+      voiceSelect.innerHTML = '';
+      sorted.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.name;
+        const tag = v.localService ? '· local' : '· online';
+        opt.textContent = `${v.name} (${v.lang}) ${tag}`;
+        voiceSelect.appendChild(opt);
+      });
+      voiceSelect.value = selectedVoice.name;
+    }
   }
 
-  speechSynthesis.onvoiceschanged = loadVoices;
-  loadVoices();
+  if (hasTTS) {
+    speechSynthesis.onvoiceschanged = loadVoices;
+    loadVoices();
+    // Some browsers (Firefox, certain mobile builds) never fire onvoiceschanged.
+    // Poll up to ~10 seconds to populate the list.
+    voicePollTimer = setInterval(() => {
+      voicePollCount++;
+      if (voicesLoaded || voicePollCount > 20) {
+        clearInterval(voicePollTimer);
+        voicePollTimer = null;
+        return;
+      }
+      loadVoices();
+    }, 500);
+
+    // iOS Safari only initializes voices after a user gesture.
+    const kickVoices = () => {
+      if (!voicesLoaded) {
+        try { speechSynthesis.cancel(); } catch (_) {}
+        loadVoices();
+      }
+    };
+    document.addEventListener('click', kickVoices, { once: false, passive: true });
+    document.addEventListener('touchstart', kickVoices, { once: false, passive: true });
+  } else {
+    loadVoices();
+  }
 
   voiceSelect.addEventListener('change', () => {
-    selectedVoice = voices.find(v => v.name === voiceSelect.value);
+    if (ttsProvider === 'elevenlabs') {
+      elevenSelectedId = voiceSelect.value;
+      try { localStorage.setItem(ELEVEN_VOICE_STORAGE, elevenSelectedId); } catch (_) {}
+    } else {
+      selectedVoice = voices.find(v => v.name === voiceSelect.value) || selectedVoice;
+    }
   });
+
+  // ───── ElevenLabs integration ─────
+  function setProviderStatus(text, kind) {
+    providerStatus.textContent = text;
+    providerStatus.classList.remove('ok', 'err');
+    if (kind) providerStatus.classList.add(kind);
+  }
+
+  function applyProviderClass() {
+    providerRow.classList.toggle('eleven', ttsProvider === 'elevenlabs');
+  }
+
+  function populateBrowserVoicesIntoSelect() {
+    voiceSelect.innerHTML = '';
+    if (!voices || voices.length === 0) { loadVoices(); return; }
+    const englishVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+    englishVoices.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.name;
+      const tag = v.localService ? '· local' : '· online';
+      opt.textContent = `${v.name} (${v.lang}) ${tag}`;
+      voiceSelect.appendChild(opt);
+    });
+    if (selectedVoice) voiceSelect.value = selectedVoice.name;
+  }
+
+  function populateElevenVoicesIntoSelect() {
+    voiceSelect.innerHTML = '';
+    if (elevenVoices.length === 0) {
+      const opt = document.createElement('option');
+      opt.textContent = 'Enter API key and click "Load voices"';
+      opt.disabled = true;
+      voiceSelect.appendChild(opt);
+      return;
+    }
+    elevenVoices.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.voice_id;
+      const accent = (v.labels && (v.labels.accent || v.labels.description)) || '';
+      opt.textContent = accent ? `${v.name} — ${accent}` : v.name;
+      voiceSelect.appendChild(opt);
+    });
+    let saved = null;
+    try { saved = localStorage.getItem(ELEVEN_VOICE_STORAGE); } catch (_) {}
+    if (saved && elevenVoices.find(v => v.voice_id === saved)) {
+      elevenSelectedId = saved;
+    } else {
+      elevenSelectedId = elevenVoices[0].voice_id;
+    }
+    voiceSelect.value = elevenSelectedId;
+  }
+
+  async function fetchElevenVoices() {
+    const key = (elevenKey.value || '').trim();
+    if (!key) {
+      setProviderStatus('Enter API key first', 'err');
+      return;
+    }
+    setProviderStatus('Loading voices…');
+    try {
+      const res = await fetch('https://api.elevenlabs.io/v1/voices', {
+        headers: { 'xi-api-key': key, 'Accept': 'application/json' }
+      });
+      if (!res.ok) {
+        const msg = res.status === 401 ? 'Invalid API key' : `HTTP ${res.status}`;
+        setProviderStatus(msg, 'err');
+        return;
+      }
+      const data = await res.json();
+      elevenVoices = (data.voices || []).map(v => ({
+        voice_id: v.voice_id,
+        name: v.name,
+        labels: v.labels || {},
+      }));
+      try { localStorage.setItem(ELEVEN_KEY_STORAGE, key); } catch (_) {}
+      setProviderStatus(`Loaded ${elevenVoices.length} voices`, 'ok');
+      populateElevenVoicesIntoSelect();
+    } catch (err) {
+      console.error(err);
+      setProviderStatus('Network error', 'err');
+    }
+  }
+
+  function switchProvider(p) {
+    ttsProvider = p;
+    try { localStorage.setItem(ELEVEN_PROVIDER_STORAGE, p); } catch (_) {}
+    applyProviderClass();
+    stopElevenAudio();
+    try { speechSynthesis.cancel(); } catch (_) {}
+    if (p === 'elevenlabs') {
+      setProviderStatus(elevenVoices.length ? `Loaded ${elevenVoices.length} voices` : 'Enter API key + Load voices');
+      if (elevenVoices.length) {
+        populateElevenVoicesIntoSelect();
+      } else {
+        voiceSelect.innerHTML = '';
+        const opt = document.createElement('option');
+        opt.textContent = 'Enter API key and click "Load voices"';
+        opt.disabled = true;
+        voiceSelect.appendChild(opt);
+        // Auto-load if key already saved.
+        if ((elevenKey.value || '').trim()) fetchElevenVoices();
+      }
+    } else {
+      setProviderStatus('Browser voices active');
+      populateBrowserVoicesIntoSelect();
+    }
+  }
+
+  providerSelect.addEventListener('change', () => switchProvider(providerSelect.value));
+  elevenLoadBtn.addEventListener('click', fetchElevenVoices);
+  elevenClearBtn.addEventListener('click', () => {
+    elevenKey.value = '';
+    elevenVoices = [];
+    elevenSelectedId = null;
+    try {
+      localStorage.removeItem(ELEVEN_KEY_STORAGE);
+      localStorage.removeItem(ELEVEN_VOICE_STORAGE);
+    } catch (_) {}
+    setProviderStatus('Key cleared');
+    if (ttsProvider === 'elevenlabs') populateElevenVoicesIntoSelect();
+  });
+
+  function stopElevenAudio() {
+    if (elevenAudio) {
+      try { elevenAudio.pause(); } catch (_) {}
+      try { URL.revokeObjectURL(elevenAudio.src); } catch (_) {}
+      elevenAudio = null;
+    }
+  }
+
+  async function speakWithEleven(text) {
+    const key = (elevenKey.value || '').trim();
+    if (!key || !elevenSelectedId) {
+      throw new Error('Missing API key or voice');
+    }
+    const url = `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(elevenSelectedId)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'xi-api-key': key,
+        'Content-Type': 'application/json',
+        'Accept': 'audio/mpeg'
+      },
+      body: JSON.stringify({
+        text,
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+      })
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`ElevenLabs ${res.status}: ${errText.slice(0, 200)}`);
+    }
+    return await res.blob();
+  }
+
+  // Initialize provider on load (after browser voice list has a chance to populate).
+  applyProviderClass();
+  if (providerSelect.value === 'elevenlabs') {
+    switchProvider('elevenlabs');
+  }
+  // ───── end ElevenLabs integration ─────
+
+  // ───── Gemini script generator ─────
+  const genSection = $('genSection');
+  const toggleGen = $('toggleGen');
+  const geminiKey = $('geminiKey');
+  const geminiModel = $('geminiModel');
+  const genStyle = $('genStyle');
+  const genLength = $('genLength');
+  const genPrompt = $('genPrompt');
+  const genBtn = $('genBtn');
+  const genClearKeyBtn = $('genClearKeyBtn');
+  const genStatus = $('genStatus');
+
+  const GEMINI_KEY_STORAGE = 'shadowread_gemini_key';
+  const GEMINI_MODEL_STORAGE = 'shadowread_gemini_model';
+  const GEMINI_STYLE_STORAGE = 'shadowread_gemini_style';
+  const GEMINI_LENGTH_STORAGE = 'shadowread_gemini_length';
+
+  try {
+    const sk = localStorage.getItem(GEMINI_KEY_STORAGE);
+    if (sk) geminiKey.value = sk;
+    const sm = localStorage.getItem(GEMINI_MODEL_STORAGE);
+    if (sm) geminiModel.value = sm;
+    const ss = localStorage.getItem(GEMINI_STYLE_STORAGE);
+    if (ss) genStyle.value = ss;
+    const sl = localStorage.getItem(GEMINI_LENGTH_STORAGE);
+    if (sl) genLength.value = sl;
+  } catch (_) {}
+
+  toggleGen.addEventListener('click', () => {
+    const collapsed = genSection.classList.toggle('collapsed');
+    toggleGen.textContent = collapsed ? 'Expand ▼' : 'Collapse ▲';
+  });
+
+  geminiModel.addEventListener('change', () => {
+    try { localStorage.setItem(GEMINI_MODEL_STORAGE, geminiModel.value); } catch (_) {}
+  });
+  genStyle.addEventListener('change', () => {
+    try { localStorage.setItem(GEMINI_STYLE_STORAGE, genStyle.value); } catch (_) {}
+  });
+  genLength.addEventListener('change', () => {
+    try { localStorage.setItem(GEMINI_LENGTH_STORAGE, genLength.value); } catch (_) {}
+  });
+
+  genClearKeyBtn.addEventListener('click', () => {
+    geminiKey.value = '';
+    try { localStorage.removeItem(GEMINI_KEY_STORAGE); } catch (_) {}
+    setGenStatus('Key cleared');
+  });
+
+  function setGenStatus(text, kind) {
+    genStatus.textContent = text;
+    genStatus.classList.remove('ok', 'err', 'busy');
+    if (kind) genStatus.classList.add(kind);
+  }
+
+  function buildGenPrompt(topic, style, length) {
+    const styleHints = {
+      lecture: 'an academic lecture delivered by a university professor — clear thesis, examples, signposting like "first", "next", "in conclusion"',
+      conference: 'a professional conference speech — confident, structured, with a memorable opening and a concrete takeaway',
+      ted: 'a TED-style talk — a personal hook, a single big idea, vivid concrete examples, an emotional close',
+      conversation: 'a natural one-sided conversational explanation — friendly, contractions, rhetorical questions',
+      news: 'a news broadcast script — neutral tone, third-person, dateline-style opening, factual sentences',
+      story: 'a short narrative — scene-setting opening, a small cast of characters, a clear arc with a turning point and a reflective close'
+    };
+    const lengthHints = {
+      short:  'about 150 words (roughly 1 minute spoken)',
+      medium: 'about 300 words (roughly 2 minutes spoken)',
+      long:   'about 600 words (roughly 4 minutes spoken)'
+    };
+    return [
+      `Write ${styleHints[style] || style} in English on the topic below.`,
+      `Target length: ${lengthHints[length] || length}.`,
+      ``,
+      `Output rules — read carefully:`,
+      `1. Output ONLY the spoken script. No title, no headings, no stage directions, no bullet points, no markdown, no "Speaker:" labels.`,
+      `2. Use natural sentence-level punctuation (periods, commas, question marks) so a shadow-reader can chunk it cleanly.`,
+      `3. Prefer short to medium sentences. Avoid run-ons.`,
+      `4. Use plain ASCII punctuation. No em dashes longer than "—" and no smart quotes.`,
+      `5. Write for ESL learners at upper-intermediate level: clear, idiomatic, but not slangy.`,
+      ``,
+      `Topic / source material:`,
+      topic
+    ].join('\n');
+  }
+
+  function cleanGeneratedScript(text) {
+    if (!text) return '';
+    let t = text.trim();
+    // Strip fenced code blocks if model wrapped output
+    t = t.replace(/^```[a-zA-Z]*\n?/, '').replace(/```$/, '').trim();
+    // Strip a leading title line like "# Title" or "**Title**"
+    t = t.replace(/^#+\s.*\n+/, '');
+    t = t.replace(/^\*\*[^\n]+\*\*\n+/, '');
+    // Strip "Speaker:" / "Narrator:" prefixes if any
+    t = t.replace(/^(Speaker|Narrator|Host|Lecturer)\s*:\s*/gm, '');
+    // Collapse 3+ blank lines to 2
+    t = t.replace(/\n{3,}/g, '\n\n');
+    return t.trim();
+  }
+
+  async function generateScript() {
+    const key = (geminiKey.value || '').trim();
+    const topic = (genPrompt.value || '').trim();
+    if (!key) { setGenStatus('Enter Gemini API key first', 'err'); return; }
+    if (!topic) { setGenStatus('Describe a topic first', 'err'); return; }
+
+    try { localStorage.setItem(GEMINI_KEY_STORAGE, key); } catch (_) {}
+
+    const model = geminiModel.value;
+    const fullPrompt = buildGenPrompt(topic, genStyle.value, genLength.value);
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
+
+    genBtn.disabled = true;
+    setGenStatus('Generating…', 'busy');
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+          generationConfig: { temperature: 0.85, topP: 0.95, maxOutputTokens: 2048 }
+        })
+      });
+
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try {
+          const errJson = await res.json();
+          if (errJson.error && errJson.error.message) detail = errJson.error.message;
+        } catch (_) {}
+        setGenStatus(`Failed: ${detail.slice(0, 120)}`, 'err');
+        return;
+      }
+
+      const data = await res.json();
+      const parts = data?.candidates?.[0]?.content?.parts;
+      const raw = Array.isArray(parts) ? parts.map(p => p.text || '').join('\n') : '';
+      if (!raw) {
+        const reason = data?.candidates?.[0]?.finishReason || 'empty response';
+        setGenStatus(`No text returned (${reason})`, 'err');
+        return;
+      }
+
+      const script = cleanGeneratedScript(raw);
+      textInput.value = script;
+      textInput.dispatchEvent(new Event('input', { bubbles: true }));
+      setGenStatus(`Done · ${script.split(/\s+/).filter(Boolean).length} words → loaded into script below`, 'ok');
+
+      // Auto-scroll the main textarea into view so the user sees the result.
+      textInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (err) {
+      console.error(err);
+      setGenStatus(`Network error: ${err.message}`, 'err');
+    } finally {
+      genBtn.disabled = false;
+    }
+  }
+
+  genBtn.addEventListener('click', generateScript);
+  // ───── end Gemini integration ─────
+
+  // ───── Azure pronunciation assessment ─────
+  let scoringEngine = 'builtin';   // 'builtin' | 'azure'
+  let azureResults = {};           // { sentenceIdx: AzureResult }
+  let azureSdkPromise = null;
+  let azureAudioCtx = null;
+
+  const SCORING_ENGINE_STORAGE = 'shadowread_scoring_engine';
+  const AZURE_KEY_STORAGE = 'shadowread_azure_key';
+  const AZURE_REGION_STORAGE = 'shadowread_azure_region';
+
+  try {
+    const k = localStorage.getItem(AZURE_KEY_STORAGE);
+    if (k) azureKey.value = k;
+    const r = localStorage.getItem(AZURE_REGION_STORAGE);
+    if (r) azureRegion.value = r;
+    const e = localStorage.getItem(SCORING_ENGINE_STORAGE);
+    if (e === 'azure') {
+      scoringEngine = 'azure';
+      scoringSelect.value = 'azure';
+      scoringRow.classList.add('azure');
+    }
+  } catch (_) {}
+
+  function setScoringStatus(text, kind) {
+    scoringStatus.textContent = text;
+    scoringStatus.classList.remove('ok', 'err', 'busy');
+    if (kind) scoringStatus.classList.add(kind);
+  }
+
+  function ensureAzureSdk() {
+    if (window.SpeechSDK) return Promise.resolve(window.SpeechSDK);
+    if (azureSdkPromise) return azureSdkPromise;
+    setScoringStatus('Loading Azure SDK…', 'busy');
+    azureSdkPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://unpkg.com/microsoft-cognitiveservices-speech-sdk@1.40.0/distrib/browser/microsoft.cognitiveservices.speech.sdk.bundle-min.js';
+      s.async = true;
+      s.onload = () => {
+        if (window.SpeechSDK) {
+          setScoringStatus(azureKey.value.trim() ? 'Azure ready' : 'Enter Azure key', azureKey.value.trim() ? 'ok' : null);
+          resolve(window.SpeechSDK);
+        } else {
+          reject(new Error('SDK loaded but window.SpeechSDK missing'));
+        }
+      };
+      s.onerror = () => {
+        azureSdkPromise = null;
+        reject(new Error('Network error loading Azure Speech SDK from unpkg'));
+      };
+      document.head.appendChild(s);
+    });
+    return azureSdkPromise;
+  }
+
+  function switchScoring(engine) {
+    scoringEngine = engine;
+    try { localStorage.setItem(SCORING_ENGINE_STORAGE, engine); } catch (_) {}
+    scoringRow.classList.toggle('azure', engine === 'azure');
+    if (engine === 'azure') {
+      setScoringStatus(azureKey.value.trim() ? 'Loading SDK…' : 'Enter Azure key + region', azureKey.value.trim() ? 'busy' : null);
+      ensureAzureSdk().catch(err => {
+        console.error(err);
+        setScoringStatus('SDK load failed', 'err');
+      });
+    } else {
+      setScoringStatus('Built-in scoring active');
+    }
+  }
+
+  scoringSelect.addEventListener('change', () => switchScoring(scoringSelect.value));
+  azureKey.addEventListener('change', () => {
+    const v = azureKey.value.trim();
+    try { if (v) localStorage.setItem(AZURE_KEY_STORAGE, v); else localStorage.removeItem(AZURE_KEY_STORAGE); } catch (_) {}
+    if (scoringEngine === 'azure') setScoringStatus(v ? 'Key saved' : 'Enter Azure key', v ? 'ok' : null);
+  });
+  azureRegion.addEventListener('change', () => {
+    const v = azureRegion.value.trim();
+    try { if (v) localStorage.setItem(AZURE_REGION_STORAGE, v); } catch (_) {}
+  });
+  azureClearBtn.addEventListener('click', () => {
+    azureKey.value = '';
+    try { localStorage.removeItem(AZURE_KEY_STORAGE); } catch (_) {}
+    setScoringStatus('Azure key cleared');
+  });
+
+  // Decode any browser-recorded blob (webm/opus, mp4/aac, etc.) → 16 kHz mono PCM WAV
+  async function blobToWav16k(blob) {
+    const arrayBuffer = await blob.arrayBuffer();
+    if (!azureAudioCtx) {
+      azureAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    const decoded = await azureAudioCtx.decodeAudioData(arrayBuffer.slice(0));
+
+    const targetRate = 16000;
+    const targetLen = Math.max(1, Math.ceil(decoded.duration * targetRate));
+    const offline = new OfflineAudioContext(1, targetLen, targetRate);
+
+    // Mix down to mono first (at the source sample rate)
+    const monoBuf = offline.createBuffer(1, decoded.length, decoded.sampleRate);
+    const monoData = monoBuf.getChannelData(0);
+    for (let ch = 0; ch < decoded.numberOfChannels; ch++) {
+      const data = decoded.getChannelData(ch);
+      for (let i = 0; i < data.length; i++) {
+        monoData[i] += data[i] / decoded.numberOfChannels;
+      }
+    }
+
+    const src = offline.createBufferSource();
+    src.buffer = monoBuf;
+    src.connect(offline.destination);
+    src.start(0);
+
+    const rendered = await offline.startRendering();
+    const pcm = rendered.getChannelData(0);
+
+    const int16 = new Int16Array(pcm.length);
+    for (let i = 0; i < pcm.length; i++) {
+      const s = Math.max(-1, Math.min(1, pcm[i]));
+      int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    const wav = encodeWav(int16, targetRate);
+    // Drop references so the source AudioBuffers can be GC'd before the next take
+    // (decoded webm at 48kHz stereo + mono mix + 16k resample is a lot of memory).
+    return wav;
+  }
+
+  function encodeWav(int16, sampleRate) {
+    const bytesPerSample = 2;
+    const blockAlign = bytesPerSample; // mono
+    const byteRate = sampleRate * blockAlign;
+    const dataSize = int16.length * bytesPerSample;
+    const buf = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buf);
+    const writeStr = (off, str) => { for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i)); };
+
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);          // PCM
+    view.setUint16(22, 1, true);          // mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, dataSize, true);
+
+    let offset = 44;
+    for (let i = 0; i < int16.length; i++, offset += 2) {
+      view.setInt16(offset, int16[i], true);
+    }
+    return new Blob([buf], { type: 'audio/wav' });
+  }
+
+  async function azurePronunciationScore(wavBlob, referenceText) {
+    const SDK = await ensureAzureSdk();
+    const key = azureKey.value.trim();
+    const region = (azureRegion.value.trim() || 'eastus');
+    if (!key) throw new Error('Azure key missing');
+
+    return new Promise((resolve, reject) => {
+      let recognizer;
+      try {
+        const speechConfig = SDK.SpeechConfig.fromSubscription(key, region);
+        speechConfig.speechRecognitionLanguage = 'en-US';
+
+        const wavFile = new File([wavBlob], 'attempt.wav', { type: 'audio/wav' });
+        const audioConfig = SDK.AudioConfig.fromWavFileInput(wavFile);
+
+        recognizer = new SDK.SpeechRecognizer(speechConfig, audioConfig);
+
+        const pronConfig = new SDK.PronunciationAssessmentConfig(
+          referenceText,
+          SDK.PronunciationAssessmentGradingSystem.HundredMark,
+          SDK.PronunciationAssessmentGranularity.Phoneme,
+          true   // miscue detection
+        );
+        try { pronConfig.enableProsodyAssessment = true; } catch (_) {}
+        pronConfig.applyTo(recognizer);
+      } catch (err) {
+        reject(err);
+        return;
+      }
+
+      recognizer.recognizeOnceAsync(
+        result => {
+          try {
+            let detailed = null;
+            try {
+              const raw = result.properties.getProperty(SDK.PropertyId.SpeechServiceResponse_JsonResult);
+              if (raw) detailed = JSON.parse(raw);
+            } catch (_) {}
+
+            if (result.reason === SDK.ResultReason.Canceled) {
+              const c = SDK.CancellationDetails.fromResult(result);
+              try { recognizer.close(); } catch (_) {}
+              reject(new Error(c.errorDetails || c.reason || 'Azure canceled'));
+              return;
+            }
+            if (result.reason === SDK.ResultReason.NoMatch || !detailed) {
+              try { recognizer.close(); } catch (_) {}
+              reject(new Error('No speech recognized in recording'));
+              return;
+            }
+
+            const pa = SDK.PronunciationAssessmentResult.fromResult(result);
+            const nbest = (detailed.NBest && detailed.NBest[0]) || {};
+            const paBlock = nbest.PronunciationAssessment || {};
+            try { recognizer.close(); } catch (_) {}
+
+            resolve({
+              displayText: result.text || '',
+              accuracy:     pa.accuracyScore     ?? paBlock.AccuracyScore     ?? null,
+              fluency:      pa.fluencyScore      ?? paBlock.FluencyScore      ?? null,
+              completeness: pa.completenessScore ?? paBlock.CompletenessScore ?? null,
+              prosody:      pa.prosodyScore      ?? paBlock.ProsodyScore      ?? null,
+              overall:      pa.pronunciationScore?? paBlock.PronScore         ?? null,
+              words: nbest.Words || []
+            });
+          } catch (err) {
+            try { recognizer.close(); } catch (_) {}
+            reject(err);
+          }
+        },
+        err => {
+          try { recognizer.close(); } catch (_) {}
+          reject(new Error(typeof err === 'string' ? err : (err && err.errorDetails) || 'Azure recognition failed'));
+        }
+      );
+    });
+  }
+
+  function pronClassWord(score) {
+    if (score == null) return '';
+    if (score >= 80) return 'pron-excellent';
+    if (score >= 60) return 'pron-good';
+    return 'pron-poor';
+  }
+  function pronClassPhoneme(score) {
+    if (score == null) return '';
+    if (score >= 80) return 'ph-excellent';
+    if (score >= 60) return 'ph-good';
+    return 'ph-poor';
+  }
+
+  function renderScoreBreakdown(result) {
+    const items = [
+      { lbl: 'Accuracy',     val: result.accuracy },
+      { lbl: 'Fluency',      val: result.fluency },
+      { lbl: 'Completeness', val: result.completeness },
+      { lbl: 'Prosody',      val: result.prosody }
+    ].filter(it => it.val != null);
+
+    if (!items.length) {
+      scoreBreakdown.innerHTML = '';
+      scoreBreakdown.classList.remove('visible');
+      return;
+    }
+    scoreBreakdown.innerHTML = items.map(it => {
+      const v = Math.round(it.val);
+      const cls = v >= 85 ? 'excellent' : v >= 65 ? 'good' : 'needs-work';
+      return `<div class="score-pill ${cls}"><span class="val">${v}</span><span class="lbl">${it.lbl}</span></div>`;
+    }).join('');
+    scoreBreakdown.style.gridTemplateColumns = `repeat(${items.length}, 1fr)`;
+    scoreBreakdown.classList.add('visible');
+  }
+
+  function renderPhonemeDetail(word, anchorEl) {
+    targetText.querySelectorAll('.word.pron-active').forEach(el => el.classList.remove('pron-active'));
+    if (anchorEl) anchorEl.classList.add('pron-active');
+
+    if (!word || !word.Phonemes || !word.Phonemes.length) {
+      phonemeDetail.classList.remove('visible');
+      return;
+    }
+    const wScore = word.PronunciationAssessment && word.PronunciationAssessment.AccuracyScore;
+    const errType = word.PronunciationAssessment && word.PronunciationAssessment.ErrorType;
+    const wScoreTxt = wScore != null ? `${Math.min(100, Math.round(wScore))}%` : '—';
+    const errTag = (errType && errType !== 'None') ? `<span class="err-tag">${escapeHtml(errType)}</span>` : '';
+
+    const wordText = word.Word || '';
+
+    const cells = word.Phonemes.map((p, i) => {
+      const sc = p.PronunciationAssessment && p.PronunciationAssessment.AccuracyScore;
+      const cls = pronClassPhoneme(sc);
+      const ph = p.Phoneme || '?';
+      const scTxt = sc != null ? Math.min(100, Math.round(sc)) : '—';
+      return `<div class="phoneme-cell clickable ${cls}" data-phi="${i}"><span class="ph">${escapeHtml(ph)}</span><span class="sc">${scTxt}</span></div>`;
+    }).join('');
+
+    phonemeDetail.innerHTML = `
+      <div class="word-header">
+        <span>${escapeHtml(wordText)}</span>
+        <button class="word-play-btn" data-act="play-word" title="Listen to this word">🔊</button>
+        <button class="word-play-btn slow" data-act="play-word-slow" title="Listen slowly">🐢</button>
+        <span class="word-score">${wScoreTxt}</span>${errTag}
+      </div>
+      <div class="phoneme-grid">${cells}</div>
+      <div class="coaching-panel" id="coachingPanel"></div>
+    `;
+    phonemeDetail.classList.add('visible');
+
+    // Word-level play buttons
+    phonemeDetail.querySelector('[data-act="play-word"]').addEventListener('click', () => speakText(wordText, 0.95));
+    phonemeDetail.querySelector('[data-act="play-word-slow"]').addEventListener('click', () => speakText(wordText, 0.6));
+
+    // Phoneme cell click → show coaching
+    const cellEls = phonemeDetail.querySelectorAll('.phoneme-cell.clickable');
+    cellEls.forEach(el => {
+      el.addEventListener('click', () => {
+        cellEls.forEach(c => c.classList.remove('coach-active'));
+        el.classList.add('coach-active');
+        const i = parseInt(el.dataset.phi, 10);
+        showCoaching(word.Phonemes[i], wordText);
+      });
+    });
+
+    // Auto-open coaching for the worst-scoring phoneme so the user immediately sees guidance
+    let worstIdx = -1, worstScore = 1000;
+    word.Phonemes.forEach((p, i) => {
+      const s = p.PronunciationAssessment && p.PronunciationAssessment.AccuracyScore;
+      if (s != null && s < worstScore && s < 80) { worstScore = s; worstIdx = i; }
+    });
+    if (worstIdx >= 0) {
+      cellEls[worstIdx].classList.add('coach-active');
+      showCoaching(word.Phonemes[worstIdx], wordText);
+    }
+  }
+
+  // ───── Phoneme coaching (Microsoft ARPABET-style symbols → IPA + zh-TW guide) ─────
+  const phonemeGuide = {
+    // Vowels
+    'aa': { ipa: 'ɑ',  label: '開後母音',     how: '嘴張大,舌頭壓低,發出長而開的「啊」', err: '常念成「歐」或「ㄛ」 — bond 變 邦',                 ex: ['hot','father','bond','box','lock'] },
+    'ae': { ipa: 'æ',  label: '前開母音',     how: '嘴角橫向拉開,舌頭前推,介於「ㄝ」和「啊」之間', err: '常念成 /ɛ/ — bat 變 bet,cat 變 ket',          ex: ['cat','bat','apple','man','pan'] },
+    'ah': { ipa: 'ʌ',  label: '中央短母音',   how: '嘴半開,放鬆,短促的「啊」(類似中文「鵝」)', err: '常拖太長變成 /ɑ/',                                ex: ['cup','love','son','mother','sunny'] },
+    'ao': { ipa: 'ɔ',  label: '圓唇後母音',   how: '嘴唇圓起來,舌頭後縮,像長「ㄛ」',         err: '常念成 /ɑ/ — caught 與 cot 不分',                    ex: ['caught','thought','law','all','dog'] },
+    'aw': { ipa: 'aʊ', label: '雙母音',       how: '從「啊」滑到「嗚」,嘴從大張變圓收',       err: '常省略後半段 /ʊ/,變成單一「啊」',                   ex: ['how','now','mouth','house','cloud'] },
+    'ay': { ipa: 'aɪ', label: '雙母音',       how: '從「啊」滑到短「衣」',                       err: '常省略 /ɪ/ 收尾,my 變 「麻」',                       ex: ['I','time','my','high','bike'] },
+    'eh': { ipa: 'ɛ',  label: '前中母音',     how: '嘴半開,舌頭中前,類似「ㄝ」',             err: '常念成 /æ/ — bet 變 bat',                            ex: ['bed','pen','red','said','head'] },
+    'er': { ipa: 'ɝ',  label: '捲舌母音',     how: '舌頭中後,舌尖捲起但不碰,類似「兒」',     err: '常忘記捲舌,bird 念成 「博」',                       ex: ['her','word','bird','turn','work'] },
+    'ey': { ipa: 'eɪ', label: '雙母音',       how: '從「ㄝ」滑到短「衣」',                     err: '常念成單母音「ㄝ」,name 變 「念」',                  ex: ['day','say','pay','name','late'] },
+    'ih': { ipa: 'ɪ',  label: '短前母音',     how: '嘴半開放鬆,舌頭中高前,短促的「衣」',     err: '常念成長 /iː/ — bit 變 beat',                        ex: ['it','sit','big','this','sister'] },
+    'iy': { ipa: 'iː', label: '長前母音',     how: '嘴角拉開,舌高前,長而緊的「衣」',         err: '常念成短 /ɪ/ — beat 變 bit',                         ex: ['see','tree','eat','sheep','easy'] },
+    'ow': { ipa: 'oʊ', label: '雙母音',       how: '從「ㄛ」滑到「嗚」,嘴形漸圓',             err: '常念成單母音「ㄛ」,no 變 「諾」',                    ex: ['go','so','know','home','phone'] },
+    'oy': { ipa: 'ɔɪ', label: '雙母音',       how: '從「ㄛ」滑到短「衣」',                     err: '常省略滑音,boy 變 「波」',                           ex: ['boy','toy','noise','enjoy','voice'] },
+    'uh': { ipa: 'ʊ',  label: '短後母音',     how: '嘴稍圓,舌後,短促的「嗚」',               err: '常念成長 /uː/ — full 變 fool',                       ex: ['put','book','good','foot','look'] },
+    'uw': { ipa: 'uː', label: '長後母音',     how: '嘴圓收緊,舌後高,長而緊的「嗚」',         err: '常念成短 /ʊ/ — fool 變 full',                        ex: ['food','too','blue','school','soon'] },
+    'ax': { ipa: 'ə',  label: '弱化母音 schwa', how: '完全放鬆,短促的「鵝」,英文最常用的母音', err: '常被念得太清楚,失去輕音特性',                       ex: ['about','sofa','common','again','problem'] },
+
+    // Consonants — stops
+    'b':  { ipa: 'b',  label: '雙唇有聲塞音', how: '雙唇緊閉、累積氣壓後爆破,聲帶要振動',    err: '字尾常被吞掉,grab 變 「ㄍㄨㄨㄚ」',                  ex: ['big','job','baby','rob','web'] },
+    'p':  { ipa: 'p',  label: '雙唇無聲塞音', how: '雙唇緊閉、爆破時送氣,聲帶不振動',        err: '送氣不足,聽起來像 /b/',                              ex: ['pen','top','apple','happy','stop'] },
+    'd':  { ipa: 'd',  label: '齒齦有聲塞音', how: '舌尖頂上齒齦後爆破,聲帶振動',            err: '字尾常被吞或念成「ㄉㄜ」',                            ex: ['day','red','add','kid','good'] },
+    't':  { ipa: 't',  label: '齒齦無聲塞音', how: '舌尖頂上齒齦,送氣爆破',                   err: '字尾常被吞或念成「ㄊㄜ」',                            ex: ['top','cat','water','better','sit'] },
+    'g':  { ipa: 'ɡ',  label: '軟顎有聲塞音', how: '舌根頂軟顎後爆破,聲帶振動',              err: '字尾常被吞,dog 變 「道」',                           ex: ['go','big','egg','dog','again'] },
+    'k':  { ipa: 'k',  label: '軟顎無聲塞音', how: '舌根頂軟顎,送氣爆破',                     err: '送氣不足',                                            ex: ['cat','back','cake','school','kick'] },
+
+    // Consonants — fricatives
+    'f':  { ipa: 'f',  label: '唇齒無聲擦音', how: '上排牙齒輕咬下唇,氣從縫隙摩擦而出',      err: '常被念成 /h/ 或像「ㄈㄨ」',                            ex: ['fine','life','office','enough','phone'] },
+    'v':  { ipa: 'v',  label: '唇齒有聲擦音', how: '上排牙齒輕咬下唇,氣摩擦並振動聲帶',      err: '常被念成 /w/ 或 /b/ — very 變 berry / wery',          ex: ['very','love','voice','have','over'] },
+    's':  { ipa: 's',  label: '齒齦無聲擦音', how: '舌尖靠近上齒齦,氣從窄縫摩擦',            err: '通常 OK',                                              ex: ['see','yes','sister','school','house'] },
+    'z':  { ipa: 'z',  label: '齒齦有聲擦音', how: '舌尖靠近上齒齦,有聲摩擦',                err: '常被念成 /s/ — zoo 變 sue,is 變 「依斯」',          ex: ['zoo','is','busy','easy','jazz'] },
+    'sh': { ipa: 'ʃ',  label: '舌尖後無聲擦音', how: '舌頭略後縮,嘴稍圓,發出長「噓」',       err: '常被念成「ㄒㄧ」,嘴形太扁',                            ex: ['she','wish','fish','show','shop'] },
+    'zh': { ipa: 'ʒ',  label: '舌尖後有聲擦音', how: '舌略後嘴稍圓,有聲「噓」',               err: '中文沒這音,常念成 /sh/ 或 /j/',                       ex: ['measure','pleasure','vision','usual','beige'] },
+    'th': { ipa: 'θ',  label: '齒間無聲擦音', how: '舌尖伸到上下牙齒之間,送氣摩擦',           err: '常被念成 /s/ 或 /t/ — think 變 sink / tink',          ex: ['think','three','thank','mouth','birthday'] },
+    'dh': { ipa: 'ð',  label: '齒間有聲擦音', how: '舌尖伸到上下牙齒之間,有聲摩擦',           err: '常被念成 /d/ 或 /z/ — this 變 dis,the 變 ㄉㄜ',     ex: ['this','that','the','mother','breathe'] },
+    'hh': { ipa: 'h',  label: '聲門擦音',     how: '不費力的呼氣聲,類似「ㄏ」',               err: '通常 OK',                                              ex: ['he','who','have','house','hello'] },
+
+    // Consonants — affricates
+    'ch': { ipa: 'tʃ', label: '舌尖後塞擦音', how: '舌頭略後,先停氣再摩擦放開,類似「ㄑㄩ」', err: '常和 /sh/ 混淆',                                       ex: ['chair','much','teacher','church','watch'] },
+    'jh': { ipa: 'dʒ', label: '舌尖後有聲塞擦音', how: '舌略後先停再摩擦,有聲,類似「ㄐㄩ」', err: '常念成 /zh/ 或 /y/',                                  ex: ['job','jump','page','age','language'] },
+
+    // Consonants — nasals
+    'm':  { ipa: 'm',  label: '雙唇鼻音',     how: '雙唇緊閉,聲音從鼻腔出來',                err: '通常 OK',                                              ex: ['me','home','mom','time','name'] },
+    'n':  { ipa: 'n',  label: '齒齦鼻音',     how: '舌尖頂上齒齦,聲音從鼻腔出來',            err: '字尾常和 /ŋ/ 混淆,bond 變 「邦」',                   ex: ['no','man','name','nine','phone'] },
+    'ng': { ipa: 'ŋ',  label: '軟顎鼻音',     how: '舌根頂軟顎,聲音從鼻腔出來(類似「ㄥ」)', err: '常和 /n/ 混淆 — sing 變 sin',                          ex: ['sing','ring','long','thing','morning'] },
+
+    // Consonants — liquids
+    'l':  { ipa: 'l',  label: '齒齦邊音',     how: '舌尖頂上齒齦,氣從兩側流出',              err: '字尾的 dark L 常被吞,call 變 「靠」',                ex: ['love','cool','feel','call','milk'] },
+    'r':  { ipa: 'r',  label: '齒齦近音',     how: '舌尖向上略捲但不碰齒齦,舌身後縮',         err: '常與 /l/ 混淆,或捲舌不足',                            ex: ['red','right','very','world','really'] },
+
+    // Glides
+    'w':  { ipa: 'w',  label: '雙唇近音',     how: '嘴唇圓收後快速張開,類似中文「窩」',      err: '通常 OK',                                              ex: ['we','water','want','one','work'] },
+    'y':  { ipa: 'j',  label: '硬顎近音',     how: '舌面靠近硬顎,類似中文「噫」',            err: '通常 OK',                                              ex: ['yes','you','year','yellow','use'] }
+  };
+
+  function normalizePhoneme(ph) {
+    return String(ph || '').toLowerCase().replace(/[0-9]/g, '').trim();
+  }
+
+  function showCoaching(phonemeObj, contextWord) {
+    const panel = $('coachingPanel');
+    if (!panel) return;
+    const rawPh = phonemeObj.Phoneme || '?';
+    const key = normalizePhoneme(rawPh);
+    const sc = phonemeObj.PronunciationAssessment && phonemeObj.PronunciationAssessment.AccuracyScore;
+    const scTxt = sc != null ? Math.min(100, Math.round(sc)) + '%' : '—';
+    const guide = phonemeGuide[key];
+
+    if (!guide) {
+      panel.innerHTML = `
+        <div class="coaching-head">
+          <span class="coaching-symbol">${escapeHtml(rawPh)}</span>
+          <span class="coaching-label">音素分數 · ${scTxt}</span>
+        </div>
+        <div class="coaching-row"><span class="lbl">提示</span><span>沒有這個音素的詳細指引。試著放慢速度仔細跟唸範例字。</span></div>
+      `;
+      panel.classList.add('visible');
+      return;
+    }
+
+    const practiceChips = (guide.ex || []).map(w =>
+      `<span class="practice-chip" data-prac="${escapeHtml(w)}">${escapeHtml(w)}</span>`
+    ).join('');
+
+    panel.innerHTML = `
+      <div class="coaching-head">
+        <span class="coaching-symbol">/${escapeHtml(guide.ipa)}/</span>
+        <span class="coaching-ipa">${escapeHtml(rawPh)}</span>
+        <span class="coaching-label">${escapeHtml(guide.label)} · 分數 ${scTxt}</span>
+      </div>
+      <div class="coaching-row">
+        <span class="lbl">怎麼念</span>
+        <span>${escapeHtml(guide.how)}</span>
+      </div>
+      <div class="coaching-row">
+        <span class="lbl warn">常見錯誤</span>
+        <span>${escapeHtml(guide.err)}</span>
+      </div>
+      <div class="coaching-row">
+        <span class="lbl">練習字</span>
+        <div class="practice-words">${practiceChips}</div>
+      </div>
+      <div class="coaching-tip">點任一練習字 ▸ 聽範例發音(用目前的 TTS 引擎)。建議先慢速跟唸 3 次,再用正常速念整個 <strong>${escapeHtml(contextWord || '')}</strong>。</div>
+    `;
+    panel.classList.add('visible');
+
+    panel.querySelectorAll('.practice-chip').forEach(chip => {
+      chip.addEventListener('click', () => speakText(chip.dataset.prac, 0.85));
+    });
+  }
+
+  async function speakText(text, rate) {
+    if (!text) return;
+    rate = rate || 0.9;
+    // Guard against rapid clicks (each ElevenLabs call is a network fetch +
+    // a blob URL that must be revoked). Without this, double-clicking a
+    // practice chip leaks blob URLs and may crash the tab under memory pressure.
+    if (speakTextInflight) return;
+    speakTextInflight = true;
+    // Safety: release the lock no matter what within 8s
+    const safety = setTimeout(() => { speakTextInflight = false; }, 8000);
+    const release = () => { clearTimeout(safety); speakTextInflight = false; };
+    try {
+      clearTimeout(autoReplayTimer);
+      try { speechSynthesis.cancel(); } catch (_) {}
+      stopElevenAudio();
+
+      if (ttsProvider === 'elevenlabs' && elevenSelectedId && (elevenKey.value || '').trim()) {
+        const blob = await speakWithEleven(text);
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        elevenAudio = audio;
+        audio.playbackRate = rate;
+        const cleanup = () => {
+          try { URL.revokeObjectURL(url); } catch (_) {}
+          if (elevenAudio === audio) elevenAudio = null;
+          release();
+        };
+        audio.onended = cleanup;
+        audio.onerror = cleanup;
+        try { await audio.play(); }
+        catch (playErr) { cleanup(); throw playErr; }
+      } else if ('speechSynthesis' in window) {
+        const u = new SpeechSynthesisUtterance(text);
+        if (selectedVoice) { u.voice = selectedVoice; u.lang = selectedVoice.lang || 'en-US'; }
+        else { u.lang = 'en-US'; }
+        u.rate = rate;
+        u.pitch = 1.0;
+        u.onend = release;
+        u.onerror = release;
+        speechSynthesis.speak(u);
+      } else {
+        release();
+      }
+    } catch (err) {
+      console.warn('speakText failed:', err);
+      release();
+    }
+  }
+  // ───── end phoneme coaching ─────
+
+  function renderAzureFeedback(idx, result) {
+    azureResults[idx] = result;
+    const overall = Math.round(result.overall ?? result.accuracy ?? 0);
+    scores[idx] = overall;
+
+    scoreValue.textContent = overall + '%';
+    scoreValue.className = 'score ' + scoreClass(overall);
+    scoreLabel.textContent = overall >= 85 ? 'Excellent' : overall >= 65 ? 'Good' : 'Needs work';
+
+    renderScoreBreakdown(result);
+
+    targetText.innerHTML = (result.words || []).map((w, i) => {
+      const errType = (w.PronunciationAssessment && w.PronunciationAssessment.ErrorType) || 'None';
+      const wScore = w.PronunciationAssessment && w.PronunciationAssessment.AccuracyScore;
+      let cls;
+      if (errType === 'Omission') cls = 'pron-omitted';
+      else if (errType === 'Insertion') cls = 'pron-inserted';
+      else cls = pronClassWord(wScore);
+      const clickable = (w.Phonemes && w.Phonemes.length) ? 'pron-clickable' : '';
+      const tip = wScore != null ? `${errType} · ${Math.round(wScore)}` : errType;
+      return `<span class="word ${cls} ${clickable}" data-widx="${i}" title="${escapeHtml(tip)}">${escapeHtml(w.Word || '')}</span>`;
+    }).join(' ');
+
+    userText.textContent = result.displayText || '(no transcript)';
+    userText.classList.remove('empty');
+
+    const words = result.words || [];
+    const isErr = (w, type) => (w.PronunciationAssessment && w.PronunciationAssessment.ErrorType) === type;
+    const good = words.filter(w => {
+      const e = (w.PronunciationAssessment && w.PronunciationAssessment.ErrorType) || 'None';
+      const s = (w.PronunciationAssessment && w.PronunciationAssessment.AccuracyScore) ?? 0;
+      return e === 'None' && s >= 80;
+    }).length;
+    const poor = words.filter(w => {
+      const e = (w.PronunciationAssessment && w.PronunciationAssessment.ErrorType) || 'None';
+      const s = (w.PronunciationAssessment && w.PronunciationAssessment.AccuracyScore) ?? 100;
+      return e === 'Mispronunciation' || (e === 'None' && s < 60);
+    }).length;
+    const omitted = words.filter(w => isErr(w, 'Omission')).length;
+    const inserted = words.filter(w => isErr(w, 'Insertion')).length;
+
+    feedbackStats.innerHTML = `
+      <span class="stat"><span class="stat-dot green"></span>${good} solid</span>
+      ${poor > 0 ? `<span class="stat"><span class="stat-dot red"></span>${poor} mispronounced</span>` : ''}
+      ${omitted > 0 ? `<span class="stat"><span class="stat-dot gray"></span>${omitted} skipped</span>` : ''}
+      ${inserted > 0 ? `<span class="stat"><span class="stat-dot red"></span>${inserted} extra</span>` : ''}
+      <span class="stat" style="opacity:0.7">Click any word for phoneme detail</span>
+    `;
+
+    targetText.querySelectorAll('.word.pron-clickable').forEach(el => {
+      el.addEventListener('click', () => {
+        const wi = parseInt(el.dataset.widx, 10);
+        renderPhonemeDetail(result.words[wi], el);
+      });
+    });
+
+    // Auto-open the worst-scoring word's phoneme detail so the user immediately
+    // sees actionable guidance. Without this the panel would just clear, forcing
+    // the user to hunt-and-click. They can still click any other word to switch.
+    const allWords = result.words || [];
+    let worstWi = -1, worstWordScore = 1000;
+    allWords.forEach((w, i) => {
+      const errType = (w.PronunciationAssessment && w.PronunciationAssessment.ErrorType) || 'None';
+      const sc = (w.PronunciationAssessment && w.PronunciationAssessment.AccuracyScore) ?? 100;
+      if (errType === 'None' && sc < worstWordScore && w.Phonemes && w.Phonemes.length) {
+        worstWordScore = sc;
+        worstWi = i;
+      }
+    });
+    if (worstWi >= 0 && worstWordScore < 85) {
+      const anchor = targetText.querySelector(`.word[data-widx="${worstWi}"]`);
+      renderPhonemeDetail(allWords[worstWi], anchor);
+    } else {
+      phonemeDetail.classList.remove('visible');
+      phonemeDetail.innerHTML = '';
+    }
+  }
+
+  async function evaluateAttemptAzure(audioBlob) {
+    if (azureInflight) {
+      setScoringStatus('Previous request still running — wait', 'busy');
+      statusText.textContent = 'Azure busy with previous take — wait a moment and press Record again.';
+      return;
+    }
+    azureInflight = true;
+    const target = sentences[currentIdx];
+    const targetIdx = currentIdx;
+
+    feedbackPanel.classList.add('visible');
+    scoreValue.textContent = '…';
+    scoreValue.className = 'score';
+    scoreLabel.textContent = 'Scoring with Azure';
+    statusText.textContent = 'Converting audio & sending to Azure…';
+    setScoringStatus('Scoring…', 'busy');
+
+    try {
+      const wav = await blobToWav16k(audioBlob);
+      const result = await azurePronunciationScore(wav, target);
+      renderAzureFeedback(targetIdx, result);
+      trimAzureResults();
+      updateMemoryStatus();
+
+      const overall = scores[targetIdx];
+      statusDot.classList.add('success');
+      statusText.textContent = overall >= 85 ? 'Excellent · Press N for next'
+                            : overall >= 65 ? 'Good · Try again or press N'
+                            : 'Keep practicing · Replay and try again';
+      setScoringStatus('Azure scored ✓', 'ok');
+      renderSentenceList();
+      persistState();
+    } catch (err) {
+      console.error('Azure scoring failed:', err);
+      const msg = (err && err.message) || String(err);
+      setScoringStatus(`Azure error: ${msg.slice(0, 80)}`, 'err');
+      warningBanner.classList.add('visible');
+      warningText.textContent = `Azure pronunciation scoring failed: ${msg}. Falling back to built-in word-match scoring.`;
+      evaluateAttempt();
+    } finally {
+      azureInflight = false;
+    }
+  }
+
+  switchScoring(scoringEngine);
+  // ───── end Azure pronunciation assessment ─────
 
   rateRange.addEventListener('input', () => {
-    rateValue.textContent = parseFloat(rateRange.value).toFixed(2) + '×';
+    const v = parseFloat(rateRange.value);
+    rateValue.textContent = v.toFixed(2) + '×';
+    // Apply live to any in-flight ElevenLabs / coaching audio so the user hears
+    // the change instead of having to press Replay.
+    if (elevenAudio) { try { elevenAudio.playbackRate = v; } catch (_) {} }
+    // YouTube mode: use the nearest supported playback rate.
+    applyYouTubeRate();
+    // (Browser SpeechSynthesisUtterance.rate is immutable once spoken — takes effect next utterance.)
   });
 
+  let gapInputDebounce = null;
   gapRange.addEventListener('input', () => {
     gapValue.textContent = (parseInt(gapRange.value) / 1000).toFixed(1) + 's';
+    // If an auto-replay is already pending, re-arm it with the new gap so changes
+    // take effect immediately instead of after the next sentence.
+    if (autoReplayTimer && !isRecording && !isPlaying && !isPaused) {
+      clearTimeout(autoReplayTimer);
+      clearTimeout(gapInputDebounce);
+      gapInputDebounce = setTimeout(() => {
+        if (!isRecording && !isPlaying && !isPaused && scores[currentIdx] === undefined) {
+          autoReplayTimer = setTimeout(() => {
+            if (!isPaused && !isRecording) speakCurrent();
+          }, parseInt(gapRange.value));
+        }
+      }, 250);
+    }
   });
 
   function splitIntoSentences(text) {
@@ -838,13 +3259,7 @@
   }
 
   function normalize(text) {
-    // 連字號 / 各式 dash 轉成空白（讓「twenty-one」可比對到「twenty one」）
-    // 阿拉伯數字與英文字母原樣保留（視為正確內容，不可被去除）
-    return text.toLowerCase()
-      .replace(/[\-–—_/]/g, ' ')
-      .replace(/[.,!?;:"'""''`()\[\]{}<>。，！？；：、「」『』（）【】]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+    return text.toLowerCase().replace(/[.,!?;:"'""''`\-–—()\[\]]/g, '').replace(/\s+/g, ' ').trim();
   }
 
   const equivalents = {
@@ -856,22 +3271,11 @@
     "id":"i would","youd":"you would","hed":"he would","shed":"she would",
     "thats":"that is","theres":"there is","heres":"here is","whats":"what is","wheres":"where is",
     "whos":"who is","hows":"how is","whys":"why is","lets":"let us",
-    "gonna":"going to","wanna":"want to","gotta":"got to","kinda":"kind of","sorta":"sort of"
+    "gonna":"going to","wanna":"want to","gotta":"got to","kinda":"kind of","sorta":"sort of",
+    "1":"one","2":"two","3":"three","4":"four","5":"five","6":"six","7":"seven","8":"eight","9":"nine","10":"ten"
   };
 
-  // 阿拉伯數字 → 英文字（兩種形式都先正規化成單一拼字形式以利比對）
-  const NUM_WORDS = ["zero","one","two","three","four","five","six","seven","eight","nine","ten",
-    "eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen","twenty"];
-  NUM_WORDS.forEach((w, i) => { equivalents[String(i)] = w; });
-  [["30","thirty"],["40","forty"],["50","fifty"],["60","sixty"],
-   ["70","seventy"],["80","eighty"],["90","ninety"],["100","hundred"],["1000","thousand"]]
-    .forEach(([d,w]) => { equivalents[d] = w; });
-
-  function expandWord(w) {
-    if (!w) return w;
-    // 純阿拉伯數字 / 英文字母單字：透過 equivalents 規一化（無對映則保留原樣，仍視為正確內容）
-    return equivalents[w] || w;
-  }
+  function expandWord(w) { return equivalents[w] || w; }
 
   function expandTokens(tokens) {
     const out = [];
@@ -919,12 +3323,20 @@
     const text = textInput.value.trim();
     if (!text) { alert('Please paste some English text first.'); return; }
 
+    sourceMode = 'text';
+    sentenceTimings = [];
+    youtubeVideoId = null;
+    stopYouTubePlayback();
+    setYouTubeStatus('Text mode active. Paste a YouTube link anytime to switch.', null);
+
     sentences = splitIntoSentences(text);
     if (sentences.length === 0) { alert('No sentences detected.'); return; }
 
     currentIdx = 0;
     scores = {};
-    recordings = {};
+    revokeAllRecordings();
+    azureResults = {};
+    updateMemoryStatus();
     renderSentenceList();
     sentenceList.style.display = 'block';
     listCount.textContent = `${sentences.length} sentence${sentences.length > 1 ? 's' : ''}`;
@@ -938,10 +3350,22 @@
     toggleInput.textContent = 'Expand ▼';
 
     feedbackPanel.classList.remove('visible');
+    persistState();
     playSentence(0);
   }
 
-  loadBtn.addEventListener('click', loadText);
+  loadBtn.addEventListener('click', () => {
+    saveToLibrary(textInput.value.trim());
+    loadText();
+  });
+  youtubeLoadBtn.addEventListener('click', loadYouTubePractice);
+  ytManualLoadBtn.addEventListener('click', loadYouTubePracticeFromManualTranscript);
+  youtubeUrlInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      loadYouTubePractice();
+    }
+  });
   clearBtn.addEventListener('click', () => { textInput.value = ''; textInput.focus(); });
   sampleBtn.addEventListener('click', () => {
     textInput.value = `Good morning, everyone. Thank you so much for having me here today. It is a real pleasure to be presenting in front of such a distinguished audience. The title of today's talk is "How Bank Transparency Affects Banks in Financial Crises." Let me start with a thought experiment. Imagine you are the CEO of a highly transparent bank, and a financial crisis has just hit. How would you adjust your risk profile? This is the question that motivates our paper.`;
@@ -951,6 +3375,298 @@
     inputSection.classList.toggle('collapsed');
     toggleInput.textContent = inputSection.classList.contains('collapsed') ? 'Expand ▼' : 'Collapse ▲';
   });
+
+  // ───── Session state persistence (survives tab crashes) ─────
+  // The tab can be killed by Chrome under memory pressure (Azure SDK +
+  // decoded audio + accumulated blobs). When the tab auto-reloads, the
+  // in-memory `sentences` array is gone and the UI reverts to "Paste or
+  // load text". Persisting the loaded script + progress + scores means the
+  // user does not lose their session.
+  const STATE_STORAGE = 'shadowread_state_v1';
+  const STATE_STALE_MS = 7 * 86400000; // 7 days
+  let stateSaveTimer = null;
+
+  function persistState() {
+    // Throttle: collapse many calls into one disk write
+    clearTimeout(stateSaveTimer);
+    stateSaveTimer = setTimeout(() => {
+      try {
+        if (!sentences || sentences.length === 0) {
+          localStorage.removeItem(STATE_STORAGE);
+          return;
+        }
+        // Compact azure results: keep what renderAzureFeedback / renderPhonemeDetail
+        // need; drop anything large (raw JSON, debug fields). Each sentence is
+        // typically 10–30KB after this; we cap to the most recent 20 entries to
+        // protect the 5MB localStorage quota.
+        const compactAzure = {};
+        const azKeys = Object.keys(azureResults);
+        const sortedKeys = azKeys.sort((a, b) => Number(a) - Number(b)).slice(-20);
+        sortedKeys.forEach(k => {
+          const r = azureResults[k];
+          if (!r) return;
+          compactAzure[k] = {
+            displayText: r.displayText || '',
+            accuracy: r.accuracy,
+            fluency: r.fluency,
+            completeness: r.completeness,
+            prosody: r.prosody,
+            overall: r.overall,
+            words: (r.words || []).map(w => ({
+              Word: w.Word,
+              PronunciationAssessment: w.PronunciationAssessment
+                ? {
+                    AccuracyScore: w.PronunciationAssessment.AccuracyScore,
+                    ErrorType: w.PronunciationAssessment.ErrorType
+                  }
+                : undefined,
+              Phonemes: (w.Phonemes || []).map(p => ({
+                Phoneme: p.Phoneme,
+                PronunciationAssessment: p.PronunciationAssessment
+                  ? { AccuracyScore: p.PronunciationAssessment.AccuracyScore }
+                  : undefined
+              }))
+            }))
+          };
+        });
+        const payload = {
+          sentences,
+          currentIdx,
+          scores,
+          sourceMode,
+          sentenceTimings,
+          youtubeVideoId,
+          azureResults: compactAzure,
+          savedAt: Date.now()
+        };
+        localStorage.setItem(STATE_STORAGE, JSON.stringify(payload));
+      } catch (e) {
+        console.warn('State save failed (quota?):', e);
+        // If quota exceeded, retry without azureResults so at least sentences/scores persist
+        try {
+          const fallback = {
+            sentences,
+            currentIdx,
+            scores,
+            sourceMode,
+            sentenceTimings,
+            youtubeVideoId,
+            savedAt: Date.now()
+          };
+          localStorage.setItem(STATE_STORAGE, JSON.stringify(fallback));
+        } catch (_) {}
+      }
+    }, 600);
+  }
+
+  function restoreState() {
+    try {
+      const raw = localStorage.getItem(STATE_STORAGE);
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      if (!data || !Array.isArray(data.sentences) || data.sentences.length === 0) return false;
+      if (data.savedAt && Date.now() - data.savedAt > STATE_STALE_MS) {
+        localStorage.removeItem(STATE_STORAGE);
+        return false;
+      }
+
+      sentences = data.sentences;
+      currentIdx = Math.min(Math.max(0, data.currentIdx | 0), sentences.length - 1);
+      scores = data.scores || {};
+      sourceMode = data.sourceMode === 'youtube' ? 'youtube' : 'text';
+      sentenceTimings = Array.isArray(data.sentenceTimings) ? data.sentenceTimings : [];
+      youtubeVideoId = data.youtubeVideoId || null;
+      if (data.azureResults && typeof data.azureResults === 'object') {
+        azureResults = data.azureResults;
+      }
+
+      // Mirror the UI changes loadText() makes, but DO NOT auto-speak
+      renderSentenceList();
+      sentenceList.style.display = 'block';
+      listCount.textContent = `${sentences.length} sentence${sentences.length > 1 ? 's' : ''}`;
+      nextBtn.disabled = false;
+      replayBtn.disabled = false;
+      pauseBtn.disabled = false;
+      recordBtn.disabled = !(hasRecognition || hasRecorder);
+      inputSection.classList.add('collapsed');
+      toggleInput.textContent = 'Expand ▼';
+
+      const s = sentences[currentIdx];
+      currentSentence.classList.remove('empty');
+      currentSentence.textContent = s;
+      sentenceNumber.innerHTML = `<span class="current">${String(currentIdx+1).padStart(2,'0')}</span> / ${String(sentences.length).padStart(2,'0')}`;
+      const progress = (currentIdx / Math.max(sentences.length - 1, 1)) * 100;
+      stage.style.setProperty('--progress', `${progress}%`);
+      if (sourceMode === 'youtube') {
+        statusText.textContent = 'Restored YouTube session · Press R to listen or Space to record';
+        setYouTubeStatus('Restored YouTube sentence timing from last session.', 'ok');
+        if (youtubeVideoId) {
+          ensureYouTubePlayer(youtubeVideoId).catch(err => {
+            setYouTubeStatus(`Player restore failed: ${(err && err.message) || err}`, 'err');
+          });
+        }
+      } else {
+        statusText.textContent = 'Restored from last session · Press R to listen or Space to record';
+      }
+
+      if (scores[currentIdx] !== undefined) showPreviousFeedback(currentIdx);
+      return true;
+    } catch (e) {
+      console.warn('State restore failed:', e);
+      try { localStorage.removeItem(STATE_STORAGE); } catch (_) {}
+      return false;
+    }
+  }
+  // ───── end state persistence ─────
+
+  // ───── Script Library (localStorage) ─────
+  const LIBRARY_STORAGE = 'shadowread_library';
+  const LIBRARY_MAX = 50;
+  const librarySection = $('librarySection');
+  const toggleLib = $('toggleLib');
+  const saveLibBtn = $('saveLibBtn');
+  const clearLibBtn = $('clearLibBtn');
+  const libraryList = $('libraryList');
+  const libraryEmpty = $('libraryEmpty');
+  const libCount = $('libCount');
+
+  function loadLibrary() {
+    try {
+      const raw = localStorage.getItem(LIBRARY_STORAGE);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (_) { return []; }
+  }
+  function persistLibrary(arr) {
+    try { localStorage.setItem(LIBRARY_STORAGE, JSON.stringify(arr)); }
+    catch (e) {
+      console.warn('Library save failed (quota?):', e);
+      alert('Could not save to library — browser storage quota exceeded. Delete some old scripts.');
+    }
+  }
+  function makeTitle(text) {
+    const oneLine = text.replace(/\s+/g, ' ').trim();
+    return oneLine.length > 60 ? oneLine.slice(0, 60) + '…' : oneLine;
+  }
+  function saveToLibrary(text) {
+    if (!text || text.length < 10) return;
+    let lib = loadLibrary();
+    // Dedup by exact text — bump timestamp instead of duplicating
+    const existing = lib.findIndex(item => item.text === text);
+    const wordCount = text.split(/\s+/).filter(Boolean).length;
+    const entry = {
+      id: existing >= 0 ? lib[existing].id : (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
+      title: makeTitle(text),
+      text,
+      wordCount,
+      savedAt: Date.now()
+    };
+    if (existing >= 0) lib.splice(existing, 1);
+    lib.unshift(entry);
+    if (lib.length > LIBRARY_MAX) lib = lib.slice(0, LIBRARY_MAX);
+    persistLibrary(lib);
+    renderLibrary();
+  }
+  function fmtDate(ts) {
+    const d = new Date(ts);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    if (sameDay) return d.toTimeString().slice(0, 5);
+    const diff = (now - d) / 86400000;
+    if (diff < 7) return d.toLocaleDateString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+  function renderLibrary() {
+    const lib = loadLibrary();
+    libCount.textContent = `${lib.length} script${lib.length === 1 ? '' : 's'}`;
+    if (lib.length === 0) {
+      libraryList.innerHTML = '';
+      libraryList.appendChild(libraryEmpty);
+      return;
+    }
+    libraryEmpty.remove();
+    libraryList.innerHTML = '';
+    lib.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'lib-item';
+      row.innerHTML = `
+        <div class="lib-info">
+          <div class="lib-title" title="Click to load into editor">${escapeHtml(item.title)}</div>
+          <div class="lib-meta">${item.wordCount} words · ${fmtDate(item.savedAt)}</div>
+        </div>
+        <button class="load-btn" data-act="load">Load →</button>
+        <button class="del" data-act="del" title="Delete">✕</button>
+      `;
+      const titleEl = row.querySelector('.lib-title');
+      const loadEl = row.querySelector('[data-act="load"]');
+      const delEl = row.querySelector('[data-act="del"]');
+      const doLoad = () => {
+        textInput.value = item.text;
+        textInput.dispatchEvent(new Event('input', { bubbles: true }));
+        textInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Re-save (bumps to top) and immediately load into player
+        saveToLibrary(item.text);
+        loadText();
+      };
+      titleEl.addEventListener('click', doLoad);
+      loadEl.addEventListener('click', doLoad);
+      delEl.addEventListener('click', () => {
+        const fresh = loadLibrary().filter(x => x.id !== item.id);
+        persistLibrary(fresh);
+        renderLibrary();
+      });
+      libraryList.appendChild(row);
+    });
+  }
+
+  toggleLib.addEventListener('click', () => {
+    librarySection.classList.toggle('collapsed');
+    toggleLib.textContent = librarySection.classList.contains('collapsed') ? 'Expand ▼' : 'Collapse ▲';
+  });
+  saveLibBtn.addEventListener('click', () => {
+    const t = textInput.value.trim();
+    if (!t) { alert('Nothing to save — paste some text first.'); return; }
+    saveToLibrary(t);
+    // Pop the panel open so the user sees the new entry land
+    if (librarySection.classList.contains('collapsed')) {
+      librarySection.classList.remove('collapsed');
+      toggleLib.textContent = 'Collapse ▲';
+    }
+  });
+  clearLibBtn.addEventListener('click', () => {
+    if (!confirm('Delete ALL saved scripts? This cannot be undone.')) return;
+    persistLibrary([]);
+    renderLibrary();
+  });
+
+  renderLibrary();
+  restoreState();
+  // ───── end Script Library ─────
+
+  // ───── Cache / memory controls ─────
+  clearCacheBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    const recCount = Object.keys(recordings).length;
+    const azCount = Object.keys(azureResults).length;
+    if (recCount === 0 && azCount === 0) {
+      statusText.textContent = 'Cache already empty.';
+      return;
+    }
+    if (!confirm(`Free memory? This will revoke ${recCount} audio recording(s) and ${azCount} Azure result(s). Scores stay, but you won't be able to replay old takes or click words for phoneme detail.`)) return;
+    revokeAllRecordings();
+    azureResults = {};
+    feedbackAudio.style.display = 'none';
+    phonemeDetail.classList.remove('visible');
+    scoreBreakdown.classList.remove('visible');
+    recordingPlayback.removeAttribute('src');
+    persistState();
+    try { recordingPlayback.load(); } catch (_) {}
+    if (azureAudioCtx) { try { azureAudioCtx.close(); } catch (_) {} azureAudioCtx = null; }
+    updateMemoryStatus();
+    statusText.textContent = 'Cache cleared · memory freed.';
+  });
+  updateMemoryStatus();
+  // ───── end Cache controls ─────
 
   function scoreClass(s) {
     if (s >= 85) return 'excellent';
@@ -995,6 +3711,8 @@
   function playSentence(idx) {
     clearTimeout(autoReplayTimer);
     speechSynthesis.cancel();
+    stopElevenAudio();
+    stopYouTubePlayback();
     stopRecording(false);
 
     if (idx < 0 || idx >= sentences.length) return;
@@ -1011,25 +3729,49 @@
 
     if (scores[idx] === undefined) {
       feedbackPanel.classList.remove('visible');
+      scoreBreakdown.classList.remove('visible');
+      phonemeDetail.classList.remove('visible');
     } else {
       showPreviousFeedback(idx);
     }
 
     renderSentenceList();
+    persistState();
     speakCurrent();
   }
 
-  function speakCurrent() {
+  function speakCurrent(retryWithDefault = false) {
     if (currentIdx < 0 || currentIdx >= sentences.length) return;
     speechSynthesis.cancel();
+    stopElevenAudio();
+    stopYouTubePlayback();
+
+    if (sourceMode === 'youtube') {
+      speakCurrentYouTube();
+      return;
+    }
+
+    if (ttsProvider === 'elevenlabs') {
+      speakCurrentEleven();
+      return;
+    }
 
     const u = new SpeechSynthesisUtterance(sentences[currentIdx]);
-    if (selectedVoice) u.voice = selectedVoice;
+    if (selectedVoice && !retryWithDefault) {
+      u.voice = selectedVoice;
+      // Chrome/Edge often ignore u.voice unless u.lang matches the voice's lang.
+      u.lang = selectedVoice.lang || 'en-US';
+    } else {
+      u.lang = 'en-US';
+    }
     u.rate = parseFloat(rateRange.value);
     u.pitch = 1.0;
     u.volume = 1.0;
 
+    let started = false;
+
     u.onstart = () => {
+      started = true;
       isPlaying = true;
       statusDot.classList.remove('paused', 'recording', 'success');
       statusDot.classList.add('playing');
@@ -1041,33 +3783,165 @@
       statusDot.classList.remove('playing');
       statusText.textContent = 'Your turn · Press Space to record';
 
-      if (!isPaused && currentIdx < sentences.length && scores[currentIdx] === undefined) {
+      if (!isPaused && !wantsToRecord && !isRecording && currentIdx < sentences.length && scores[currentIdx] === undefined) {
+        clearTimeout(autoReplayTimer);
         autoReplayTimer = setTimeout(() => {
-          if (!isPaused && !isRecording) speakCurrent();
+          if (!isPaused && !wantsToRecord && !isRecording) speakCurrent();
         }, parseInt(gapRange.value));
       }
     };
 
-    u.onerror = () => {
+    u.onerror = (e) => {
       isPlaying = false;
       statusDot.classList.remove('playing');
+      console.warn('Speech error:', e.error, 'voice:', selectedVoice && selectedVoice.name);
+      // If a non-default (often network) voice fails, fall back to default voice once.
+      if (!retryWithDefault && selectedVoice && e.error !== 'canceled' && e.error !== 'interrupted') {
+        statusText.textContent = `Voice "${selectedVoice.name}" unavailable — using default`;
+        warningBanner.classList.add('visible');
+        warningText.textContent = `Voice "${selectedVoice.name}" cannot play (often requires network or is not installed). Try a voice marked "Microsoft" or "Google" without "Online", or a system voice.`;
+        speakCurrent(true);
+      }
     };
 
     speechSynthesis.speak(u);
+
+    // Detect silent failure: some voices neither start nor fire onerror.
+    setTimeout(() => {
+      if (!started && !speechSynthesis.speaking && !retryWithDefault && selectedVoice) {
+        console.warn('Speech silent-failed for voice:', selectedVoice.name);
+        statusText.textContent = `Voice "${selectedVoice.name}" silent — using default`;
+        warningBanner.classList.add('visible');
+        warningText.textContent = `Voice "${selectedVoice.name}" produced no sound. Falling back to default. Try another voice in the dropdown.`;
+        speakCurrent(true);
+      }
+    }, 1200);
+  }
+
+  async function speakCurrentEleven() {
+    const idx = currentIdx;
+    const sentence = sentences[idx];
+    if (!sentence) return;
+
+    if (!elevenSelectedId || !(elevenKey.value || '').trim()) {
+      warningBanner.classList.add('visible');
+      warningText.textContent = 'ElevenLabs: enter your API key and load voices first (or switch back to Browser provider).';
+      statusText.textContent = 'ElevenLabs not configured';
+      return;
+    }
+
+    statusDot.classList.remove('paused', 'recording', 'success');
+    statusDot.classList.add('playing');
+    statusText.textContent = 'Fetching ElevenLabs audio…';
+
+    try {
+      const blob = await speakWithEleven(sentence);
+      // If user moved on while we were waiting, drop this audio.
+      if (idx !== currentIdx) return;
+
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      elevenAudio = audio;
+      audio.playbackRate = parseFloat(rateRange.value);
+
+      audio.onplay = () => {
+        isPlaying = true;
+        statusText.textContent = 'Listening · Get ready to speak';
+      };
+      audio.onended = () => {
+        isPlaying = false;
+        statusDot.classList.remove('playing');
+        try { URL.revokeObjectURL(url); } catch (_) {}
+        if (elevenAudio === audio) elevenAudio = null;
+        statusText.textContent = 'Your turn · Press Space to record';
+        if (!isPaused && !wantsToRecord && !isRecording && currentIdx < sentences.length && scores[currentIdx] === undefined) {
+          clearTimeout(autoReplayTimer);
+          autoReplayTimer = setTimeout(() => {
+            if (!isPaused && !wantsToRecord && !isRecording) speakCurrent();
+          }, parseInt(gapRange.value));
+        }
+      };
+      audio.onerror = () => {
+        isPlaying = false;
+        statusDot.classList.remove('playing');
+        statusText.textContent = 'Audio playback failed';
+      };
+
+      await audio.play();
+    } catch (err) {
+      console.error('ElevenLabs error:', err);
+      isPlaying = false;
+      statusDot.classList.remove('playing');
+      warningBanner.classList.add('visible');
+      warningText.textContent = `ElevenLabs error: ${err.message}. Check your API key, quota, or network.`;
+      statusText.textContent = 'ElevenLabs request failed';
+    }
+  }
+
+  let recordingStartLock = false;
+  // When stopRecording() is called, set this to the processResult flag so the
+  // onstop handler (now living on the MediaRecorder, not inside stopRecording)
+  // knows it was a user-initiated stop. If onstop fires while this is null, the
+  // recorder stopped on its own (mic suspended by browser, track ended, etc.).
+  let pendingStopProcess = null;
+  let recordingStartedAt = 0;
+  const MIN_RECORDING_MS = 700; // minimum take duration before Stop is accepted
+  let recordingElapsedTimer = null;
+
+  function isStreamLive(stream) {
+    if (!stream) return false;
+    const tracks = stream.getAudioTracks();
+    if (!tracks.length) return false;
+    return tracks.some(t => t.readyState === 'live' && !t.muted);
+  }
+
+  function describeRecognitionError(err) {
+    switch (err) {
+      case 'not-allowed':
+      case 'service-not-allowed':
+        return 'Microphone permission denied. Click the 🔒 in the address bar and allow microphone, then reload.';
+      case 'no-speech':
+        return 'No speech detected. Speak louder or check your mic.';
+      case 'audio-capture':
+        return 'No microphone detected. Plug in a mic and reload.';
+      case 'network':
+        return 'Speech recognition network error. Check internet, or wait and retry — Google sometimes rate-limits free quota.';
+      case 'aborted':
+        return 'Recognition was interrupted (often by another tab or by pressing Record too quickly). Try again.';
+      case 'language-not-supported':
+        return 'Language not supported by browser speech recognition.';
+      default:
+        return `Speech recognition error: ${err || 'unknown'}.`;
+    }
   }
 
   async function startRecording() {
-    if (isRecording) return;
+    if (isRecording || recordingStartLock) return;
+    recordingStartLock = true;
+    wantsToRecord = true;
 
     clearTimeout(autoReplayTimer);
-    speechSynthesis.cancel();
+    autoReplayTimer = null;
+    try { speechSynthesis.cancel(); } catch (_) {}
+    stopElevenAudio();
+    stopYouTubePlayback();
     isPlaying = false;
 
     currentUserTranscript = '';
     audioChunks = [];
 
+    // Give the TTS engine a moment to release the audio device before we grab it.
+    // Skipping this on Chrome can cause the very next SpeechRecognition.start() to
+    // throw 'aborted' or 'not-allowed'.
+    await new Promise(r => setTimeout(r, 80));
+
+    let recognitionStarted = false;
     if (hasRecognition) {
       try {
+        if (recognition) { try { recognition.abort(); } catch (_) {} recognition = null; }
+        // Reset restart bookkeeping at the start of each take.
+        recognitionRestartCount = 0;
+        recognitionRestartWindow = Date.now();
         recognition = new SpeechRecognition();
         recognition.lang = 'en-US';
         recognition.interimResults = true;
@@ -1085,65 +3959,239 @@
           userText.classList.remove('empty');
         };
 
-        recognition.onerror = (e) => { console.warn('Recognition error:', e.error); };
-        recognition.start();
-      } catch (e) { console.warn(e); }
-    }
+        recognition.onerror = (e) => {
+          const msg = describeRecognitionError(e.error);
+          console.warn('Recognition error:', e.error);
+          // Don't shout about every benign 'aborted' from cancel(), but surface real failures.
+          if (e.error && e.error !== 'aborted') {
+            warningBanner.classList.add('visible');
+            warningText.textContent = msg;
+            statusText.textContent = msg;
+          }
+        };
 
-    if (hasRecorder) {
-      try {
-        if (!audioStream) audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(audioStream);
-        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
-        mediaRecorder.start();
+        recognition.onend = () => {
+          if (!isRecording || !recognition) return;
+          // Bounded auto-restart: cap to 3 restarts per 10s window, with a small
+          // debounce so a flaky network or onerror loop can't pin the CPU.
+          const now = Date.now();
+          if (now - recognitionRestartWindow > 10000) {
+            recognitionRestartCount = 0;
+            recognitionRestartWindow = now;
+          }
+          recognitionRestartCount++;
+          if (recognitionRestartCount > 3) {
+            console.warn('Recognition restart limit reached — disabling auto-restart for this take.');
+            warningBanner.classList.add('visible');
+            warningText.textContent = 'Live transcription keeps disconnecting (network or quota). Auto-restart stopped — press Stop, then Record again.';
+            return;
+          }
+          setTimeout(() => {
+            if (!isRecording || !recognition) return;
+            try { recognition.start(); } catch (_) {}
+          }, 300);
+        };
+
+        recognition.start();
+        recognitionStarted = true;
       } catch (e) {
-        console.warn('Media recording error:', e);
+        console.warn('Recognition start failed:', e);
         warningBanner.classList.add('visible');
-        warningText.textContent = 'Microphone access denied. Grant permission and reload.';
+        warningText.textContent = `Could not start speech recognition: ${e.message || e.name || 'unknown error'}.`;
       }
     }
 
+    let recorderStarted = false;
+    if (hasRecorder) {
+      try {
+        if (!isStreamLive(audioStream)) {
+          if (audioStream) { try { audioStream.getTracks().forEach(t => t.stop()); } catch (_) {} }
+          audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          // Surface external interruptions (another app grabs the mic, OS
+          // mutes for a call, USB unplug, Bluetooth disconnect). Without this,
+          // the recorder just silently stops mid-take with no clue why.
+          audioStream.getAudioTracks().forEach(t => {
+            t.onmute = () => {
+              if (!isRecording) return;
+              console.warn('[mic] track muted by system');
+              warningBanner.classList.add('visible');
+              warningText.textContent = '[debug] microphone was MUTED by the system (another app grabbed it, OS notification, or Bluetooth dropout). Recording continues but may be silent.';
+            };
+            t.onunmute = () => { console.info('[mic] track unmuted'); };
+            t.onended = () => {
+              console.warn('[mic] track ended by system');
+              if (isRecording) {
+                warningBanner.classList.add('visible');
+                warningText.textContent = '[debug] microphone track was ENDED by the system (device unplugged, another app took exclusive control, or browser revoked permission).';
+              }
+            };
+          });
+        }
+        mediaRecorder = new MediaRecorder(audioStream);
+        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+        mediaRecorder.onerror = (e) => {
+          console.warn('MediaRecorder error:', e);
+          warningBanner.classList.add('visible');
+          warningText.textContent = 'Recording failed mid-way. Try again.';
+        };
+        // Persistent onstop: set ONCE at creation so we catch spontaneous stops
+        // (Chrome suspending mic, track ending, etc.) instead of silently losing
+        // the recording. stopRecording() coordinates by setting pendingStopProcess.
+        mediaRecorder.onstop = () => {
+          const wasUserInitiated = pendingStopProcess !== null;
+          const processResult = !!pendingStopProcess;
+          pendingStopProcess = null;
+
+          let blob = null;
+          if (audioChunks.length > 0) {
+            blob = new Blob(audioChunks, { type: 'audio/webm' });
+          }
+          audioChunks = [];
+
+          if (wasUserInitiated) {
+            if (blob && processResult) {
+              revokeRecording(currentIdx);
+              const url = URL.createObjectURL(blob);
+              recordings[currentIdx] = url;
+              recordingPlayback.src = url;
+              feedbackAudio.style.display = 'flex';
+              trimRecordings();
+              updateMemoryStatus();
+            }
+            if (processResult && scoringEngine === 'azure') {
+              if (blob) {
+                evaluateAttemptAzure(blob);
+              } else {
+                warningBanner.classList.add('visible');
+                warningText.textContent = 'No audio captured — cannot send to Azure. Falling back to built-in scoring.';
+                evaluateAttempt();
+              }
+            }
+          } else if (isRecording) {
+            // Browser killed the recorder on us. Flip UI back to idle so the user
+            // notices and can retry instead of speaking into the void.
+            isRecording = false;
+            wantsToRecord = false;
+            recordBtn.textContent = '● Record';
+            recordBtn.classList.remove('recording');
+            statusDot.classList.remove('recording');
+            clearInterval(recordingElapsedTimer);
+            recordingElapsedTimer = null;
+            warningBanner.classList.add('visible');
+            warningText.textContent = 'Recording stopped unexpectedly (the browser suspended the microphone, often after a TTS overlap or tab switch). Please try again.';
+            statusText.textContent = 'Recording interrupted · Press Record again';
+          }
+        };
+        mediaRecorder.start();
+        recorderStarted = true;
+      } catch (e) {
+        console.warn('Media recording error:', e);
+        warningBanner.classList.add('visible');
+        const reason = e.name === 'NotAllowedError'
+          ? 'Microphone permission denied. Click the 🔒 in the address bar, allow microphone, then reload.'
+          : e.name === 'NotFoundError' ? 'No microphone found. Plug one in and reload.'
+          : e.name === 'NotReadableError' ? 'Microphone is busy in another app or tab. Close it and try again.'
+          : `Microphone error: ${e.message || e.name}`;
+        warningText.textContent = reason;
+        statusText.textContent = reason;
+        audioStream = null;
+      }
+    }
+
+    if (!recognitionStarted && !recorderStarted) {
+      recordingStartLock = false;
+      wantsToRecord = false;
+      return;
+    }
+
     isRecording = true;
-    recordBtn.textContent = '■ Stop';
+    recordingStartLock = false;
+    recordingStartedAt = Date.now();
+    recordBtn.textContent = '■ Stop  0.0s';
     recordBtn.classList.add('recording');
     statusDot.classList.remove('playing', 'paused');
     statusDot.classList.add('recording');
-    statusText.textContent = 'Recording · Speak now';
+    statusText.textContent = recognitionStarted
+      ? 'Recording · Speak now'
+      : 'Recording (no live transcription) · Speak now';
+
+    // Live elapsed display so the user can verify the take is still running.
+    clearInterval(recordingElapsedTimer);
+    recordingElapsedTimer = setInterval(() => {
+      if (!isRecording) { clearInterval(recordingElapsedTimer); recordingElapsedTimer = null; return; }
+      const sec = ((Date.now() - recordingStartedAt) / 1000).toFixed(1);
+      recordBtn.textContent = `■ Stop  ${sec}s`;
+    }, 100);
 
     feedbackPanel.classList.add('visible');
     targetText.textContent = sentences[currentIdx];
     userText.textContent = '...';
     userText.classList.add('empty');
     feedbackStats.innerHTML = '';
+    scoreBreakdown.innerHTML = '';
+    scoreBreakdown.classList.remove('visible');
+    // NOTE: phonemeDetail is intentionally NOT cleared here. Azure scoring
+    // takes 5–10s and the user often wants to keep reading the previous
+    // take's phoneme guidance while re-recording. The next renderAzureFeedback
+    // call will rebuild it cleanly when the new score arrives.
     scoreValue.textContent = '—';
     scoreValue.className = 'score';
     feedbackAudio.style.display = 'none';
   }
 
   function stopRecording(processResult = true) {
-    if (!isRecording) return;
+    if (!isRecording) { wantsToRecord = false; return; }
+
+    // ───── DIAGNOSTIC: surface who is stopping the recording ─────
+    // The user keeps reporting recording "just stops" mid-take. Print the
+    // caller stack to the warning banner so we can see exactly what triggered
+    // it — keypress, spontaneous browser stop, an unintended call site, etc.
+    try {
+      const elapsed = ((Date.now() - recordingStartedAt) / 1000).toFixed(2);
+      const stack = (new Error()).stack || '';
+      const frames = stack.split('\n').slice(2, 6).map(l =>
+        l.trim().replace(/^at /, '').replace(/^\s*at\s+/, '').slice(0, 80)
+      ).filter(Boolean).join(' ← ');
+      console.warn(`[stopRecording] processResult=${processResult} elapsed=${elapsed}s`, stack);
+      // Only banner-flash if the take is short and we're processing — that's
+      // the case the user actually notices as "it cut me off".
+      if (processResult && parseFloat(elapsed) < 3) {
+        warningBanner.classList.add('visible');
+        warningText.textContent = `[debug] recording stopped after ${elapsed}s by: ${frames.slice(0, 350)}`;
+      }
+    } catch (_) {}
+    // ───── end diagnostic ─────
+
+    // Min-take guard: if the user (or an accidental key/click) tries to stop
+    // within the first MIN_RECORDING_MS, refuse. Without this, a stray Space
+    // press right after focus shifts (e.g. after clicking a phoneme cell) can
+    // kill a take ~200ms in. Internal calls (processResult=false from
+    // playSentence/pause/next) bypass this since they have a clear intent.
+    if (processResult && (Date.now() - recordingStartedAt) < MIN_RECORDING_MS) {
+      statusText.textContent = 'Hold on — give it a moment before stopping.';
+      return;
+    }
 
     isRecording = false;
+    wantsToRecord = false;
     recordBtn.textContent = '● Record';
     recordBtn.classList.remove('recording');
     statusDot.classList.remove('recording');
+    clearInterval(recordingElapsedTimer);
+    recordingElapsedTimer = null;
 
-    if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
-
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      mediaRecorder.stop();
-      mediaRecorder.onstop = () => {
-        if (audioChunks.length > 0 && processResult) {
-          const blob = new Blob(audioChunks, { type: 'audio/webm' });
-          const url = URL.createObjectURL(blob);
-          recordings[currentIdx] = url;
-          recordingPlayback.src = url;
-          feedbackAudio.style.display = 'flex';
-        }
-      };
+    if (recognition) {
+      try { recognition.onend = null; recognition.stop(); } catch(e){}
+      recognition = null;
     }
 
-    if (processResult) {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      // Signal the persistent onstop handler that this stop is intentional.
+      pendingStopProcess = processResult;
+      mediaRecorder.stop();
+    }
+
+    if (processResult && scoringEngine !== 'azure') {
       setTimeout(() => evaluateAttempt(), 500);
     }
   }
@@ -1222,6 +4270,7 @@
     statusText.textContent = score >= 85 ? 'Excellent · Press N for next' : score >= 65 ? 'Good · Try again or press N' : 'Keep practicing · Replay and try again';
 
     renderSentenceList();
+    persistState();
   }
 
   function escapeHtml(t) {
@@ -1231,15 +4280,33 @@
   }
 
   function showPreviousFeedback(idx) {
-    if (scores[idx] === undefined) { feedbackPanel.classList.remove('visible'); return; }
+    if (scores[idx] === undefined) {
+      feedbackPanel.classList.remove('visible');
+      scoreBreakdown.classList.remove('visible');
+      phonemeDetail.classList.remove('visible');
+      return;
+    }
     feedbackPanel.classList.add('visible');
-    targetText.textContent = sentences[idx];
-    userText.textContent = '(Previous attempt — press Record to try again)';
-    userText.classList.add('empty');
-    scoreValue.textContent = scores[idx] + '%';
-    scoreValue.className = 'score ' + scoreClass(scores[idx]);
-    scoreLabel.textContent = scores[idx] >= 85 ? 'Excellent' : scores[idx] >= 65 ? 'Good' : 'Needs work';
-    feedbackStats.innerHTML = '';
+
+    if (azureResults[idx]) {
+      // Re-render the full Azure breakdown + phoneme-clickable target text
+      renderAzureFeedback(idx, azureResults[idx]);
+      userText.textContent = '(Previous attempt — press Record to try again)';
+      userText.classList.add('empty');
+    } else {
+      targetText.textContent = sentences[idx];
+      userText.textContent = '(Previous attempt — press Record to try again)';
+      userText.classList.add('empty');
+      scoreValue.textContent = scores[idx] + '%';
+      scoreValue.className = 'score ' + scoreClass(scores[idx]);
+      scoreLabel.textContent = scores[idx] >= 85 ? 'Excellent' : scores[idx] >= 65 ? 'Good' : 'Needs work';
+      feedbackStats.innerHTML = '';
+      scoreBreakdown.innerHTML = '';
+      scoreBreakdown.classList.remove('visible');
+      phonemeDetail.innerHTML = '';
+      phonemeDetail.classList.remove('visible');
+    }
+
     if (recordings[idx]) {
       recordingPlayback.src = recordings[idx];
       feedbackAudio.style.display = 'flex';
@@ -1249,6 +4316,10 @@
   }
 
   recordBtn.addEventListener('click', () => {
+    // Critical: blur immediately so a subsequent Space keypress can't trigger
+    // the button's native click (which would race with the global keydown
+    // handler and cause double start/stop on the recording).
+    recordBtn.blur();
     if (isRecording) stopRecording(true); else startRecording();
   });
 
@@ -1259,6 +4330,8 @@
     } else {
       clearTimeout(autoReplayTimer);
       speechSynthesis.cancel();
+      stopElevenAudio();
+      stopYouTubePlayback();
       statusDot.classList.remove('playing', 'paused', 'recording');
       statusDot.classList.add('success');
       const vals = Object.values(scores);
@@ -1286,6 +4359,8 @@
       isPaused = true;
       clearTimeout(autoReplayTimer);
       speechSynthesis.cancel();
+      stopElevenAudio();
+      stopYouTubePlayback();
       stopRecording(false);
       pauseBtn.textContent = '▶ Resume';
       statusDot.classList.remove('playing', 'recording');
@@ -1295,20 +4370,60 @@
   });
 
   document.addEventListener('keydown', (e) => {
-    if (document.activeElement === textInput) return;
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' || ae.tagName === 'SELECT' || ae.isContentEditable)) return;
+    // Ignore shortcuts when any modifier is held (so Ctrl+N opens a new tab, etc.)
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    // If focus is currently on a button (because the user just clicked one),
+    // let the button handle its own Space/Enter natively — don't also fire from
+    // the global handler, or we'd trigger the click twice.
+    if (ae && ae.tagName === 'BUTTON' && (e.code === 'Space' || e.key === 'Enter')) return;
     if (e.code === 'Space') { e.preventDefault(); if (!recordBtn.disabled) recordBtn.click(); }
-    else if (e.key === 'n' || e.key === 'N' || e.key === 'ArrowRight') { e.preventDefault(); if (!nextBtn.disabled) nextBtn.click(); }
+    else if (e.key === 'n' || e.key === 'N') { e.preventDefault(); if (!nextBtn.disabled) nextBtn.click(); }
     else if (e.key === 'r' || e.key === 'R') { if (!replayBtn.disabled) replayBtn.click(); }
     else if (e.key === 'p' || e.key === 'P') { if (!pauseBtn.disabled) pauseBtn.click(); }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); if (currentIdx > 0) playSentence(currentIdx - 1); }
+    else if (e.key === '[') { e.preventDefault(); if (currentIdx > 0) playSentence(currentIdx - 1); }
+    else if (e.key === ']') { e.preventDefault(); if (!nextBtn.disabled) nextBtn.click(); }
+  });
+
+  // Sliders should swallow their own arrow / page keys so the global handler
+  // never sees them — prevents "adjusted slider then page jumped to next sentence".
+  [rateRange, gapRange].forEach(sl => {
+    sl.addEventListener('keydown', e => {
+      if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','PageUp','PageDown','Home','End'].includes(e.key)) {
+        e.stopPropagation();
+      }
+    });
+  });
+
+  // Surface any uncaught error so a silent crash becomes visible instead of
+  // looking like the app "just died". The tab may still die from native
+  // (out-of-memory) kills — those are caught by restoreState() on reload.
+  window.addEventListener('error', (e) => {
+    try {
+      const where = e.filename ? ` (${e.filename.split('/').pop()}:${e.lineno})` : '';
+      warningBanner.classList.add('visible');
+      warningText.textContent = `JS error: ${(e.message || 'unknown').slice(0, 200)}${where}`;
+    } catch (_) {}
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    try {
+      const r = e.reason;
+      const msg = (r && (r.message || String(r))) || 'unknown';
+      warningBanner.classList.add('visible');
+      warningText.textContent = `Promise error: ${String(msg).slice(0, 200)}`;
+    } catch (_) {}
   });
 
   window.addEventListener('beforeunload', () => {
     speechSynthesis.cancel();
+    stopElevenAudio();
+    stopYouTubePlayback();
     clearTimeout(autoReplayTimer);
     if (recognition) try { recognition.stop(); } catch(e){}
     if (audioStream) audioStream.getTracks().forEach(t => t.stop());
-    Object.values(recordings).forEach(url => URL.revokeObjectURL(url));
+    revokeAllRecordings();
+    if (azureAudioCtx) { try { azureAudioCtx.close(); } catch (_) {} azureAudioCtx = null; }
   });
 </script>
 </body>

@@ -108,6 +108,19 @@ canvas{background:var(--bg3);border-radius:var(--rs);width:100%;}
           <input type="number" id="s-resample" value="3" min="1" max="30">
         </div>
       </div>
+      <div class="grid2">
+        <div class="fg">
+          <label>保證金機制 Margin</label>
+          <select id="s-margin">
+            <option value="off" selected>不啟用 Off（先從簡化開始）</option>
+            <option value="on">啟用 On（下單須有足夠保證金）</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>每口原始保證金 Margin / contract</label>
+          <input type="number" id="s-orig-margin" value="10" min="0" step="1">
+        </div>
+      </div>
       <button class="btn btn-primary btn-block" id="btn-create">建立房間</button>
     </div>
 
@@ -142,6 +155,19 @@ canvas{background:var(--bg3);border-radius:var(--rs);width:100%;}
           <button class="btn btn-green" id="btn-open">開始本輪</button>
           <button class="btn btn-red" id="btn-close">結束本輪並揭露</button>
         </div>
+        <div class="margin-ctrl" style="margin-top:.6rem">
+          <div class="fg">
+            <label>保證金機制 Margin（僅大廳可改）</label>
+            <select id="d-margin-toggle">
+              <option value="off">不啟用 Off</option>
+              <option value="on">啟用 On</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>每口原始保證金 Margin / contract</label>
+            <input type="number" id="d-orig-margin" value="10" min="0" step="1">
+          </div>
+        </div>
         <p class="hint" id="flow-hint"></p>
       </div>
 
@@ -158,7 +184,7 @@ canvas{background:var(--bg3);border-radius:var(--rs);width:100%;}
       <div class="card-title">交易者部位與損益</div>
       <div class="scroll">
         <table id="traders-tbl">
-          <thead><tr><th>代號</th><th>姓名</th><th>成交數</th><th>淨部位</th><th>現金流</th><th>總損益</th></tr></thead>
+          <thead><tr><th>代號</th><th>姓名</th><th>成交數</th><th>淨部位</th><th>現金 Cash</th><th class="col-margin">可用 Avail</th><th>總資產 Equity</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -223,6 +249,8 @@ $('#btn-create').onclick=async()=>{
     round_seconds:parseInt($('#s-seconds').value,10)||180,
     visible_fraction:parseFloat($('#s-visible').value)||0.4,
     resample_seconds:parseInt($('#s-resample').value,10)||3,
+    margin_enabled:$('#s-margin').value==='on',
+    orig_margin:parseFloat($('#s-orig-margin').value)||10,
   };
   try{
     const r=await fetch('/api/zip/room',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -269,6 +297,10 @@ function send(o){ if(ws&&ws.readyState===1)ws.send(JSON.stringify(o)); }
 $('#btn-open').onclick=()=>send({type:'open_round'});
 $('#btn-close').onclick=()=>send({type:'close_round'});
 
+// 保證金即時開關（僅大廳生效）
+$('#d-margin-toggle').onchange=e=>send({type:'set_config',margin_enabled:e.target.value==='on'});
+$('#d-orig-margin').onchange=e=>send({type:'set_config',orig_margin:parseFloat(e.target.value)||0});
+
 // 倒數
 setInterval(()=>{
   if(!state)return;
@@ -287,6 +319,15 @@ function render(){
   $('#d-count').textContent=state.trader_count;
   $('#d-round').textContent=state.round;
   $('#d-phase').textContent=PHASE[state.phase]||state.phase;
+
+  // 保證金設定同步（僅大廳可改）
+  if(state.config){
+    const lobby=state.phase==='lobby';
+    const mt=$('#d-margin-toggle'), om=$('#d-orig-margin');
+    if(document.activeElement!==mt) mt.value=state.config.margin_enabled?'on':'off';
+    if(document.activeElement!==om) om.value=state.config.orig_margin;
+    mt.disabled=!lobby; om.disabled=!lobby;
+  }
 
   const dg=$('#digits'); dg.innerHTML='';
   state.revealed.forEach(d=>{
@@ -314,13 +355,16 @@ function render(){
   $('#d-offers').innerHTML=offers.length?offers.map(o=>obk(o,o.id===state.best_offer_id)).join(''):'<div class="hint" style="text-align:center">—</div>';
 
   // 交易者
+  const marginOn=!!(state.config&&state.config.margin_enabled);
+  document.querySelectorAll('.col-margin').forEach(el=>el.style.display=marginOn?'':'none');
   const tb=$('#traders-tbl tbody');
   tb.innerHTML=(state.traders||[]).map(t=>`<tr>
     <td><b style="color:${t.color}">${t.badge}</b></td><td>${esc(t.name)}</td>
     <td>${t.n_trades}</td>
     <td class="${cls(t.net)}">${t.net}</td>
     <td class="${cls(t.cash)}">${t.cash}</td>
-    <td class="${cls(t.pnl)}">${t.pnl}</td></tr>`).join('')||'<tr><td colspan="6" class="hint">尚無交易者</td></tr>';
+    <td class="col-margin ${cls(t.available)}"${marginOn?'':' style="display:none"'}>${t.available!=null?t.available:'—'}</td>
+    <td class="${cls(t.pnl)}">${t.pnl}</td></tr>`).join('')||'<tr><td colspan="7" class="hint">尚無交易者</td></tr>';
 
   // 成交
   const tl=(state.trades||[]).slice().reverse().slice(0,40);
