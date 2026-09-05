@@ -24,6 +24,10 @@ import re
 
 
 
+import os
+
+
+
 import json
 
 
@@ -437,6 +441,150 @@ def shadow_captions(url: str, lang: str = "en"):
         raise HTTPException(status_code=500, detail=f"字幕抓取失敗：{e}")
 
     return {"video_id": video_id, "lang": lang, "count": len(cues), "cues": cues}
+
+
+
+# ── Whisper 語音辨識（影片沒有字幕時，直接從音訊辨識）──────────────────
+
+_WHISPER_MODEL = None
+
+_WHISPER_LOCK = threading.Lock()
+
+WHISPER_MODEL_SIZE = os.environ.get("SHADOW_WHISPER_MODEL", "base")
+
+
+
+def _get_whisper_model():
+
+    global _WHISPER_MODEL
+
+    if _WHISPER_MODEL is None:
+
+        from faster_whisper import WhisperModel
+
+        _WHISPER_MODEL = WhisperModel(
+
+            WHISPER_MODEL_SIZE, device="cpu", compute_type="int8")
+
+    return _WHISPER_MODEL
+
+
+
+def _download_audio(video_id: str) -> str:
+
+    import tempfile
+
+    import glob
+
+    from yt_dlp import YoutubeDL
+
+    tmpdir = tempfile.mkdtemp(prefix="shadow_yt_")
+
+    outtmpl = os.path.join(tmpdir, "%(id)s.%(ext)s")
+
+    opts = {
+
+        "format": "bestaudio/best",
+
+        "outtmpl": outtmpl,
+
+        "quiet": True,
+
+        "no_warnings": True,
+
+        "noplaylist": True,
+
+    }
+
+    with YoutubeDL(opts) as ydl:
+
+        ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
+
+    files = glob.glob(os.path.join(tmpdir, f"{video_id}.*"))
+
+    if not files:
+
+        files = glob.glob(os.path.join(tmpdir, "*"))
+
+    if not files:
+
+        raise HTTPException(status_code=502, detail="音訊下載失敗（yt-dlp 沒有取得檔案）")
+
+    return files[0]
+
+
+
+def _transcribe_youtube(video_id: str, lang: str = "en") -> list:
+
+    audio_path = _download_audio(video_id)
+
+    tmpdir = os.path.dirname(audio_path)
+
+    try:
+
+        model = _get_whisper_model()
+
+        segments, _info = model.transcribe(
+
+            audio_path, language=(lang or None), vad_filter=True)
+
+        cues = []
+
+        for seg in segments:
+
+            txt = re.sub(r"\s+", " ", (seg.text or "")).strip()
+
+            if txt:
+
+                cues.append({"start": float(seg.start),
+
+                             "dur": max(0.2, float(seg.end) - float(seg.start)),
+
+                             "text": txt})
+
+        return cues
+
+    finally:
+
+        import shutil
+
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+
+@app.get("/api/shadow/transcribe")
+
+def shadow_transcribe(url: str, lang: str = "en"):
+
+    video_id = _yt_video_id(url)
+
+    if not video_id:
+
+        raise HTTPException(status_code=400, detail="無效的 YouTube 連結或影片 ID")
+
+    # Whisper 轉錄很耗 CPU，序列化避免多人同時觸發把主機拖垮。
+
+    with _WHISPER_LOCK:
+
+        try:
+
+            cues = _transcribe_youtube(video_id, lang)
+
+        except HTTPException:
+
+            raise
+
+        except Exception as e:
+
+            raise HTTPException(status_code=500, detail=f"語音辨識失敗：{e}")
+
+    if not cues:
+
+        raise HTTPException(status_code=404, detail="辨識結果為空（影片可能無語音或為純音樂）")
+
+    return {"video_id": video_id, "lang": lang, "count": len(cues),
+
+            "engine": f"whisper-{WHISPER_MODEL_SIZE}", "cues": cues}
 
 
 

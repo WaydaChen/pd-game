@@ -2058,26 +2058,53 @@
     } catch (e) {
       console.error('YouTube load failed:', e);
       const msg = (e && e.message) || String(e);
-      const details = Array.isArray(e && e.details) ? e.details.join(' | ') : '';
 
-      if (/No accessible captions found|subtitles disabled|Caption track is empty|inaccessible/i.test(msg)) {
-        setYouTubeStatus('Failed: this video does not expose readable captions to web clients. Try another video with public subtitles, or switch to text mode.', 'err');
-        return;
-      }
-
-      if (/Failed to fetch/i.test(msg)) {
-        if (location.protocol === 'file:') {
-          setYouTubeStatus('Failed: browser blocked cross-origin caption fetch on file://. Start a local server and open http://localhost:5500/shadow_reading_3.html', 'err');
-        } else {
-          setYouTubeStatus('Failed: caption endpoints are blocked or unreachable from this network/browser. Try VPN/another network, or another video with public captions.', 'err');
+      // Captions failed (blocked, disabled, or none). If the app backend is
+      // available, fall back to server-side Whisper speech recognition — this
+      // works even for videos with no captions at all.
+      if (location.protocol === 'http:' || location.protocol === 'https:') {
+        try {
+          await transcribeViaWhisper(videoId, startSec);
+          return;
+        } catch (we) {
+          const wmsg = (we && we.message) || String(we);
+          setYouTubeStatus(`Captions unavailable, and audio transcription also failed: ${wmsg.slice(0, 220)}`, 'err');
+          ytManualDetails.open = true;
+          return;
         }
-        ytManualDetails.open = true;
-        return;
       }
 
-      setYouTubeStatus(`Failed: ${msg}${details ? ' | ' + details.slice(0, 260) : ''}`, 'err');
+      const details = Array.isArray(e && e.details) ? e.details.join(' | ') : '';
+      if (location.protocol === 'file:') {
+        setYouTubeStatus('Failed: open the page via the app server (http://…/shadow) so captions/Whisper can run server-side. file:// cannot reach YouTube.', 'err');
+      } else {
+        setYouTubeStatus(`Failed: ${msg}${details ? ' | ' + details.slice(0, 200) : ''}`, 'err');
+      }
       ytManualDetails.open = true;
     }
+  }
+
+  // Server-side Whisper: downloads the audio (yt-dlp) and transcribes it.
+  // Slower than captions, but needs no existing subtitles.
+  async function transcribeViaWhisper(videoId, startSec) {
+    setYouTubeStatus('No captions — transcribing audio with Whisper. This can take a minute or more for long videos…', 'busy');
+    const res = await fetch(`/api/shadow/transcribe?url=${encodeURIComponent(videoId)}&lang=en`);
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try { const j = await res.json(); if (j.detail) detail = j.detail; } catch (_) {}
+      throw new Error(detail);
+    }
+    const data = await res.json();
+    const cues = (data.cues || []).map(c => ({
+      start: c.start,
+      dur: c.dur,
+      end: c.start + Math.max(0.2, c.dur || 0),
+      text: normalizeCaptionText(c.text)
+    })).filter(c => c.text && Number.isFinite(c.start));
+    let chunks = cuesToSentenceChunks(cues);
+    if (startSec > 0) chunks = chunks.filter(c => c.end >= startSec);
+    if (!chunks.length) throw new Error('Whisper produced no usable segments.');
+    await activateYouTubeChunks(videoId, chunks, `Loaded via Whisper (${data.engine || 'asr'}):`);
   }
 
   async function loadYouTubePracticeFromManualTranscript() {
