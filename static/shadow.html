@@ -1724,6 +1724,47 @@
     return cues;
   }
 
+  // Target chunk sizing for shadowing — keep pieces short & speakable.
+  const CHUNK_TARGET_WORDS = 9;   // preferred words per practice line
+  const CHUNK_MAX_WORDS = 13;     // above this, force a split
+
+  // Break one caption chunk into shorter pieces, distributing its [start,end]
+  // time span proportionally by character length so each piece keeps YT timing.
+  function splitChunkWithTiming(text, start, end) {
+    const wrapByWords = (s) => {
+      const words = s.split(/\s+/).filter(Boolean);
+      if (words.length <= CHUNK_MAX_WORDS) return [s.trim()];
+      const parts = [];
+      for (let i = 0; i < words.length; i += CHUNK_TARGET_WORDS) {
+        parts.push(words.slice(i, i + CHUNK_TARGET_WORDS).join(' '));
+      }
+      // Merge a tiny trailing fragment back into the previous piece.
+      if (parts.length > 1 && parts[parts.length - 1].split(/\s+/).length < 3) {
+        parts[parts.length - 2] += ' ' + parts.pop();
+      }
+      return parts;
+    };
+
+    let pieces = [];
+    splitIntoSentences(text).forEach(s => { pieces.push(...wrapByWords(s)); });
+    pieces = pieces.map(p => p.trim()).filter(Boolean);
+    if (pieces.length <= 1) {
+      return [{ text: text.trim(), start, end: Math.max(start + 0.4, end) }];
+    }
+
+    const totalChars = pieces.reduce((a, p) => a + p.length, 0) || 1;
+    const span = Math.max(0.4, end - start);
+    const out = [];
+    let acc = 0;
+    for (const p of pieces) {
+      const s = start + span * (acc / totalChars);
+      acc += p.length;
+      const e = start + span * (acc / totalChars);
+      out.push({ text: p, start: s, end: Math.max(s + 0.4, e) });
+    }
+    return out;
+  }
+
   function cuesToSentenceChunks(cues) {
     const out = [];
     let curText = '';
@@ -1735,7 +1776,8 @@
       if (!text) return;
       const words = text.split(/\s+/).filter(Boolean).length;
       if (words < 2) return;
-      out.push({ text, start: curStart, end: Math.max(curStart + 0.6, curEnd) });
+      // Post-split each accumulated block into short, speakable pieces.
+      out.push(...splitChunkWithTiming(text, curStart, Math.max(curStart + 0.6, curEnd)));
     };
 
     cues.forEach((c, idx) => {
@@ -1752,9 +1794,9 @@
       const duration = curEnd - curStart;
       const hasTerminal = /[.!?。！？]$/.test(curText);
       const nextGap = idx < cues.length - 1 ? (cues[idx + 1].start - c.end) : 0;
-      const hardBreak = nextGap > 1.2;
+      const hardBreak = nextGap > 0.8;
 
-      if (hasTerminal || duration >= 8 || words >= 24 || hardBreak) {
+      if (hasTerminal || duration >= 5 || words >= 14 || hardBreak) {
         flush();
         curText = '';
         curStart = 0;
