@@ -20,6 +20,30 @@ import threading
 
 
 
+import re
+
+
+
+import json
+
+
+
+import html
+
+
+
+import urllib.request
+
+
+
+import urllib.parse
+
+
+
+import urllib.error
+
+
+
 import zip_game
 
 
@@ -109,6 +133,310 @@ def hub_page():
 def health():
 
     return {"status": "ok"}
+
+
+
+# ── YouTube 字幕（伺服器端抓取，避開瀏覽器 CORS）────────────────────────
+
+_YT_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+
+          "(KHTML, like Gecko) Chrome/122.0 Safari/537.36")
+
+
+
+def _yt_video_id(url_or_id: str) -> Optional[str]:
+
+    s = (url_or_id or "").strip()
+
+    if re.fullmatch(r"[A-Za-z0-9_-]{11}", s):
+
+        return s
+
+    try:
+
+        u = urllib.parse.urlparse(s)
+
+    except ValueError:
+
+        return None
+
+    if u.hostname and "youtu.be" in u.hostname:
+
+        seg = [p for p in u.path.split("/") if p]
+
+        if seg and re.fullmatch(r"[A-Za-z0-9_-]{11}", seg[0]):
+
+            return seg[0]
+
+    qs = urllib.parse.parse_qs(u.query or "")
+
+    v = (qs.get("v") or [""])[0]
+
+    if re.fullmatch(r"[A-Za-z0-9_-]{11}", v):
+
+        return v
+
+    seg = [p for p in (u.path or "").split("/") if p]
+
+    for i, part in enumerate(seg):
+
+        if part in ("embed", "shorts", "live") and i + 1 < len(seg):
+
+            cand = seg[i + 1]
+
+            if re.fullmatch(r"[A-Za-z0-9_-]{11}", cand):
+
+                return cand
+
+    return None
+
+
+
+def _http_get(url: str, timeout: float = 12.0) -> str:
+
+    req = urllib.request.Request(url, headers={
+
+        "User-Agent": _YT_UA,
+
+        "Accept-Language": "en-US,en;q=0.9",
+
+        "Cookie": "CONSENT=YES+cb.20240101-00-p0.en+FX+000",
+
+    })
+
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+
+        return resp.read().decode("utf-8", errors="replace")
+
+
+
+def _extract_json_after(marker: str, text: str) -> Optional[dict]:
+
+    idx = text.find(marker)
+
+    if idx < 0:
+
+        return None
+
+    start = text.find("{", idx)
+
+    if start < 0:
+
+        return None
+
+    depth = 0
+
+    in_str = False
+
+    esc = False
+
+    for i in range(start, len(text)):
+
+        c = text[i]
+
+        if in_str:
+
+            if esc:
+
+                esc = False
+
+            elif c == "\\":
+
+                esc = True
+
+            elif c == '"':
+
+                in_str = False
+
+        else:
+
+            if c == '"':
+
+                in_str = True
+
+            elif c == "{":
+
+                depth += 1
+
+            elif c == "}":
+
+                depth -= 1
+
+                if depth == 0:
+
+                    try:
+
+                        return json.loads(text[start:i + 1])
+
+                    except json.JSONDecodeError:
+
+                        return None
+
+    return None
+
+
+
+def _parse_timedtext_xml(xml: str) -> list:
+
+    cues = []
+
+    for m in re.finditer(r'<text([^>]*)>(.*?)</text>', xml, re.DOTALL):
+
+        attrs, body = m.group(1), m.group(2)
+
+        sm = re.search(r'start="([\d.]+)"', attrs)
+
+        dm = re.search(r'dur="([\d.]+)"', attrs)
+
+        if not sm:
+
+            continue
+
+        start = float(sm.group(1))
+
+        dur = float(dm.group(1)) if dm else 0.0
+
+        txt = html.unescape(re.sub(r"<[^>]+>", " ", body))
+
+        txt = re.sub(r"\s+", " ", txt).strip()
+
+        if txt:
+
+            cues.append({"start": start, "dur": dur, "text": txt})
+
+    return cues
+
+
+
+def _fetch_youtube_cues(video_id: str, lang: str = "en") -> list:
+
+    # Preferred: the maintained youtube-transcript-api handles YouTube's
+
+    # consent/format/ASR quirks that break naive timedtext scraping.
+
+    try:
+
+        from youtube_transcript_api import YouTubeTranscriptApi
+
+        api = YouTubeTranscriptApi()
+
+        try:
+
+            fetched = api.fetch(video_id, languages=[lang, "en", "en-US"])
+
+        except Exception:
+
+            fetched = api.fetch(video_id)
+
+        cues = []
+
+        for s in fetched.snippets:
+
+            txt = re.sub(r"\s+", " ", html.unescape(s.text or "")).strip()
+
+            if txt:
+
+                cues.append({"start": float(s.start),
+
+                             "dur": float(s.duration or 0.0), "text": txt})
+
+        if cues:
+
+            return cues
+
+    except HTTPException:
+
+        raise
+
+    except Exception:
+
+        pass  # fall back to manual scrape below
+
+
+
+    page = _http_get(f"https://www.youtube.com/watch?v={video_id}&hl=en")
+
+    player = _extract_json_after("ytInitialPlayerResponse", page)
+
+    if not player:
+
+        raise HTTPException(status_code=502, detail="無法解析影片資料（YouTube 可能改版或需要登入）")
+
+    tracks = (player.get("captions", {})
+
+                    .get("playerCaptionsTracklistRenderer", {})
+
+                    .get("captionTracks", []))
+
+    if not tracks:
+
+        raise HTTPException(status_code=404, detail="這部影片沒有可用的字幕軌")
+
+    def score(t: dict) -> int:
+
+        code = (t.get("languageCode") or "").lower()
+
+        is_asr = t.get("kind") == "asr"
+
+        s = 0
+
+        if code.startswith(lang.lower()):
+
+            s += 2
+
+        if not is_asr:
+
+            s += 1
+
+        return s
+
+    track = sorted(tracks, key=score, reverse=True)[0]
+
+    base_url = track.get("baseUrl")
+
+    if not base_url:
+
+        raise HTTPException(status_code=404, detail="字幕軌缺少下載連結")
+
+    xml = _http_get(base_url)
+
+    cues = _parse_timedtext_xml(xml)
+
+    if not cues:
+
+        raise HTTPException(status_code=404, detail="字幕內容為空或無法解析")
+
+    return cues
+
+
+
+@app.get("/api/shadow/captions")
+
+def shadow_captions(url: str, lang: str = "en"):
+
+    video_id = _yt_video_id(url)
+
+    if not video_id:
+
+        raise HTTPException(status_code=400, detail="無效的 YouTube 連結或影片 ID")
+
+    try:
+
+        cues = _fetch_youtube_cues(video_id, lang)
+
+    except HTTPException:
+
+        raise
+
+    except urllib.error.URLError as e:
+
+        raise HTTPException(status_code=502, detail=f"連線 YouTube 失敗：{e.reason}")
+
+    except Exception as e:
+
+        raise HTTPException(status_code=500, detail=f"字幕抓取失敗：{e}")
+
+    return {"video_id": video_id, "lang": lang, "count": len(cues), "cues": cues}
 
 
 

@@ -1625,6 +1625,24 @@
   }
 
   async function fetchYouTubeCaptions(videoId) {
+    // Preferred path: our own backend fetches captions server-side (no browser
+    // CORS). Only available when the page is served by the app (not file://).
+    if (location.protocol === 'http:' || location.protocol === 'https:') {
+      try {
+        const res = await fetch(`/api/shadow/captions?url=${encodeURIComponent(videoId)}&lang=en`);
+        if (res.ok) {
+          const data = await res.json();
+          const cues = (data.cues || []).map(c => ({
+            start: c.start,
+            dur: c.dur,
+            end: c.start + Math.max(0.2, c.dur || 0),
+            text: normalizeCaptionText(c.text)
+          })).filter(c => c.text && Number.isFinite(c.start));
+          if (cues.length) return cues;
+        }
+      } catch (_) { /* fall through to client-side attempts */ }
+    }
+
     const listBase = `https://www.youtube.com/api/timedtext?type=list&v=${encodeURIComponent(videoId)}`;
     const listUrls = [
       listBase,
