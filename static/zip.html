@@ -198,6 +198,16 @@ $('#btn-join').onclick=()=>{
   connect();
 };
 $('#in-name').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-join').click();});
+// 從 QR code／連結進來（/zip?room=房號）就自動帶入房間代碼，只要再輸入姓名
+(()=>{
+  const q=new URLSearchParams(location.search);
+  const room=(q.get('room')||q.get('code')||'').trim().toUpperCase();
+  if(room){
+    $('#in-code').value=room;
+    showAlert('#join-alert',`已帶入房間代碼 ${esc(room)}，請輸入姓名或學號 / Room code filled in — enter your name or ID`,'info');
+    $('#in-name').focus();
+  }
+})();
 
 function connect(){
   const proto=location.protocol==='https:'?'wss':'ws';

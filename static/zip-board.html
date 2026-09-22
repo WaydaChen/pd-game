@@ -89,6 +89,20 @@ canvas{flex:1;min-height:0;width:100%;}
 .newsrow.up{border-left:.5vh solid var(--green);}
 .newsrow.down{border-left:.5vh solid var(--red);}
 
+/* 學生入口 QR code：大廳時置中放大，開盤後縮到頂列 */
+.topqr{background:#fff;padding:.5vh;border-radius:.8vh;line-height:0;display:none;}
+.topqr img{display:block;width:8vh;height:8vh;}
+.lobbyqr{position:fixed;left:0;right:0;bottom:0;top:12vh;z-index:40;display:none;
+  background:rgba(10,11,15,.96);align-items:center;justify-content:center;gap:5vw;padding:3vh 4vw;flex-wrap:wrap;}
+.lobbyqr .frame{background:#fff;padding:2vh;border-radius:2vh;line-height:0;}
+.lobbyqr .frame img{display:block;width:min(58vh,80vw);height:min(58vh,80vw);}
+.lobbyqr .txt{display:flex;flex-direction:column;gap:1.4vh;max-width:40vw;}
+.lobbyqr .k{font-size:2.2vh;color:var(--text2);letter-spacing:.1em;}
+.lobbyqr .code{font-family:'Noto Serif TC',serif;font-size:9vh;font-weight:700;letter-spacing:.3em;color:var(--accent2);line-height:1;}
+.lobbyqr .url{font-family:monospace;font-size:2.2vh;color:var(--text2);word-break:break-all;}
+.lobbyqr .cnt{font-size:3vh;color:var(--green);font-weight:700;}
+@media(max-aspect-ratio:1/1){.lobbyqr .txt{max-width:none;align-items:center;text-align:center;}}
+
 /* 揭露快訊 */
 .flash{position:fixed;inset:0;background:rgba(10,11,15,.96);display:flex;align-items:center;
   justify-content:center;z-index:50;padding:4vh 6vw;text-align:center;}
@@ -128,6 +142,7 @@ canvas{flex:1;min-height:0;width:100%;}
 <div class="wrap hidden" id="screen-board">
 
   <div class="top">
+    <div class="topqr" id="t-qr"><img alt="學生入口 QR code"></div>
     <div class="blk"><span class="l">房間代碼</span><span class="v code" id="t-code">—</span></div>
     <div class="blk"><span class="l">輪次</span><span class="v"><span id="t-round">0</span> / 5</span></div>
     <div class="blk"><span class="l">交易者</span><span class="v" id="t-traders">0</span></div>
@@ -169,6 +184,17 @@ canvas{flex:1;min-height:0;width:100%;}
   </div>
 </div>
 
+<div class="lobbyqr" id="lobby-qr">
+  <div class="frame"><img alt="學生入口 QR code"></div>
+  <div class="txt">
+    <div class="k">用手機掃 QR code 進場，再輸入姓名或學號</div>
+    <div class="k">房間代碼</div>
+    <div class="code" id="lq-code">—</div>
+    <div class="url" id="lq-url"></div>
+    <div class="cnt">已進場 <span id="lq-count">0</span> 人</div>
+  </div>
+</div>
+
 <div class="conn hidden" id="conn"><span class="dot" id="conn-dot"></span> <span id="conn-t">已連線</span></div>
 
 <script>
@@ -182,6 +208,13 @@ $('#btn-go').onclick=()=>{
   $('#screen-board').classList.remove('hidden');
   $('#conn').classList.remove('hidden');
   $('#t-code').textContent=code;
+  // 學生入口 QR code（與教師端同一個連結：/zip?room=房號）
+  const url=`${location.origin}/zip?room=${encodeURIComponent(code)}`;
+  const qr=s=>`https://api.qrserver.com/v1/create-qr-code/?size=${s}x${s}&margin=8&data=${encodeURIComponent(url)}`;
+  $('#t-qr img').src=qr(160);
+  $('#lobby-qr img').src=qr(600);
+  $('#lq-code').textContent=code;
+  $('#lq-url').textContent=url;
   connect();
 };
 $('#in-code').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-go').click();});
@@ -232,6 +265,11 @@ function render(){
   const ph=$('#t-phase');
   ph.textContent=PHASE[state.phase]||state.phase;
   ph.className='phase '+(state.phase==='open'?'open':state.phase==='settled'?'settled':'');
+  // 大廳：QR code 置中放大；開盤後縮到頂列，讓晚到或斷線的學生還能掃
+  const lobby=state.phase==='lobby';
+  $('#lobby-qr').style.display=lobby?'flex':'none';
+  $('#t-qr').style.display=lobby?'none':'block';
+  $('#lq-count').textContent=state.trader_count;
   $('#t-mode').textContent=state.mode==='outcry'?'喊價模式':'電子撮合';
   $('#s-vol').textContent=state.volume;
   $('#s-oi').textContent=state.open_interest;

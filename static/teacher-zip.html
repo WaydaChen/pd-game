@@ -38,6 +38,16 @@ input:focus,select:focus{border-color:var(--accent);}
 .codebox .b{flex:1;min-width:140px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:.8rem 1rem;text-align:center;}
 .codebox .b .l{font-size:.72rem;color:var(--text3);}
 .codebox .b .v{font-size:1.6rem;font-weight:700;letter-spacing:2px;font-family:'Noto Serif TC',serif;color:var(--accent2);}
+.entry{display:flex;gap:1rem;align-items:center;margin-top:1rem;flex-wrap:wrap;}
+.qr-frame{background:#fff;padding:.6rem;border-radius:var(--rs);line-height:0;flex:none;}
+.qr-frame img{display:block;}
+.entry-info{flex:1;min-width:220px;display:flex;flex-direction:column;gap:.45rem;}
+.entry-info .l{font-size:.74rem;color:var(--text2);}
+.url-box{background:var(--bg3);border:1px dashed var(--border2);border-radius:var(--rs);padding:.55rem .75rem;
+  color:var(--accent2);font-family:monospace;font-size:.88rem;text-align:left;cursor:pointer;word-break:break-all;}
+.url-box:hover{border-color:var(--accent);}
+.entry-actions{display:flex;gap:.5rem;flex-wrap:wrap;}
+.btn-sm{padding:.4rem .9rem;font-size:.8rem;text-decoration:none;display:inline-block;}
 
 .dash-top{display:grid;grid-template-columns:1.2fr 1fr;gap:1rem;margin-bottom:1rem;}
 @media(max-width:760px){.dash-top{grid-template-columns:1fr;}.grid2{grid-template-columns:1fr;}}
@@ -154,9 +164,18 @@ details.adv .inner{padding:.3rem 0 .8rem;border-top:1px solid var(--border);}
         <div class="b"><div class="l">模式</div><div class="v" id="d-mode" style="font-size:1.1rem">—</div></div>
         <div class="b"><div class="l">已進場</div><div class="v" id="d-count">0</div></div>
       </div>
-      <p class="hint">學生入口：<span id="d-url" style="color:var(--accent)"></span>
-        　·　<a id="d-board" href="#" target="_blank" style="color:var(--green)">開啟公開看板（投影用）↗</a>
-        <span style="color:var(--text3)">只顯示公開資訊，沒有姓名、部位與損益</span></p>
+      <div class="entry">
+        <div class="qr-frame"><img id="qr-img" alt="學生入口 QR code" width="150" height="150"></div>
+        <div class="entry-info">
+          <div class="l">學生入口（掃 QR code 會自動帶入房間代碼，只要再輸入姓名）</div>
+          <button type="button" class="url-box" id="d-url" title="點擊複製">—</button>
+          <div class="entry-actions">
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-qr-full">🔍 放大 QR code 投影</button>
+            <a id="d-board" href="#" target="_blank" class="btn btn-ghost btn-sm">開啟公開看板 ↗</a>
+          </div>
+          <p class="hint" style="margin-top:.2rem">公開看板大廳時會放大顯示這個 QR code，開盤後縮到角落；只顯示公開資訊，沒有姓名、部位與損益。</p>
+        </div>
+      </div>
     </div>
 
     <div class="dash-top">
@@ -300,10 +319,37 @@ function enterDash(){
   $('#screen-dash').classList.add('active');
   $('#d-code').textContent=code;
   $('#d-key').textContent=hostKey;
-  $('#d-url').textContent=`${location.origin}/zip`;
+  const url=studentURL();
+  $('#d-url').textContent=url;
+  $('#qr-img').src=qrSrc(url,150);
   $('#d-board').href=`/zip-board?code=${encodeURIComponent(code)}`;
   connect();
 }
+
+// ── 學生入口 QR code（與其他遊戲相同，用 api.qrserver.com 產生圖片）──
+function studentURL(){ return `${location.origin}/zip?room=${encodeURIComponent(code)}`; }
+function qrSrc(url,size){
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&margin=8&data=${encodeURIComponent(url)}`;
+}
+$('#d-url').onclick=()=>{
+  const el=$('#d-url'), url=studentURL();
+  const done=()=>{ el.textContent='✓ 已複製！'; setTimeout(()=>el.textContent=url,1200); };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done,()=>{});
+};
+$('#btn-qr-full').onclick=()=>{
+  const url=studentURL();
+  const size=Math.round(Math.min(window.innerWidth,window.innerHeight)*0.55);
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(13,14,20,.97);z-index:9999;display:flex;'
+    +'flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:2rem;';
+  ov.onclick=()=>ov.remove();
+  ov.innerHTML=`<div style="background:#fff;padding:1.5rem;border-radius:16px;line-height:0;">
+      <img src="${qrSrc(url,size)}" width="${size}" height="${size}" alt="學生入口 QR code"></div>
+    <div style="margin-top:1.5rem;font-family:'Noto Serif TC',serif;font-size:2rem;letter-spacing:.4em;color:var(--accent2);font-weight:700;">${code}</div>
+    <div style="margin-top:.5rem;color:var(--text2);font-size:.95rem;font-family:monospace;word-break:break-all;text-align:center;">${url}</div>
+    <div style="margin-top:1rem;color:var(--text3);font-size:.8rem;">點擊任意處關閉</div>`;
+  document.body.appendChild(ov);
+};
 
 function connect(){
   const proto=location.protocol==='https:'?'wss':'ws';
