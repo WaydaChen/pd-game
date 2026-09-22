@@ -581,27 +581,54 @@ def _efficiency(market: Market) -> dict:
     }
 
 
+def _round_flow(market: Market) -> list:
+    """習題 1 的中間步驟：每輪新開多單、平掉多單、以及未平倉量。
+
+    照論文 Table 4 的算法：
+      · 新開多單 = 該輪成交筆數（每一筆成交都會產生一口多單）
+      · 平掉多單 = 該輪被平掉的多單口數，有兩種來源：
+          1. 以前開的多單，這一輪被賣掉（賣方原本是多單）
+          2. 這一輪新開的多單，當場就抵銷掉（買方原本是空單，買進其實是平倉）
+      · 未平倉量 = 前一輪未平倉量 + 新開 − 平掉
+        （等同於各交易者淨部位取正值後加總）
+    """
+    net, out = {}, []
+    for r in range(1, TOTAL_ROUNDS + 1):
+        opened = closed = 0
+        for tr in market.trades:
+            if tr.round != r:
+                continue
+            opened += 1
+            if net.get(tr.buyer_id, 0) < 0:      # 買方原本是空單 → 當場抵銷
+                closed += 1
+            if net.get(tr.seller_id, 0) > 0:     # 賣方原本是多單 → 平掉舊多單
+                closed += 1
+            net[tr.buyer_id] = net.get(tr.buyer_id, 0) + 1
+            net[tr.seller_id] = net.get(tr.seller_id, 0) - 1
+        out.append({"opened": opened, "closed": closed,
+                    "open_interest": sum(v for v in net.values() if v > 0)})
+    return out
+
+
 def _build_review(market: Market) -> dict:
     """結算後的檢討統計：每輪成交量／未平倉／結算價／揭露數字／輪初預期交割價。"""
     rounds = []
     prev_settle = None
+    flow = _round_flow(market)
     for r in range(1, TOTAL_ROUNDS + 1):
         rt = [tr for tr in market.trades if tr.round == r]
         volume = len(rt)
         settle = rt[-1].price if rt else prev_settle
-        # 每輪未平倉量：該輪結束時各交易者淨部位取正值後加總
-        net = {}
-        for tr in market.trades:
-            if tr.round <= r:
-                net[tr.buyer_id] = net.get(tr.buyer_id, 0) + 1
-                net[tr.seller_id] = net.get(tr.seller_id, 0) - 1
-        open_interest = sum(v for v in net.values() if v > 0)
+        opened = flow[r - 1]["opened"]
+        closed = flow[r - 1]["closed"]
+        open_interest = flow[r - 1]["open_interest"]
         # 第 k 輪輪初預期交割價 =（前 k-1 位已揭露之和）+ (5-(k-1)) * 4.5
         prior = sum(market.revealed[:r - 1]) if len(market.revealed) >= r - 1 else 0
         expected = prior + (TOTAL_ROUNDS - (r - 1)) * DIGIT_EXPECTED
         revealed_digit = market.revealed[r - 1] if len(market.revealed) >= r else None
         rounds.append({
             "round": r, "volume": volume,
+            "opened": opened, "closed": closed,
             "settle_price": settle, "open_interest": open_interest,
             "revealed_digit": revealed_digit, "expected_delivery": expected,
         })

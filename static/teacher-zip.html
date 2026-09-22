@@ -231,10 +231,13 @@ details.adv .inner{padding:.3rem 0 .8rem;border-top:1px solid var(--border);}
       <div class="card-title">📊 檢討面板</div>
       <div class="scroll">
         <table id="review-tbl">
-          <thead><tr><th>輪</th><th>揭露數字</th><th>成交量</th><th>結算價</th><th>未平倉</th><th>輪初預期交割價</th></tr></thead>
+          <thead><tr><th>輪</th><th>揭露數字</th><th>成交量</th><th>新開多單</th><th>平掉多單</th><th>未平倉</th><th>結算價</th><th>輪初預期交割價</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
+      <p class="hint">習題 1 的中間步驟：<b>新開多單</b>等於成交量（每筆成交都產生一口多單）；
+        <b>平掉多單</b>包含「以前開的多單這一輪被賣掉」和「這一輪開的多單當場抵銷掉」（買方原本是空單）。
+        未平倉 = 前一輪未平倉 + 新開 − 平掉。</p>
       <div style="margin-top:1rem">
         <div class="card-title" style="font-size:.9rem">逐日結算 Marking to Market（習題 3）</div>
         <p class="hint" style="margin-bottom:.6rem">事後的假設練習，跟論文一樣：遊戲中並沒有真的收保證金。
@@ -441,10 +444,16 @@ let reviewData=null;
 function renderReview(rv){
   reviewData=rv;
   $('#review-card').style.display='block';
-  $('#review-tbl tbody').innerHTML=rv.rounds.map(r=>`<tr>
+  $('#review-tbl tbody').innerHTML=rv.rounds.map((r,i)=>{
+    const prev=i?rv.rounds[i-1].open_interest:0;
+    return `<tr>
     <td>${r.round}</td><td>${r.revealed_digit??'—'}</td><td>${r.volume}</td>
+    <td class="pos">+${r.opened}</td>
+    <td class="${r.closed?'neg':''}">${r.closed?'−'+r.closed:'0'}</td>
+    <td title="${prev} + ${r.opened} − ${r.closed} = ${r.open_interest}"><b>${r.open_interest}</b></td>
     <td>${r.settle_price??'<span class="hint">無成交</span>'}</td>
-    <td>${r.open_interest}</td><td>${r.expected_delivery.toFixed(1)}</td></tr>`).join('');
+    <td>${r.expected_delivery.toFixed(1)}</td></tr>`;
+  }).join('');
   renderMtm();
   renderEx5(rv);
   renderEfficiency(rv);
