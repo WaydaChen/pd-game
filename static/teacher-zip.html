@@ -547,14 +547,17 @@ function ex5Rows(F, D, r, spots, T){
   const rows=F.map(function(f,i){
     const t=i+1, tau=T-t, S=f*Math.exp(-r*tau);   // 由 F 反推的無套利現貨價
     const spot=Array.isArray(spots)?spots[i]:spots;
-    const carry=spot*Math.exp(r*tau);             // 以現貨價持有到交割的成本
+    const Fstar=spot*Math.exp(r*tau);             // 由現貨推出的理論期貨價
     let action=null, profit=0;
-    if(spot>S+1e-9){ action='short'; profit=carry-f; }       // 現貨太貴
-    else if(spot<S-1e-9){ action='long'; profit=f-carry; }   // 現貨太便宜
-    return {label:'第 '+t+' 輪', t:t, tau:tau, F:f, S:S, spot:spot,
-            action:action, profit:profit};
+    if(spot>S+1e-9){ action='short'; profit=Fstar-f; }       // 現貨太貴／期貨太便宜
+    else if(spot<S-1e-9){ action='long'; profit=f-Fstar; }   // 現貨太便宜／期貨太貴
+    // 兩種比法是同一個不等式：S > S* ⟺ F* > F，
+    // 差額換算到同一個時點也相同：(S − S*)·e^(r(T−t)) = F* − F
+    return {label:'第 '+t+' 輪', t:t, tau:tau, F:f, S:S, spot:spot, Fstar:Fstar,
+            dSpot:spot-S, dFut:Fstar-f, action:action, profit:profit};
   });
-  rows.push({label:'交割', t:T, tau:0, F:D, S:D, spot:D, action:null, profit:0, delivery:true});
+  rows.push({label:'交割', t:T, tau:0, F:D, S:D, spot:D, Fstar:D,
+             dSpot:0, dFut:0, action:null, profit:0, delivery:true});
   return rows;
 }
 ['#ex5-r','#ex5-spot'].forEach(sel=>$(sel).oninput=()=>{ if(reviewData) renderEx5(reviewData); });
@@ -571,21 +574,29 @@ function renderEx5(rv){
   const fixed=parseFloat($('#ex5-spot').value)||0;
   const spots=theorySpot?expected.map((e,i)=>e*Math.exp(-r*(T-(i+1)))):expected.map(()=>fixed);
   const rows=ex5Rows(F, rv.delivery_price, r, spots, T);
+  const num=(v,c)=>`<td class="${c||''}">${v.toFixed(1)}</td>`;
+  const dif=v=>`<td class="${cls(v)}">${v>0?'+':''}${v.toFixed(2)}</td>`;
   $('#ex5-tbl thead').innerHTML='<tr>'+['','距交割 T − t',
-    '期貨價格 F（'+(useSettle?'實際結算價':'預期交割價')+'）',
-    '由 F 反推的無套利現貨價 S*', '現貨價', '現貨相對 S*','套利做法','每單位套利利潤（交割時）']
+    '實際現貨價 S','隱含現貨價 S*','S − S*',
+    '實際期貨價 F（'+(useSettle?'結算價':'預期交割價')+'）','理論期貨價 F*','F* − F',
+    '套利做法','每單位套利利潤（交割時）']
     .map(h=>`<th>${h}</th>`).join('')+'</tr>';
   $('#ex5-tbl tbody').innerHTML=rows.map(x=>{
-    if(x.delivery) return `<tr><td>交割</td><td>0</td><td>${x.F.toFixed(1)}</td><td>${x.S.toFixed(1)}</td>
-      <td>${x.spot.toFixed(1)}</td><td class="hint" colspan="3">到期時現貨價 = 期貨價 = 交割價</td></tr>`;
-    const rel=x.action==='short'?'<span class="neg">偏高</span>':x.action==='long'?'<span class="pos">偏低</span>':'相等';
+    if(x.delivery) return `<tr><td>交割</td><td>0</td>${num(x.spot)}${num(x.S)}<td>0</td>
+      ${num(x.F)}${num(x.Fstar)}<td>0</td>
+      <td class="hint" colspan="2">到期時現貨價 = 期貨價 = 交割價</td></tr>`;
     const act=x.action==='short'?'放空現貨、做多期貨':x.action==='long'?'買進現貨、放空期貨':'沒有套利機會';
-    return `<tr><td>${x.label}</td><td>${x.tau}</td><td>${x.F.toFixed(1)}</td><td>${x.S.toFixed(1)}</td>
-      <td>${x.spot.toFixed(1)}</td><td>${rel}</td><td>${act}</td>
-      <td>${x.action?x.profit.toFixed(2):'—'}</td></tr>`;
+    return `<tr><td>${x.label}</td><td>${x.tau}</td>
+      ${num(x.spot)}${num(x.S)}${dif(x.dSpot)}
+      ${num(x.F)}${num(x.Fstar)}${dif(x.dFut)}
+      <td>${act}</td><td>${x.action?x.profit.toFixed(2):'—'}</td></tr>`;
   }).join('');
   const hi=rows.filter(x=>x.action==='short').map(x=>x.t), lo=rows.filter(x=>x.action==='long').map(x=>x.t);
-  let note=(hi.length?`現貨高於 S* 的輪次：${hi.join('、')}（放空現貨、做多期貨）。`:'')
+  let note='S* 是由期貨價折現「倒推」出來的現貨價（隱含現貨價），不是觀察到的價格；'
+    +'F* 則是由現貨價推出的理論期貨價。兩欄的正負號一定一致，因為 S > S* 和 F* > F 是同一個不等式；'
+    +'金額也相同，只差在計價的時點：(S − S*) × e^(r(T−t)) = F* − F。'
+    +'　'
+    +(hi.length?`現貨高於 S* 的輪次：${hi.join('、')}（放空現貨、做多期貨）。`:'')
     +(lo.length?`　現貨低於 S* 的輪次：${lo.join('、')}（買進現貨、放空期貨）。`:'')
     +(hi.length||lo.length?'':'目前設定下沒有任何套利機會。')
     +'　套利利潤 = |現貨價 × e^(r(T−t)) − F|，在交割時實現。';
