@@ -12,9 +12,11 @@ import hashlib
 import json
 import os
 import random
+import re
 import secrets
 import string
 import time
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional
@@ -30,7 +32,12 @@ ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
 
 TOTAL_ROUNDS = 5
 DIGIT_EXPECTED = 4.5           # 單一數字期望值
-STARTING_CASH = 100000.0       # 每位交易者起始現金 / starting cash
+NEUTRAL_PRICE = DIGIT_EXPECTED * TOTAL_ROUNDS   # 無資訊時的中性預期交割價 = 22.5
+MAX_DELIVERY = 9 * TOTAL_ROUNDS                  # 交割價上限 = 45
+# 報價上限。交割價最高只可能到 45，上面刻意留一小段空間，讓「被支配的報價」
+# 還掛得出來 —— 有人掛買價 48 時，賣給他就是無風險套利。那是講無套利界限最好
+# 的現場教材，硬卡在 45 就沒有這個機會；原本的 99 則跟任何量都沒有關係。
+MAX_QUOTE = MAX_DELIVERY + 5                     # = 50
 CONFUSING = set("O0I1l")      # 房間代碼避開的易混淆字元
 BADGE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 COLORS = ["#7c6af7", "#4ecb8a", "#f0b429", "#4a9eff", "#ff7eb6", "#42d4f4",
@@ -43,6 +50,32 @@ def _now() -> float:
 
 def _iso(ts: float) -> str:
     return datetime.fromtimestamp(ts, tz=timezone.utc).astimezone().isoformat()
+
+
+# ── 重連認人 ──────────────────────────────────────────────────────────
+
+# 中文字之間的空白（「王 小明」＝「王小明」）。不無差別刪除所有空白：
+# 那會把 "Li Na" 和 "Lin A" 併成同一個人，撞在一起比認不出來更糟。
+_CJK = "\u3400-\u9fff\uf900-\ufaff"          # 中日韓統一表意文字
+CJK_GAP = re.compile("(?<=[" + _CJK + "])" + r"\s+" + "(?=[" + _CJK + "])")
+
+
+def _norm_name(name: str) -> str:
+    """重連認人用的正規化鍵。
+
+    學號打成 s1234 / S1234、姓名中間多打一個空格、全形英數字，都應該算同一個人
+    —— 否則學生只是換個打法就變成全新交易者。
+    NFKC 把全形轉半形，casefold 吃掉大小寫，空白壓成單一空格，中文字之間的空白刪掉。
+    """
+    s = unicodedata.normalize("NFKC", name or "")
+    s = " ".join(s.split())
+    s = CJK_GAP.sub("", s)
+    return s.casefold()
+
+
+def _neutral_price(revealed: list) -> float:
+    """中性預期交割價：已揭露數字之和 + 未揭露位數 × 4.5（論文習題 4 的定義）。"""
+    return sum(revealed) + (TOTAL_ROUNDS - len(revealed)) * DIGIT_EXPECTED
 
 
 # ── 資料模型 ──────────────────────────────────────────────────────────
@@ -78,6 +111,7 @@ class Trade:
 class Trader:
     id: str
     name: str
+    key: str            # 正規化後的比對鍵（重連認人用，不外送）
     badge: str
     color: str
     joined_at: float
@@ -93,10 +127,10 @@ class Market:
     round_seconds: int = 180
     visible_fraction: float = 0.4
     resample_seconds: int = 3
+    # 保證金只是檢討面板（習題 3）的參數：遊戲進行中不結算、不限制下單，
+    # 跟論文的設計一致。結算後教師還可以改，逐日結算表會跟著重算。
     orig_margin: float = 10.0
     maint_margin: float = 8.0
-    starting_cash: float = STARTING_CASH   # 起始現金 / starting cash
-    margin_enabled: bool = False           # 是否啟用保證金 / margin requirement on
     secret_digits: list = field(default_factory=list)   # 永不外送
     revealed: list = field(default_factory=list)
     round: int = 0
@@ -199,8 +233,8 @@ def _is_visible(market: Market, viewer_id: Optional[str], order: Order) -> bool:
 
 
 def _positions(market: Market):
-    """由成交紀錄計算每位交易者的部位與現金（含起始現金）。"""
-    pos = {tid: {"net": 0, "cash": market.starting_cash, "buys": 0, "sells": 0,
+    """由成交紀錄計算每位交易者的淨部位與成交統計。"""
+    pos = {tid: {"net": 0, "buys": 0, "sells": 0,
                  "n_trades": 0, "rounds": set()} for tid in market.traders}
     for tr in market.trades:
         for tid, sign in ((tr.buyer_id, +1), (tr.seller_id, -1)):
@@ -208,7 +242,6 @@ def _positions(market: Market):
                 continue
             p = pos[tid]
             p["net"] += sign
-            p["cash"] += -sign * tr.price       # 買進付出、賣出收入
             p["n_trades"] += 1
             p["rounds"].add(tr.round)
             if sign > 0:
@@ -218,37 +251,92 @@ def _positions(market: Market):
     return pos
 
 
-def _total_pnl(market: Market, p: dict) -> float:
-    dp = market.delivery_price
-    if dp is None:
-        return p["cash"]
-    return p["cash"] + p["net"] * dp
+def _settle_series(market: Market) -> list:
+    """每一輪的結算價 = 該輪最後一筆成交價。
+
+    沒有成交就沿用前一輪，第一輪也沒有就用中性價 22.5 —— 真實交易所在無成交時
+    也會給理論結算價，否則逐日結算表會在冷清的那一輪斷掉。
+    """
+    out, prev = [], float(NEUTRAL_PRICE)
+    for r in range(1, TOTAL_ROUNDS + 1):
+        rt = [tr for tr in market.trades if tr.round == r]
+        s = float(rt[-1].price) if rt else prev
+        out.append(s)
+        prev = s
+    return out
 
 
-def _used_margin(market: Market, p: dict) -> float:
-    """已凍結保證金 = |淨部位| × 原始保證金（未啟用時為 0）。"""
-    if not market.margin_enabled:
-        return 0.0
-    return abs(p["net"]) * market.orig_margin
+def _ledger(market: Market) -> dict:
+    """每位交易者的逐日結算表（習題 3）。
 
+    跟論文一樣是「事後」的分析：遊戲進行中不收保證金、不追繳、不擋單，
+    這裡只是用班上交易出來的結算價，示範保證金帳戶會怎麼走。
 
-def _available(market: Market, p: dict) -> float:
-    """可用資金 = 現金 − 已凍結保證金。"""
-    return p["cash"] - _used_margin(market, p)
+    每一輪收盤：
+      1. 昨日留下來的部位，按今昨結算價差重評價
+      2. 今日新成交，按成交價到今日結算價重評價；部位變動時存入／退回保證金
+      3. 餘額低於 口數×維持保證金 → 追繳回 口數×原始保證金
+    交割日再按交割價結算一次，然後退回全部保證金。
 
+    累計損益最後一定等於 Σ 方向×(交割價 − 成交價)，也就是論文的結算損益。
+    """
+    orig, maint = market.orig_margin, market.maint_margin
+    n_closed = len(market.revealed)          # 已收盤的輪數
+    D = market.delivery_price                # 結算前為 None
+    series = _settle_series(market)
 
-def _would_breach_margin(market: Market, trader_id: str, side: str, price: int) -> bool:
-    """模擬以 price 成交一口 side（bid=買 / offer=賣）後，可用資金是否會 < 0。"""
-    if not market.margin_enabled:
-        return False
-    p = _positions(market).get(trader_id)
-    if not p:
-        return False
-    if side == "bid":                      # 買進：現金 −price、淨部位 +1
-        cash2, net2 = p["cash"] - price, p["net"] + 1
-    else:                                  # 賣出：現金 +price、淨部位 −1
-        cash2, net2 = p["cash"] + price, p["net"] - 1
-    return (cash2 - abs(net2) * market.orig_margin) < 0
+    out = {}
+    for tid in market.traders:
+        trades = [tr for tr in market.trades
+                  if tr.buyer_id == tid or tr.seller_id == tid]
+        pos, prev_s, balance, cum = 0, None, 0.0, 0.0
+        rows, calls, call_total = [], 0, 0.0
+
+        def _mark(label, s, rt, final=False):
+            nonlocal pos, prev_s, balance, cum, calls, call_total
+            daily = 0.0
+            if prev_s is not None:
+                daily += pos * (s - prev_s)          # 1) 舊部位重評價
+            before = abs(pos)
+            for tr in rt:                            # 2) 今日新成交
+                d = 1 if tr.buyer_id == tid else -1
+                daily += d * (s - tr.price)
+                pos += d
+            after = abs(pos)
+            deposit = (after - before) * orig
+            balance += deposit + daily
+            cum += daily
+            pre_call = balance
+            call = 0.0
+            # 3) 追繳。交割日只做最後一次結算、整個帳戶退回，不會再追繳
+            if not final and after > 0 and balance < after * maint:
+                call = after * orig - balance
+                balance += call
+                calls += 1
+                call_total += call
+            rows.append({
+                "label": label, "settle": round(s, 2), "trades": len(rt),
+                "pos": pos, "deposit": round(deposit, 2),
+                "daily": round(daily, 2), "cum": round(cum, 2),
+                # 論文 Table 5 記的是追繳前的餘額，追繳金額另列一欄
+                "pre_call": round(pre_call, 2),
+                "call": round(call, 2),
+                "balance": round(balance, 2),
+                "maintenance": 0.0 if final else round(after * maint, 2),
+            })
+            prev_s = s
+
+        for r in range(1, n_closed + 1):
+            _mark(f"R{r}", series[r - 1], [tr for tr in trades if tr.round == r])
+        if D is not None:
+            # 交割日：以交割價做最後一次結算，帳戶餘額（含原始保證金）全數退回。
+            # 餘額照論文 Table 5 顯示退回前的金額，例如 10 + 7 = 17。
+            _mark("交割", float(D), [], final=True)
+            rows[-1]["returned"] = round(balance, 2)
+
+        out[tid] = {"rows": rows, "pnl": round(cum, 2),
+                    "calls": calls, "call_total": round(call_total, 2)}
+    return out
 
 
 # ── 視角化狀態 ────────────────────────────────────────────────────────
@@ -283,6 +371,45 @@ def _revealed_slots(market: Market):
             for i in range(TOTAL_ROUNDS)]
 
 
+def build_board_state(market: Market) -> dict:
+    """投影用的公開看板。
+
+    刻意不含任何個人資訊：沒有姓名、代號、淨部位、損益排行榜。
+    淨部位會洩漏誰做多誰做空、破壞匿名；即時損益排行榜會誘發末輪梭哈。
+    """
+    bb, bo = _best_bid(market), _best_offer(market)
+    net = {}
+    for tr in market.trades:
+        net[tr.buyer_id] = net.get(tr.buyer_id, 0) + 1
+        net[tr.seller_id] = net.get(tr.seller_id, 0) - 1
+    return {
+        "type": "state",
+        "role": "board",
+        "code": market.code,
+        "mode": market.mode,
+        "phase": market.phase,
+        "round": market.round,
+        "total_rounds": TOTAL_ROUNDS,
+        "round_ends_at": market.round_ends_at,
+        "server_time": _now(),
+        "revealed": _revealed_slots(market),
+        "neutral_price": NEUTRAL_PRICE,
+        "trader_count": len(market.traders),
+        "best_bid": bb.price if bb else None,
+        "best_offer": bo.price if bo else None,
+        "spread": (bo.price - bb.price) if (bb and bo) else None,
+        "n_bids": len(_live_bids(market)),
+        "n_offers": len(_live_offers(market)),
+        "volume": len(market.trades),
+        "open_interest": sum(v for v in net.values() if v > 0),
+        "last": market.trades[-1].price if market.trades else None,
+        # 成交序列只有輪次、價格、時間，沒有任何身分
+        "ticks": [{"round": tr.round, "price": tr.price, "ts": tr.ts}
+                  for tr in market.trades],
+        "delivery_price": market.delivery_price,   # 結算前恆為 None
+    }
+
+
 def build_state(market: Market, role: str, trader_id: Optional[str]) -> dict:
     is_host = role == "host"
     bb = _best_bid(market)
@@ -299,6 +426,9 @@ def build_state(market: Market, role: str, trader_id: Optional[str]) -> dict:
         "server_time": _now(),
         "revealed": _revealed_slots(market),
         "revealed_count": len(market.revealed),
+        "neutral_price": NEUTRAL_PRICE,
+        "max_delivery": MAX_DELIVERY,
+        "max_quote": MAX_QUOTE,
         "delivery_price": market.delivery_price,
         "best_bid": bb.price if bb else None,
         "best_offer": bo.price if bo else None,
@@ -309,14 +439,13 @@ def build_state(market: Market, role: str, trader_id: Optional[str]) -> dict:
             "round_seconds": market.round_seconds,
             "visible_fraction": market.visible_fraction,
             "resample_seconds": market.resample_seconds,
-            "margin_enabled": market.margin_enabled,
             "orig_margin": market.orig_margin,
             "maint_margin": market.maint_margin,
-            "starting_cash": market.starting_cash,
         },
     }
 
     pos = _positions(market)
+    led = _ledger(market)
 
     if is_host:
         # 教師端：完整委託簿 + 全體部位 + 全部成交（含對手身分）
@@ -327,13 +456,12 @@ def build_state(market: Market, role: str, trader_id: Optional[str]) -> dict:
         base["trades"] = [_trade_view(tr, market, None, True) for tr in market.trades]
         traders_view = []
         for tid, t in market.traders.items():
-            p = pos.get(tid, {"net": 0, "cash": 0.0, "n_trades": 0})
+            p = pos.get(tid, {"net": 0, "n_trades": 0})
             traders_view.append({
                 "id": tid, "name": t.name, "badge": t.badge, "color": t.color,
-                "net": p["net"], "cash": round(p["cash"], 2),
-                "used_margin": round(_used_margin(market, p), 2),
-                "available": round(_available(market, p), 2),
-                "n_trades": p["n_trades"], "pnl": round(_total_pnl(market, p), 2),
+                "net": p["net"], "n_trades": p["n_trades"],
+                # 已結算損益：算到最後一次收盤為止，結算後即為最終損益
+                "pnl": led.get(tid, {}).get("pnl", 0.0),
             })
         base["traders"] = sorted(traders_view, key=lambda x: x["badge"])
         base["review"] = _build_review(market) if market.phase == "settled" else None
@@ -350,13 +478,11 @@ def build_state(market: Market, role: str, trader_id: Optional[str]) -> dict:
 
     t = market.traders.get(trader_id)
     if t:
-        p = pos.get(trader_id, {"net": 0, "cash": 0.0, "n_trades": 0})
+        p = pos.get(trader_id, {"net": 0, "n_trades": 0})
         base["me"] = {
             "id": t.id, "name": t.name, "badge": t.badge, "color": t.color,
-            "net": p["net"], "cash": round(p["cash"], 2),
-            "used_margin": round(_used_margin(market, p), 2),
-            "available": round(_available(market, p), 2),
-            "n_trades": p["n_trades"], "pnl": round(_total_pnl(market, p), 2),
+            "net": p["net"], "n_trades": p["n_trades"],
+            "pnl": led.get(trader_id, {}).get("pnl", 0.0),
         }
         # 自己的 live 報價（可撤單）
         base["my_orders"] = [
@@ -364,6 +490,95 @@ def build_state(market: Market, role: str, trader_id: Optional[str]) -> dict:
             if o.status == "live" and o.trader_id == trader_id
         ]
     return base
+
+
+def _round_prices(market: Market) -> list:
+    """每一輪的成交均價（VWAP）與筆數。沒有成交的輪次為 None。"""
+    out = []
+    for r in range(1, TOTAL_ROUNDS + 1):
+        rt = [tr for tr in market.trades if tr.round == r]
+        out.append({"round": r, "n": len(rt),
+                    "vwap": (sum(t.price for t in rt) / len(rt)) if rt else None})
+    return out
+
+
+def _efficiency(market: Market) -> dict:
+    """習題 6：市場效率檢驗。
+
+    論文的判準：揭露的數字大於 4.5 是好消息、小於 4.5 是壞消息，再看成交價
+    有沒有隨之上下。這裡做成三層，從最好講的到最精確的：
+
+    1. 方向一致率 —— 第 r 輪揭露之後，第 r+1 輪的均價有沒有往對的方向走。
+    2. 反應係數 β —— 價格變動對「應有變動 d−4.5」的過原點迴歸斜率。
+       β≈1 完全反應、β<1 反應不足、β>1 過度反應。
+    3. 內線可得利潤 —— 事後知道交割價的人在每筆成交上能賺 |交割價 − 成交價|，
+       對應習題 6「如果有內線，他會怎麼交易」。
+
+    第 5 位揭露後就結算、沒有後續交易，所以事件最多只有 4 個。β 是課堂用的
+    描述統計，不是有檢定力的迴歸。
+    """
+    px = _round_prices(market)
+    dig = market.revealed
+    D = market.delivery_price
+    neutral = [_neutral_price(dig[:k]) for k in range(len(dig) + 1)]
+
+    events = []
+    for r in range(1, TOTAL_ROUNDS):          # 第 r 輪揭露 → 第 r+1 輪反應
+        if r > len(dig):
+            break
+        d = dig[r - 1]
+        before, after = px[r - 1]["vwap"], px[r]["vwap"]
+        resp = (after - before) if (before is not None and after is not None) else None
+        delta = d - DIGIT_EXPECTED                    # 這則消息「應該」讓價格動多少
+        # 同向 = 價格確實往消息的方向動了。紋風不動（resp == 0）算沒有反映資訊。
+        agree = None if resp is None else (
+            (resp > 0 and delta > 0) or (resp < 0 and delta < 0))
+        events.append({
+            "round": r, "digit": d,
+            "news": "good" if delta > 0 else "bad",
+            "delta": delta,
+            "vwap_before": round(before, 2) if before is not None else None,
+            "vwap_after": round(after, 2) if after is not None else None,
+            "response": round(resp, 2) if resp is not None else None,
+            "n_before": px[r - 1]["n"], "n_after": px[r]["n"],
+            "agree": agree,
+        })
+
+    usable = [e for e in events if e["agree"] is not None]
+    tally = None
+    if usable:
+        k = sum(1 for e in usable if e["agree"])
+        num = sum(e["delta"] * e["response"] for e in usable)
+        den = sum(e["delta"] ** 2 for e in usable)
+        tally = {"n": len(usable), "k": k, "rate": round(k / len(usable), 3),
+                 "beta": round(num / den, 3) if den else None}
+
+    # 定價誤差：各輪均價離該輪輪初中性預期多遠
+    errs, signed = [], []
+    for r in range(1, TOTAL_ROUNDS + 1):
+        v = px[r - 1]["vwap"]
+        if v is not None and r - 1 < len(neutral):
+            errs.append(abs(v - neutral[r - 1]))
+            signed.append(v - neutral[r - 1])
+
+    by_round, total = [], 0.0
+    for r in range(1, TOTAL_ROUNDS + 1):
+        rt = [tr for tr in market.trades if tr.round == r]
+        amt = sum(abs(D - tr.price) for tr in rt) if D is not None else 0.0
+        total += amt
+        by_round.append({"round": r, "n": len(rt), "profit": round(amt, 2)})
+
+    return {
+        "events": events,
+        "tally": tally,
+        "mae": round(sum(errs) / len(errs), 2) if errs else None,
+        "bias": round(sum(signed) / len(signed), 2) if signed else None,
+        "converging": (errs[0] > errs[-1]) if len(errs) >= 2 else None,
+        "insider": {"total": round(total, 2), "by_round": by_round,
+                    "n_trades": len(market.trades),
+                    "per_trade": (round(total / len(market.trades), 2)
+                                  if market.trades else None)},
+    }
 
 
 def _build_review(market: Market) -> dict:
@@ -391,10 +606,19 @@ def _build_review(market: Market) -> dict:
             "revealed_digit": revealed_digit, "expected_delivery": expected,
         })
         prev_settle = settle
+    led = _ledger(market)
+    ledgers = sorted([{"badge": t.badge, "name": t.name, "color": t.color,
+                       **led.get(tid, {})}
+                      for tid, t in market.traders.items()],
+                     key=lambda x: x["badge"])
     return {
         "delivery_price": market.delivery_price,
         "secret_digits": market.secret_digits,   # 結算後才給
         "rounds": rounds,
+        "efficiency": _efficiency(market),       # 習題 6
+        "ledgers": ledgers,                      # 習題 3：逐日結算表
+        "settle_series": _settle_series(market),
+        "margin": {"orig": market.orig_margin, "maint": market.maint_margin},
     }
 
 
@@ -407,7 +631,9 @@ async def broadcast(code: str):
     dead = []
     for conn in CONNS.get(code, []):
         try:
-            await conn.ws.send_json(build_state(market, conn.role, conn.trader_id))
+            await conn.ws.send_json(
+                build_board_state(market) if conn.role == "board"
+                else build_state(market, conn.role, conn.trader_id))
         except Exception:
             dead.append(conn)
     for d in dead:
@@ -515,24 +741,36 @@ async def _handle_join(market: Market, conn: Conn, msg: dict):
     if not name:
         await _send(conn, {"type": "error", "message": "請輸入姓名或學號"})
         return
-    # 同名重連：恢復原部位（同房間內姓名唯一）
-    existing = next((t for t in market.traders.values() if t.name == name), None)
+    # 重連：以正規化後的姓名／學號認人，恢復原部位（同房間內唯一）
+    key = _norm_name(name)
+    if not key:
+        await _send(conn, {"type": "error", "message": "請輸入姓名或學號"})
+        return
+    existing = next((t for t in market.traders.values() if t.key == key), None)
+    rejoined = existing is not None
     if existing:
         tid = existing.id
+        _log_event(market.code, "rejoin",
+                   {"trader_id": tid, "name": name, "round": market.round})
     else:
         tid = secrets.token_urlsafe(8)
         market.traders[tid] = Trader(
-            id=tid, name=name, badge=_gen_badge(market),
+            id=tid, name=name, key=key, badge=_gen_badge(market),
             color=COLORS[len(market.traders) % len(COLORS)],
             joined_at=_now(), joined_round=market.round,
         )
         _log_event(market.code, "join",
-                   {"trader_id": tid, "name": name,
+                   {"trader_id": tid, "name": name, "key": key,
                     "badge": market.traders[tid].badge, "round": market.round})
     conn.role = "trader"
     conn.trader_id = tid
+    p = _positions(market).get(tid, {"net": 0, "n_trades": 0})
     await _send(conn, {"type": "joined", "trader_id": tid,
-                       "badge": market.traders[tid].badge})
+                       "badge": market.traders[tid].badge,
+                       "name": market.traders[tid].name,
+                       "rejoined": rejoined,
+                       "net": p["net"], "n_trades": p["n_trades"],
+                       "pnl": _ledger(market).get(tid, {}).get("pnl", 0.0)})
 
 
 async def _handle_host(market: Market, conn: Conn, msg: dict):
@@ -558,12 +796,9 @@ async def _handle_quote(market: Market, conn: Conn, msg: dict):
     except (TypeError, ValueError):
         await _send(conn, {"type": "error", "message": "價格必須是整數"})
         return
-    if not (0 <= price <= 99):
-        await _send(conn, {"type": "error", "message": "價格需在 0–99 之間"})
-        return
-    if _would_breach_margin(market, conn.trader_id, side, price):
+    if not (0 <= price <= MAX_QUOTE):
         await _send(conn, {"type": "error",
-                           "message": "保證金不足，無法下單 / Insufficient margin to place order"})
+                           "message": f"價格需在 0–{MAX_QUOTE} 之間"})
         return
     o = Order(id=secrets.token_urlsafe(6), trader_id=conn.trader_id,
               side=side, price=price, round=market.round, ts=_now())
@@ -618,11 +853,6 @@ async def _handle_take(market: Market, conn: Conn, msg: dict):
         if not _is_visible(market, conn.trader_id, o):
             await _send(conn, {"type": "error", "message": "那張報價已經不在了"})
             return
-    taker_side = "offer" if o.side == "bid" else "bid"
-    if _would_breach_margin(market, conn.trader_id, taker_side, o.price):
-        await _send(conn, {"type": "error",
-                           "message": "保證金不足，無法成交 / Insufficient margin"})
-        return
     _record_trade(market, o, conn.trader_id)
     if o in market.book:
         market.book.remove(o)
@@ -630,6 +860,22 @@ async def _handle_take(market: Market, conn: Conn, msg: dict):
 
 async def _handle_config(market: Market, conn: Conn, msg: dict):
     if conn.role != "host":
+        return
+    # 保證金只用在檢討面板的逐日結算表，不影響交易，所以結算後也能調整重算
+    changed_margin = False
+    for k in ("orig_margin", "maint_margin"):
+        if k in msg:
+            try:
+                setattr(market, k, max(0.0, float(msg[k])))
+                changed_margin = True
+            except (TypeError, ValueError):
+                pass
+    if changed_margin:
+        _log_event(market.code, "set_margin",
+                   {"orig_margin": market.orig_margin,
+                    "maint_margin": market.maint_margin})
+    game_keys = {"round_seconds", "mode", "visible_fraction", "resample_seconds"}
+    if not game_keys & set(msg):
         return
     if market.phase != "lobby":
         await _send(conn, {"type": "error", "message": "只能在大廳階段修改設定"})
@@ -652,21 +898,20 @@ async def _handle_config(market: Market, conn: Conn, msg: dict):
             market.resample_seconds = max(1, min(30, int(msg["resample_seconds"])))
         except (TypeError, ValueError):
             pass
-    if "margin_enabled" in msg:
-        market.margin_enabled = bool(msg["margin_enabled"])
-    if "orig_margin" in msg:
-        try:
-            market.orig_margin = max(0.0, float(msg["orig_margin"]))
-        except (TypeError, ValueError):
-            pass
     _log_event(market.code, "set_config",
                {"round_seconds": market.round_seconds, "mode": market.mode,
-                "visible_fraction": market.visible_fraction,
-                "margin_enabled": market.margin_enabled,
-                "orig_margin": market.orig_margin})
+                "visible_fraction": market.visible_fraction})
+
+
+async def _handle_board(market: Market, conn: Conn, msg: dict):
+    """投影看板握手。不需要主持碼 —— 送出的全都是本來就公開的資訊。"""
+    conn.role = "board"
+    conn.trader_id = None
+    await _send(conn, {"type": "board_ok", "code": market.code})
 
 
 HANDLERS = {
+    "board": _handle_board,
     "join": _handle_join,
     "host": _handle_host,
     "quote": _handle_quote,
@@ -750,10 +995,8 @@ class ZipRoomSettings(BaseModel):
     round_seconds: int = 180
     visible_fraction: float = 0.4
     resample_seconds: int = 3
-    orig_margin: float = 10.0
+    orig_margin: float = 10.0          # 僅供檢討面板（習題 3）
     maint_margin: float = 8.0
-    starting_cash: float = STARTING_CASH
-    margin_enabled: bool = False
 
 
 @router.post("/api/zip/room")
@@ -767,9 +1010,8 @@ def create_room(settings: ZipRoomSettings):
         round_seconds=max(30, min(600, settings.round_seconds)),
         visible_fraction=max(0.1, min(1.0, settings.visible_fraction)),
         resample_seconds=max(1, min(30, settings.resample_seconds)),
-        orig_margin=settings.orig_margin, maint_margin=settings.maint_margin,
-        starting_cash=max(0.0, settings.starting_cash),
-        margin_enabled=bool(settings.margin_enabled),
+        orig_margin=max(0.0, settings.orig_margin),
+        maint_margin=max(0.0, settings.maint_margin),
         secret_digits=[random.randint(0, 9) for _ in range(TOTAL_ROUNDS)],
     )
     MARKETS[code] = market
@@ -786,6 +1028,12 @@ def zip_page():
 @router.get("/teacher-zip")
 def teacher_zip_page():
     return FileResponse("static/teacher-zip.html")
+
+
+@router.get("/zip-board")
+def zip_board_page():
+    """投影用的公開看板（另開分頁丟到投影機）。"""
+    return FileResponse("static/zip-board.html")
 
 
 @router.get("/zip/health")
@@ -852,26 +1100,52 @@ def _export_rows(market: Market, kind: str):
     if kind == "summary":
         header = ["房間 room", "模式 mode", "交易者姓名 trader_name", "代號 badge",
                   "成交數 n_trades", "買進次數 n_buys", "賣出次數 n_sells",
-                  "淨部位 net_position", "現金餘額 cash_balance",
-                  "已凍保證金 used_margin", "可用資金 available",
-                  "交割價 delivery_price", "結算總資產 total_equity",
+                  "淨部位 net_position", "交割價 delivery_price",
+                  "損益 pnl",
+                  "逐日結算追繳次數 margin_calls", "逐日結算追繳總額 margin_call_total",
                   "參與輪數 rounds_active"]
         rows = [header]
         pos = _positions(market)
+        led = _ledger(market)
         dp = market.delivery_price
         for tid, t in market.traders.items():
-            p = pos.get(tid, {"net": 0, "cash": market.starting_cash, "buys": 0,
-                              "sells": 0, "n_trades": 0, "rounds": set()})
+            p = pos.get(tid, {"net": 0, "buys": 0, "sells": 0,
+                              "n_trades": 0, "rounds": set()})
+            L = led.get(tid, {})
             rows.append([
                 market.code, market.mode, t.name, t.badge, p["n_trades"],
-                p["buys"], p["sells"], p["net"], round(p["cash"], 2),
-                round(_used_margin(market, p), 2), round(_available(market, p), 2),
-                dp if dp is not None else "", round(_total_pnl(market, p), 2),
+                p["buys"], p["sells"], p["net"],
+                dp if dp is not None else "", L.get("pnl", 0.0),
+                L.get("calls", 0), L.get("call_total", 0.0),
                 len(p["rounds"]),
             ])
         return rows
 
-    raise HTTPException(status_code=400, detail="kind 必須是 trades|orders|summary")
+    if kind == "efficiency":
+        # 習題 6 的原始資料：每一次揭露當成一個事件，學生可以自己在 Excel 重算
+        if market.phase != "settled":
+            raise HTTPException(status_code=400, detail="尚未結算，無法匯出效率檢驗")
+        header = ["房間 room", "模式 mode",
+                  "揭露輪次 reveal_round", "反應輪次 response_round",
+                  "揭露數字 digit", "消息 news", "應有變動 d_minus_4.5",
+                  "揭露前均價 vwap_before", "揭露後均價 vwap_after",
+                  "揭露前成交筆數 n_before", "揭露後成交筆數 n_after",
+                  "價格反應 response", "方向同向 agrees",
+                  "交割價 delivery_price"]
+        rows = [header]
+        for ev in _efficiency(market)["events"]:
+            rows.append([
+                market.code, market.mode, ev["round"], ev["round"] + 1, ev["digit"],
+                "好消息 good" if ev["news"] == "good" else "壞消息 bad",
+                ev["delta"], ev["vwap_before"], ev["vwap_after"],
+                ev["n_before"], ev["n_after"], ev["response"],
+                "" if ev["agree"] is None else ("是 Y" if ev["agree"] else "否 N"),
+                market.delivery_price,
+            ])
+        return rows
+
+    raise HTTPException(status_code=400,
+                        detail="kind 必須是 trades|orders|summary|efficiency")
 
 
 @router.get("/api/zip/room/{code}/export.csv")

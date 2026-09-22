@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZIP-Code 期貨交易 — 公開看板</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#0a0b0f;--bg2:#12141c;--bg3:#191c26;--border:rgba(255,255,255,.09);
+  --text:#eef0f6;--text2:#9aa0bc;--text3:#5f6480;--accent:#ff8a5c;--accent2:#ffb08a;
+  --green:#4ecb8a;--amber:#f0b429;--blue:#4a9eff;--red:#f06060;--r:16px;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans TC',sans-serif;
+  font-weight:300;height:100vh;overflow:hidden;}
+.wrap{height:100vh;display:flex;flex-direction:column;padding:1.1vh 1.2vw;gap:1.1vh;}
+
+/* ── 頂列 ── */
+.top{display:flex;align-items:center;gap:1.6vw;background:var(--bg2);
+  border:1px solid var(--border);border-radius:var(--r);padding:.9vh 1.4vw;}
+.top .blk{display:flex;flex-direction:column;line-height:1.05;}
+.top .l{font-size:1.5vh;color:var(--text3);letter-spacing:.12em;}
+.top .v{font-size:3.4vh;font-weight:700;font-variant-numeric:tabular-nums;
+  font-family:'Noto Serif TC',serif;}
+.top .code{color:var(--accent2);letter-spacing:.14em;}
+.spacer{flex:1;}
+.cd{font-size:7.4vh;font-weight:700;font-variant-numeric:tabular-nums;color:var(--amber);
+  line-height:1;font-family:'Noto Serif TC',serif;}
+.cd.urgent{color:var(--red);animation:pulse 1s infinite;}
+@keyframes pulse{50%{opacity:.45}}
+.phase{font-size:1.9vh;padding:.5vh 1.1vw;border-radius:99px;background:var(--bg3);color:var(--text2);}
+.phase.open{background:rgba(78,203,138,.16);color:var(--green);}
+.phase.settled{background:rgba(255,138,92,.16);color:var(--accent2);}
+
+/* ── 主區 ── */
+.main{flex:1;display:grid;grid-template-columns:1fr 27vw;gap:1.1vh 1.2vw;min-height:0;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);
+  padding:1.1vh 1.2vw;display:flex;flex-direction:column;min-height:0;}
+.card h3{font-family:'Noto Serif TC',serif;font-size:2vh;font-weight:600;margin-bottom:.7vh;
+  display:flex;align-items:baseline;gap:.8vw;}
+.card h3 small{font-size:1.5vh;color:var(--text3);font-family:'Noto Sans TC',sans-serif;font-weight:300;}
+canvas{flex:1;min-height:0;width:100%;}
+.legend{display:flex;gap:1.3vw;flex-wrap:wrap;font-size:1.5vh;color:var(--text2);margin-top:.5vh;}
+.legend i{display:inline-block;width:2vh;height:.4vh;border-radius:2px;margin-right:.4vw;vertical-align:middle;}
+
+.side{display:flex;flex-direction:column;gap:1.1vh;min-height:0;}
+
+/* 數字 */
+.digits{display:flex;gap:.6vw;justify-content:center;}
+.dgt{position:relative;flex:1;aspect-ratio:3/4;max-height:11vh;border-radius:1.2vh;background:var(--bg3);
+  border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+  font-size:5vh;font-weight:700;font-family:'Noto Serif TC',serif;}
+.dgt.revealed{background:linear-gradient(135deg,rgba(255,138,92,.28),rgba(255,138,92,.05));
+  border-color:rgba(255,138,92,.45);color:var(--accent2);}
+.dgt.blank{color:var(--text3);}
+.dgt .w{position:absolute;top:.4vh;right:.5vh;font-size:1.4vh;font-weight:700;color:var(--amber);
+  font-family:'Noto Sans TC',sans-serif;}
+.fidx{text-align:center;font-size:3vh;font-weight:700;color:var(--accent2);
+  font-variant-numeric:tabular-nums;margin-top:.8vh;font-family:'Noto Serif TC',serif;}
+.fidx small{display:block;font-size:1.5vh;color:var(--text3);font-weight:300;
+  font-family:'Noto Sans TC',sans-serif;letter-spacing:.08em;}
+
+/* 報價 */
+.quotes{display:flex;flex-direction:column;gap:.8vh;}
+.qbook{background:var(--bg3);border-radius:1.2vh;padding:.8vh 1vw;}
+.qbook .bh{display:flex;align-items:baseline;gap:.6vw;font-size:1.6vh;color:var(--text2);margin-bottom:.5vh;}
+.qbook .bh b{font-size:2.1vh;font-family:'Noto Serif TC',serif;}
+.qbook .bh .ct{margin-left:auto;font-size:1.4vh;color:var(--text3);}
+.bbo{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5vw;text-align:center;}
+.bbo .c .k{font-size:1.3vh;color:var(--text3);letter-spacing:.1em;}
+.bbo .c .n{font-size:3.2vh;font-weight:700;font-variant-numeric:tabular-nums;
+  font-family:'Noto Serif TC',serif;line-height:1.1;}
+.bbo .bid .n{color:var(--green);}.bbo .ofr .n{color:var(--red);}
+.bbo .c .sub{font-size:1.3vh;color:var(--text3);font-variant-numeric:tabular-nums;}
+
+/* 統計 */
+.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6vw;}
+.stats .s{background:var(--bg3);border-radius:1vh;padding:.7vh .6vw;text-align:center;}
+.stats .s .k{font-size:1.3vh;color:var(--text3);letter-spacing:.08em;}
+.stats .s .n{font-size:2.8vh;font-weight:700;font-variant-numeric:tabular-nums;
+  font-family:'Noto Serif TC',serif;}
+
+/* 新聞 */
+.newsrow{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);
+  padding:.9vh 1.4vw;display:flex;align-items:center;gap:1.2vw;min-height:6vh;}
+.newsrow .tag{font-size:1.5vh;color:var(--text3);letter-spacing:.1em;white-space:nowrap;}
+.newsrow .hl{font-size:2.3vh;font-family:'Noto Serif TC',serif;font-weight:600;}
+.newsrow .idx{margin-left:auto;font-size:2.3vh;font-weight:700;font-variant-numeric:tabular-nums;
+  white-space:nowrap;}
+.newsrow.up{border-left:.5vh solid var(--green);}
+.newsrow.down{border-left:.5vh solid var(--red);}
+
+/* 揭露快訊 */
+.flash{position:fixed;inset:0;background:rgba(10,11,15,.96);display:flex;align-items:center;
+  justify-content:center;z-index:50;padding:4vh 6vw;text-align:center;}
+.flash .tag{font-size:2.4vh;color:var(--text3);letter-spacing:.3em;}
+.flash .hl{font-size:5vh;font-family:'Noto Serif TC',serif;font-weight:700;margin:2.5vh 0;line-height:1.35;}
+.flash .d{font-size:18vh;font-weight:700;font-family:'Noto Serif TC',serif;line-height:1;}
+.flash .d .w{font-size:5vh;color:var(--amber);}
+.flash .sub{font-size:3vh;color:var(--text2);margin-top:1.5vh;font-variant-numeric:tabular-nums;}
+
+/* 進場 */
+.join{height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2vh;}
+.join h1{font-family:'Noto Serif TC',serif;font-size:5vh;color:var(--accent);}
+.join p{color:var(--text2);font-size:2vh;}
+.join input{background:var(--bg3);border:1px solid var(--border);border-radius:1.2vh;
+  padding:1.5vh 2vw;color:var(--text);font-size:3.5vh;text-align:center;letter-spacing:.2em;
+  text-transform:uppercase;width:min(70vw,14ch);font-family:'Noto Serif TC',serif;outline:none;}
+.join input:focus{border-color:var(--accent);}
+.join button{background:var(--accent);color:#0a0b0f;border:none;border-radius:1.2vh;
+  padding:1.4vh 3vw;font-size:2.3vh;font-weight:500;cursor:pointer;font-family:inherit;}
+.hidden{display:none!important;}
+.conn{position:fixed;bottom:1vh;right:1.2vw;font-size:1.4vh;color:var(--text3);}
+.conn .dot{display:inline-block;width:1vh;height:1vh;border-radius:50%;background:var(--green);}
+.conn .dot.off{background:var(--red);}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;}}
+</style>
+</head>
+<body>
+
+<div class="join" id="screen-join">
+  <h1>📈 公開看板</h1>
+  <p>輸入房間代碼，把這個分頁投影出去。畫面上只有公開資訊 —— 沒有姓名、沒有部位、沒有損益排行榜。</p>
+  <input type="text" id="in-code" maxlength="6" placeholder="房間代碼">
+  <button id="btn-go">開始投影</button>
+  <p style="color:var(--text3);font-size:1.6vh">按 F11 全螢幕</p>
+</div>
+
+<div class="wrap hidden" id="screen-board">
+
+  <div class="top">
+    <div class="blk"><span class="l">房間代碼</span><span class="v code" id="t-code">—</span></div>
+    <div class="blk"><span class="l">輪次</span><span class="v"><span id="t-round">0</span> / 5</span></div>
+    <div class="blk"><span class="l">交易者</span><span class="v" id="t-traders">0</span></div>
+    <span class="phase" id="t-phase">大廳</span>
+    <span class="spacer"></span>
+    <div class="blk" style="align-items:flex-end">
+      <span class="l" id="t-mode"></span>
+      <span class="cd" id="t-cd">--:--</span>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="card">
+      <h3>成交價走勢 <small>每一筆成交一個點　·　橘色虛線是輪初預期交割價</small></h3>
+      <canvas id="chart"></canvas>
+      <div class="legend" id="c-legend"></div>
+    </div>
+
+    <div class="side">
+      <div class="card">
+        <h3>交割價數字 <small>五位數字之和</small></h3>
+        <div class="digits" id="digits"></div>
+        <div class="fidx" id="fidx"><small>目前預期交割價</small>—</div>
+      </div>
+
+      <div class="card" style="flex:1">
+        <h3>即時報價</h3>
+        <div class="quotes" id="quotes"></div>
+      </div>
+
+      <div class="card">
+        <div class="stats">
+          <div class="s"><div class="k">總成交量</div><div class="n" id="s-vol">0</div></div>
+          <div class="s"><div class="k">未平倉</div><div class="n" id="s-oi">0</div></div>
+          <div class="s"><div class="k">最新成交</div><div class="n" id="s-last">—</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="conn hidden" id="conn"><span class="dot" id="conn-dot"></span> <span id="conn-t">已連線</span></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let ws=null, code=null, state=null, reconnectTimer=null;
+
+$('#btn-go').onclick=()=>{
+  code=$('#in-code').value.trim().toUpperCase();
+  if(!code)return;
+  $('#screen-join').classList.add('hidden');
+  $('#screen-board').classList.remove('hidden');
+  $('#conn').classList.remove('hidden');
+  $('#t-code').textContent=code;
+  connect();
+};
+$('#in-code').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-go').click();});
+// 網址帶 ?code=XXXXXX 就直接開始，方便教師端一鍵開啟
+(()=>{ const q=new URLSearchParams(location.search).get('code');
+  if(q){ $('#in-code').value=q.toUpperCase(); $('#btn-go').click(); } })();
+
+function connect(){
+  const proto=location.protocol==='https:'?'wss':'ws';
+  ws=new WebSocket(`${proto}://${location.host}/ws/${code}`);
+  ws.onopen=()=>{ setConn(true); ws.send(JSON.stringify({type:'board'})); };
+  ws.onmessage=ev=>{
+    const m=JSON.parse(ev.data);
+    if(m.type==='reveal'){ flash(m); return; }
+    if(m.type==='state'&&m.role==='board'){ state=m; render(); }
+  };
+  ws.onclose=()=>{ setConn(false); scheduleReconnect(); };
+  ws.onerror=()=>setConn(false);
+}
+function scheduleReconnect(){ if(reconnectTimer)return;
+  reconnectTimer=setTimeout(()=>{reconnectTimer=null; if(code)connect();},1500); }
+function setConn(ok){ $('#conn-dot').classList.toggle('off',!ok);
+  $('#conn-t').textContent=ok?'已連線':'重新連線中…'; }
+
+// 倒數
+setInterval(()=>{
+  if(!state)return;
+  const cd=$('#t-cd');
+  if(state.phase==='open'&&state.round_ends_at){
+    const r=Math.max(0,Math.round(state.round_ends_at-Date.now()/1000));
+    cd.textContent=`${Math.floor(r/60)}:${String(r%60).padStart(2,'0')}`;
+    cd.classList.toggle('urgent',r<=15);
+  }else{ cd.textContent='--:--'; cd.classList.remove('urgent'); }
+},250);
+
+// 第 k 位揭露後的預期交割價（未揭露各以 4.5 估）
+function expectedAfter(k){
+  let v=0; for(let i=0;i<state.total_rounds;i++)
+    v+=(i<k&&state.revealed[i]!=null)?state.revealed[i]:4.5;
+  return v;
+}
+
+const PHASE={lobby:'大廳',open:'交易中',closed:'本輪結束',settled:'已結算'};
+function render(){
+  if(!state)return;
+  $('#t-round').textContent=state.round;
+  $('#t-traders').textContent=state.trader_count;
+  const ph=$('#t-phase');
+  ph.textContent=PHASE[state.phase]||state.phase;
+  ph.className='phase '+(state.phase==='open'?'open':state.phase==='settled'?'settled':'');
+  $('#t-mode').textContent=state.mode==='outcry'?'喊價模式':'電子撮合';
+  $('#s-vol').textContent=state.volume;
+  $('#s-oi').textContent=state.open_interest;
+  $('#s-last').textContent=state.last??'—';
+
+  const dg=$('#digits'); dg.innerHTML='';
+  state.revealed.forEach(d=>{
+    const el=document.createElement('div');
+    if(d!==null){el.className='dgt revealed';el.textContent=d;}
+    else{el.className='dgt blank';el.textContent='?';}
+    dg.appendChild(el);
+  });
+  const k=state.revealed.filter(d=>d!==null).length;
+  $('#fidx').innerHTML=state.phase==='settled'&&state.delivery_price!=null
+    ? `<small>交割價</small>${state.delivery_price}`
+    : `<small>目前預期交割價（未揭露各以 4.5 估）</small>${expectedAfter(k).toFixed(1)}`;
+
+  $('#quotes').innerHTML=`<div class="qbook"><div class="bh">
+      <span>${state.n_bids} 張買單 / ${state.n_offers} 張賣單</span></div>
+    <div class="bbo">
+      <div class="c bid"><div class="k">最佳買價</div><div class="n">${state.best_bid??'—'}</div></div>
+      <div class="c"><div class="k">價差</div><div class="n">${state.spread??'—'}</div></div>
+      <div class="c ofr"><div class="k">最佳賣價</div><div class="n">${state.best_offer??'—'}</div></div>
+    </div></div>`;
+  drawChart();
+}
+
+// 走勢圖：每一筆成交一個點（依輪次鋪開），加上輪初預期交割價的階梯線
+function drawChart(){
+  const cv=$('#chart'), ctx=cv.getContext('2d');
+  const W=cv.width=cv.clientWidth, H=cv.height=cv.clientHeight;
+  ctx.clearRect(0,0,W,H);
+  const N=state.total_rounds;
+  const exp=[]; for(let k=0;k<=N;k++) exp.push(expectedAfter(k));
+  const pts=[];
+  for(let r=1;r<=N;r++){
+    const rt=state.ticks.filter(t=>t.round===r);
+    rt.forEach((t,i)=>pts.push({x:(r-1)+(i+0.5)/rt.length,y:t.price}));
+  }
+  const pool=exp.concat(pts.map(p=>p.y));
+  let lo=Math.min(...pool), hi=Math.max(...pool);
+  const pad=(hi-lo)*0.15||3; lo-=pad; hi+=pad;
+  const PL=44, PB=28, PT=12, PR=12;
+  const sx=u=>PL+(u/N)*(W-PL-PR);
+  const sy=v=>H-PB-((v-lo)/(hi-lo))*(H-PB-PT);
+
+  ctx.font='12px sans-serif';
+  for(let g=0;g<=4;g++){
+    const v=lo+(hi-lo)*g/4, y=sy(v);
+    ctx.strokeStyle='rgba(255,255,255,.07)';ctx.beginPath();ctx.moveTo(PL,y);ctx.lineTo(W-PR,y);ctx.stroke();
+    ctx.fillStyle='#5f6480';ctx.fillText(v.toFixed(0),6,y+4);
+  }
+  ctx.fillStyle='#5f6480';
+  for(let k=0;k<=N;k++) ctx.fillText(k===0?'開盤':'R'+k,sx(k)-10,H-8);
+  ctx.strokeStyle='rgba(255,255,255,.12)';
+  for(let k=1;k<N;k++){ ctx.beginPath();ctx.moveTo(sx(k),PT);ctx.lineTo(sx(k),H-PB);ctx.stroke(); }
+
+  // 輪初預期交割價：第 r 輪期間的預期 = 前 r-1 位揭露後的值
+  ctx.strokeStyle='#ff8a5c';ctx.lineWidth=2.5;ctx.setLineDash([6,4]);ctx.beginPath();
+  for(let r=1;r<=N;r++){
+    const v=exp[r-1];
+    if(r===1) ctx.moveTo(sx(0),sy(v)); else ctx.lineTo(sx(r-1),sy(v));
+    ctx.lineTo(sx(r),sy(v));
+  }
+  ctx.stroke();ctx.setLineDash([]);
+
+  if(pts.length){
+    ctx.strokeStyle='#4a9eff';ctx.lineWidth=3;ctx.beginPath();
+    pts.forEach((p,i)=>i?ctx.lineTo(sx(p.x),sy(p.y)):ctx.moveTo(sx(p.x),sy(p.y)));
+    ctx.stroke();
+    ctx.fillStyle='#4a9eff';
+    pts.forEach(p=>{ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),4,0,7);ctx.fill();});
+  }else{
+    ctx.fillStyle='#5f6480';ctx.font='2vh sans-serif';ctx.fillText('尚無成交',W/2-40,H/2);
+  }
+  ctx.lineWidth=1;
+  $('#c-legend').innerHTML='<span><i style="background:#ff8a5c"></i>輪初預期交割價</span>'
+    +'<span><i style="background:#4a9eff"></i>成交價</span>';
+}
+
+// 收盤揭露：整面蓋上去，讓全班同時看到
+function flash(m){
+  const up=m.digit>4.5;
+  const el=document.createElement('div');
+  el.className='flash';
+  el.innerHTML=`<div><div class="tag">第 ${m.index+1} 輪收盤</div>
+    <div class="d" style="color:${up?'var(--green)':'var(--red)'}">${m.digit}</div>
+    <div class="sub">${up?'好消息（大於 4.5）':'壞消息（小於 4.5）'}</div></div>`;
+  el.onclick=()=>el.remove();
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),6000);
+}
+
+addEventListener('resize',()=>{ if(state)drawChart(); });
+</script>
+</body>
+</html>

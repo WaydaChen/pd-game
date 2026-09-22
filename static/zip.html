@@ -110,7 +110,7 @@ input:focus{border-color:var(--accent);}
         <input type="text" id="in-name" placeholder="輸入你的姓名或學號">
       </div>
       <button class="btn btn-primary" id="btn-join">進場 / Enter</button>
-      <p class="hint">重新整理後輸入同一組資料即可恢復部位。教師請由 <a href="/teacher-zip" style="color:var(--accent)">教師端</a> 建立房間。<br>Re-enter the same details after refresh to restore your position.</p>
+      <p class="hint">重新整理或斷線後，輸入同一組姓名／學號即可恢復部位（大小寫、全形半形、中文字之間的空白都不影響）。教師請由 <a href="/teacher-zip" style="color:var(--accent)">教師端</a> 建立房間。<br>Re-enter the same name or ID after a refresh to restore your position — case and spacing don't matter.</p>
     </div>
   </div>
 
@@ -119,8 +119,7 @@ input:focus{border-color:var(--accent);}
     <div class="topbar">
       <span class="badge" id="my-badge">—</span>
       <div class="stat"><span class="l">淨部位 Net</span><span class="v" id="my-net">0</span></div>
-      <div class="stat"><span class="l">現金 Cash</span><span class="v" id="my-cash">0</span></div>
-      <div class="stat" id="stat-avail" style="display:none"><span class="l">可用 Avail.</span><span class="v" id="my-avail">0</span></div>
+      <div class="stat"><span class="l">已結算損益 P&amp;L</span><span class="v" id="my-pnl">0</span></div>
       <div class="spacer"></div>
       <span class="phase-tag" id="phase-tag">大廳 Lobby</span>
       <span class="countdown" id="countdown">--</span>
@@ -138,7 +137,7 @@ input:focus{border-color:var(--accent);}
     <div class="settle-box" id="settle-box" style="display:none">
       <div style="font-size:.8rem;color:var(--text2)">交割價 Delivery Price</div>
       <div class="dp" id="settle-dp">—</div>
-      <div style="font-size:.8rem;color:var(--text2);margin-top:.5rem">你的結算總資產 Your Final Equity</div>
+      <div style="font-size:.8rem;color:var(--text2);margin-top:.5rem">你的損益 Your P&amp;L</div>
       <div class="pnl" id="settle-pnl">—</div>
     </div>
 
@@ -156,8 +155,8 @@ input:focus{border-color:var(--accent);}
 
       <div class="qrow" style="margin-top:.8rem">
         <div class="fg">
-          <label>價格（0–99 整數） Price (0–99)</label>
-          <input type="number" id="in-price" min="0" max="99" placeholder="22">
+          <label>價格（<span class="px-range">0–50</span> 整數） Price</label>
+          <input type="number" id="in-price" min="0" max="50" placeholder="22">
         </div>
       </div>
       <div class="take-row" style="margin-top:.5rem">
@@ -184,6 +183,7 @@ function showAlert(sel, msg, kind='err'){
   const el=$(sel); if(!msg){el.innerHTML='';return;}
   el.innerHTML=`<div class="alert ${kind}">${msg}</div>`;
 }
+function esc(t){return (t||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 function flashTradeAlert(msg,kind='err'){
   showAlert('#trade-alert',msg,kind);
   setTimeout(()=>{if($('#trade-alert').textContent===msg)showAlert('#trade-alert','');},3500);
@@ -213,6 +213,14 @@ function connect(){
       else flashTradeAlert(m.message);
       return;
     }
+    if(m.type==='joined'&&m.rejoined){
+      myTid=m.trader_id; myBadge=m.badge;
+      $('#screen-join').classList.remove('active');
+      $('#screen-trade').classList.add('active');
+      flashTradeAlert(`歡迎回來，${esc(m.name)}（代號 ${m.badge}）　淨部位 ${m.net}　`
+        +`已結算損益 ${m.pnl}　已成交 ${m.n_trades} 筆 / Welcome back — position restored.`,'info');
+      return;
+    }
     if(m.type==='joined'){
       myTid=m.trader_id; myBadge=m.badge;
       $('#screen-join').classList.remove('active');
@@ -240,7 +248,9 @@ $('#btn-bid').onclick=()=>quote('bid');
 $('#btn-offer').onclick=()=>quote('offer');
 function quote(side){
   const p=parseInt($('#in-price').value,10);
-  if(isNaN(p)||p<0||p>99){flashTradeAlert('價格需為 0–99 的整數 / Price must be an integer 0–99');return;}
+  const hi=(state&&state.max_quote)||50;
+  if(isNaN(p)||p<0||p>hi){
+    flashTradeAlert(`價格需為 0–${hi} 的整數 / Price must be an integer 0–${hi}`);return;}
   send({type:'quote',side,price:p});
   $('#in-price').value='';
 }
@@ -265,18 +275,17 @@ setInterval(()=>{
 const PHASE_LABEL={lobby:'大廳 Lobby',open:'交易中 Trading',closed:'本輪結束 Round closed',settled:'已結算 Settled'};
 function render(){
   if(!state)return;
-  const me=state.me||{net:0,cash:0,pnl:0,available:0};
+  const me=state.me||{net:0,pnl:0};
   $('#my-badge').textContent='🎫 '+(state.me?state.me.badge:myBadge||'—');
   $('#my-net').textContent=me.net;
   $('#my-net').className='v '+(me.net>0?'pos':me.net<0?'neg':'');
-  $('#my-cash').textContent=me.cash;
+  $('#my-pnl').textContent=(me.pnl>0?'+':'')+me.pnl;
+  $('#my-pnl').className='v '+(me.pnl>0?'pos':me.pnl<0?'neg':'');
+  // 報價範圍跟著伺服器走
+  const hiQ=state.max_quote||50, pxIn=$('#in-price');
+  if(pxIn.max!=String(hiQ)){ pxIn.max=hiQ;
+    document.querySelectorAll('.px-range').forEach(el=>el.textContent=`0–${hiQ}`); }
   // 保證金：啟用時顯示可用資金
-  const marginOn=!!(state.config&&state.config.margin_enabled);
-  $('#stat-avail').style.display=marginOn?'flex':'none';
-  if(marginOn){
-    $('#my-avail').textContent=me.available;
-    $('#my-avail').className='v '+(me.available>0?'pos':me.available<0?'neg':'');
-  }
   $('#phase-tag').textContent=PHASE_LABEL[state.phase]||state.phase;
   $('#round-no').textContent=state.round;
   $('#mode-tag').textContent=state.mode==='outcry'?'嗊價模式 Outcry':'電子撮合 Electronic';
@@ -296,7 +305,6 @@ function render(){
     const remaining=5-revealed.length;
     const exp=(priorSum+remaining*4.5).toFixed(1);
     let txt=`目前預期交割價 ≈ ${exp}（已揭 ${revealed.length} 位，其餘各期望 4.5） / Expected delivery ≈ ${exp}`;
-    if(marginOn) txt+=`　·　每口保證金 Margin/contract: ${state.config.orig_margin}`;
     $('#expected').textContent=txt;
   }else{ $('#expected').textContent=''; }
 
