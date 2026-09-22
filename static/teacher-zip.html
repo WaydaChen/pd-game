@@ -263,8 +263,24 @@ details.adv .inner{padding:.3rem 0 .8rem;border-top:1px solid var(--border);}
           第 t 輪距交割還有 T − t 期（T = 6），無套利現貨價 S* = F·e<sup>−r(T−t)</sup>。
           交割時 T − t = 0，所以 S* = F = 交割價：這就是現貨與期貨價格的收斂。</p>
         <div class="margin-ctrl">
-          <div class="fg"><label>利率 r（連續複利，每期）</label><input type="number" id="ex5-r" value="0.1" min="0" step="0.01"></div>
-          <div class="fg"><label>假設的現貨價</label><input type="number" id="ex5-spot" value="20" min="0" step="1"></div>
+          <div class="fg">
+            <label>期貨價格 F 用哪一個</label>
+            <select id="ex5-f">
+              <option value="expected">輪初預期交割價（論文的做法）</option>
+              <option value="settle">每輪實際結算價（班上真的交易出來的價格）</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>現貨價</label>
+            <select id="ex5-spotmode">
+              <option value="fixed">固定值（論文的做法）</option>
+              <option value="theory">理論無套利價（由預期交割價折現）</option>
+            </select>
+          </div>
+        </div>
+        <div class="margin-ctrl">
+          <div class="fg"><label>利率 r（連續複利，每一輪一期）</label><input type="number" id="ex5-r" value="0.1" min="0" step="0.01"></div>
+          <div class="fg" id="ex5-spot-row"><label>固定現貨價</label><input type="number" id="ex5-spot" value="20" min="0" step="1"></div>
         </div>
         <div class="scroll"><table id="ex5-tbl"><thead></thead><tbody></tbody></table></div>
         <canvas id="ex5chart" height="230" style="margin-top:.7rem"></canvas>
@@ -527,46 +543,65 @@ function renderMtm(){
 // ── 習題 5：期貨與現貨的套利關係 ──
 // 論文 p.89：F 用每輪開始時的預期交割價，t = 1..5、T = 6，S* = F·e^(−r(T−t))。
 // 用論文自己的資料（數字 4,7,5,0,2）會得到 13.6, 14.7, 18.2, 20.5, 18.5, 18.0。
-function ex5Rows(expected, D, r, spot, T){
-  const rows=expected.map(function(F,i){
-    const t=i+1, tau=T-t, S=F*Math.exp(-r*tau);
-    const carry=spot*Math.exp(r*tau);          // 以現貨價持有到交割的成本
+function ex5Rows(F, D, r, spots, T){
+  const rows=F.map(function(f,i){
+    const t=i+1, tau=T-t, S=f*Math.exp(-r*tau);   // 由 F 反推的無套利現貨價
+    const spot=Array.isArray(spots)?spots[i]:spots;
+    const carry=spot*Math.exp(r*tau);             // 以現貨價持有到交割的成本
     let action=null, profit=0;
-    if(spot>S+1e-9){ action='short'; profit=carry-F; }       // 現貨太貴
-    else if(spot<S-1e-9){ action='long'; profit=F-carry; }   // 現貨太便宜
-    return {label:'第 '+t+' 輪', t:t, tau:tau, F:F, S:S, action:action, profit:profit};
+    if(spot>S+1e-9){ action='short'; profit=carry-f; }       // 現貨太貴
+    else if(spot<S-1e-9){ action='long'; profit=f-carry; }   // 現貨太便宜
+    return {label:'第 '+t+' 輪', t:t, tau:tau, F:f, S:S, spot:spot,
+            action:action, profit:profit};
   });
-  rows.push({label:'交割', t:T, tau:0, F:D, S:D, action:null, profit:0, delivery:true});
+  rows.push({label:'交割', t:T, tau:0, F:D, S:D, spot:D, action:null, profit:0, delivery:true});
   return rows;
 }
 ['#ex5-r','#ex5-spot'].forEach(sel=>$(sel).oninput=()=>{ if(reviewData) renderEx5(reviewData); });
+['#ex5-f','#ex5-spotmode'].forEach(sel=>$(sel).onchange=()=>{ if(reviewData) renderEx5(reviewData); });
 function renderEx5(rv){
-  const r=parseFloat($('#ex5-r').value)||0, spot=parseFloat($('#ex5-spot').value)||0, T=6;
-  const rows=ex5Rows(rv.rounds.map(x=>x.expected_delivery), rv.delivery_price, r, spot, T);
-  $('#ex5-tbl thead').innerHTML='<tr>'+['','距交割 T − t','期貨價格 F（預期交割價）',
-    '無套利現貨價 S*','現貨價 '+spot+' 相對 S*','套利做法','每單位套利利潤（交割時）']
+  const r=parseFloat($('#ex5-r').value)||0, T=6;
+  const useSettle=$('#ex5-f').value==='settle';
+  const theorySpot=$('#ex5-spotmode').value==='theory';
+  $('#ex5-spot-row').style.display=theorySpot?'none':'';
+  const expected=rv.rounds.map(x=>x.expected_delivery);
+  // F 用預期交割價（論文）或班上的實際結算價；沒成交的輪次沿用預期交割價
+  const F=useSettle?rv.rounds.map((x,i)=>x.settle_price!=null?x.settle_price:expected[i]):expected;
+  // 現貨價：固定假設值（論文），或讓現貨自己走無套利路徑（錯價就改由期貨端呈現）
+  const fixed=parseFloat($('#ex5-spot').value)||0;
+  const spots=theorySpot?expected.map((e,i)=>e*Math.exp(-r*(T-(i+1)))):expected.map(()=>fixed);
+  const rows=ex5Rows(F, rv.delivery_price, r, spots, T);
+  $('#ex5-tbl thead').innerHTML='<tr>'+['','距交割 T − t',
+    '期貨價格 F（'+(useSettle?'實際結算價':'預期交割價')+'）',
+    '由 F 反推的無套利現貨價 S*', '現貨價', '現貨相對 S*','套利做法','每單位套利利潤（交割時）']
     .map(h=>`<th>${h}</th>`).join('')+'</tr>';
   $('#ex5-tbl tbody').innerHTML=rows.map(x=>{
     if(x.delivery) return `<tr><td>交割</td><td>0</td><td>${x.F.toFixed(1)}</td><td>${x.S.toFixed(1)}</td>
-      <td class="hint" colspan="3">到期時現貨價 = 期貨價 = 交割價</td></tr>`;
+      <td>${x.spot.toFixed(1)}</td><td class="hint" colspan="3">到期時現貨價 = 期貨價 = 交割價</td></tr>`;
     const rel=x.action==='short'?'<span class="neg">偏高</span>':x.action==='long'?'<span class="pos">偏低</span>':'相等';
     const act=x.action==='short'?'放空現貨、做多期貨':x.action==='long'?'買進現貨、放空期貨':'沒有套利機會';
     return `<tr><td>${x.label}</td><td>${x.tau}</td><td>${x.F.toFixed(1)}</td><td>${x.S.toFixed(1)}</td>
-      <td>${rel}</td><td>${act}</td><td>${x.action?x.profit.toFixed(2):'—'}</td></tr>`;
+      <td>${x.spot.toFixed(1)}</td><td>${rel}</td><td>${act}</td>
+      <td>${x.action?x.profit.toFixed(2):'—'}</td></tr>`;
   }).join('');
   const hi=rows.filter(x=>x.action==='short').map(x=>x.t), lo=rows.filter(x=>x.action==='long').map(x=>x.t);
-  $('#ex5-note').textContent=
-    (hi.length?`現貨價 ${spot} 在第 ${hi.join('、')} 輪高於無套利現貨價：放空現貨、把所得以利率 r 存起來，同時做多期貨。`:'')
-    +(lo.length?`　第 ${lo.join('、')} 輪則低於無套利現貨價：借錢買進現貨，同時放空期貨。`:'')
-    +'　套利利潤 = |現貨價 × e^(r(T−t)) − F|，在交割時實現。'
-    +'論文把一輪當成一個交易日，但這題把每一輪當成一個完整的利率期間，這是教學上的簡化。';
-  drawEx5(rows, spot);
+  let note=(hi.length?`現貨高於 S* 的輪次：${hi.join('、')}（放空現貨、做多期貨）。`:'')
+    +(lo.length?`　現貨低於 S* 的輪次：${lo.join('、')}（買進現貨、放空期貨）。`:'')
+    +(hi.length||lo.length?'':'目前設定下沒有任何套利機會。')
+    +'　套利利潤 = |現貨價 × e^(r(T−t)) − F|，在交割時實現。';
+  if(theorySpot) note+='　現貨走的是理論無套利路徑，所以錯價完全來自期貨端：'
+    +'套利利潤就等於 |實際成交價 − 預期交割價|，也就是班上偏離基本面的幅度。';
+  else note+='　固定現貨價是外生假設，不是市場均衡的結果：它既沒有隨時間增值，'
+    +'交割時也不等於交割價，請跟學生講明這一點。';
+  note+='　r 是「每一輪」的資金成本，把一輪當成一個完整的利率期間。';
+  $('#ex5-note').textContent=note;
+  drawEx5(rows);
 }
-function drawEx5(rows, spot){
+function drawEx5(rows){
   const cv=$('#ex5chart'); const ctx=cv.getContext('2d');
   const W=cv.width=cv.clientWidth, H=cv.height;
   ctx.clearRect(0,0,W,H);
-  const vals=rows.map(x=>x.F).concat(rows.map(x=>x.S)).concat([spot]);
+  const vals=rows.map(x=>x.F).concat(rows.map(x=>x.S)).concat(rows.map(x=>x.spot));
   let lo=Math.min(...vals), hi=Math.max(...vals); const m=(hi-lo)*0.12||2; lo-=m; hi+=m;
   const PL=36, PR=16, PT=12, PB=28;
   const sx=t=>PL+((t-1)/5)*(W-PL-PR);
@@ -576,20 +611,18 @@ function drawEx5(rows, spot){
     ctx.strokeStyle='rgba(255,255,255,.07)';ctx.beginPath();ctx.moveTo(PL,y);ctx.lineTo(W-PR,y);ctx.stroke();
     ctx.fillStyle='#5c5f7a';ctx.fillText(v.toFixed(0),4,y+4); }
   rows.forEach(x=>{ ctx.fillStyle='#5c5f7a'; ctx.fillText(x.delivery?'交割':'R'+x.t, sx(x.t)-10, H-8); });
-  // 假設的現貨價
-  ctx.strokeStyle='rgba(240,180,41,.7)';ctx.setLineDash([2,4]);ctx.beginPath();
-  ctx.moveTo(PL,sy(spot));ctx.lineTo(W-PR,sy(spot));ctx.stroke();ctx.setLineDash([]);
-  ctx.fillStyle='#f0b429';ctx.fillText('假設現貨價 '+spot,W-PR-90,sy(spot)-5);
   const line=(key,color,dash)=>{ ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.setLineDash(dash);
     ctx.beginPath(); rows.forEach((x,i)=>i?ctx.lineTo(sx(x.t),sy(x[key])):ctx.moveTo(sx(x.t),sy(x[key])));
     ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle=color;
     rows.forEach(x=>{ ctx.beginPath();ctx.arc(sx(x.t),sy(x[key]),3.5,0,7);ctx.fill(); }); };
   line('F','#4a9eff',[]);
   line('S','#ff8a5c',[6,4]);
+  line('spot','#f0b429',[2,4]);
   ctx.lineWidth=1;
   ctx.font='11px sans-serif';
   ctx.fillStyle='#4a9eff';ctx.fillText('— 期貨價格 F',PL+6,PT+10);
   ctx.fillStyle='#ff8a5c';ctx.fillText('- - 無套利現貨價 S*',PL+6,PT+24);
+  ctx.fillStyle='#f0b429';ctx.fillText('· · 現貨價',PL+6,PT+38);
 }
 
 // ── 習題 6：市場效率 ──
