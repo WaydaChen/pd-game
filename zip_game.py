@@ -553,13 +553,44 @@ def _efficiency(market: Market) -> dict:
         tally = {"n": len(usable), "k": k, "rate": round(k / len(usable), 3),
                  "beta": round(num / den, 3) if den else None}
 
-    # 定價誤差：各輪均價離該輪輪初中性預期多遠
-    errs, signed = [], []
+    # 定價誤差：各輪均價離該輪輪初中性預期多遠。
+    # 同時記錄「誰是主動方」：成交是買方去接賣價，還是賣方去接買價。
+    # 如果價格偏低的輪次剛好都是賣方主動，就支持「賣方比買方積極」這個解釋。
+    errs, signed, rounds_detail = [], [], []
     for r in range(1, TOTAL_ROUNDS + 1):
         v = px[r - 1]["vwap"]
+        rt = [tr for tr in market.trades if tr.round == r]
+        taker_buy = sum(1 for tr in rt if tr.taker_id == tr.buyer_id)
+        dev = None
         if v is not None and r - 1 < len(neutral):
-            errs.append(abs(v - neutral[r - 1]))
-            signed.append(v - neutral[r - 1])
+            dev = v - neutral[r - 1]
+            errs.append(abs(dev))
+            signed.append(dev)
+        rounds_detail.append({
+            "round": r, "n": len(rt),
+            "vwap": round(v, 2) if v is not None else None,
+            "neutral": round(neutral[r - 1], 2) if r - 1 < len(neutral) else None,
+            "deviation": round(dev, 2) if dev is not None else None,
+            "taker_buy": taker_buy,
+            "taker_sell": len(rt) - taker_buy,
+            "buy_ratio": (round(taker_buy / len(rt), 3) if rt else None),
+        })
+
+    # 偏低的輪次裡，主動賣出佔多少；偏高的輪次裡，主動買進佔多少
+    def _share(rows, key):
+        tot = sum(x["n"] for x in rows)
+        return (round(sum(x[key] for x in rows) / tot, 3), tot) if tot else (None, 0)
+
+    low = [x for x in rounds_detail if x["deviation"] is not None and x["deviation"] < 0]
+    high = [x for x in rounds_detail if x["deviation"] is not None and x["deviation"] > 0]
+    sell_share, low_n = _share(low, "taker_sell")
+    buy_share, high_n = _share(high, "taker_buy")
+    aggression = {
+        "low_rounds": [x["round"] for x in low], "low_trades": low_n,
+        "sell_share_when_low": sell_share,
+        "high_rounds": [x["round"] for x in high], "high_trades": high_n,
+        "buy_share_when_high": buy_share,
+    }
 
     by_round, total = [], 0.0
     for r in range(1, TOTAL_ROUNDS + 1):
@@ -571,6 +602,8 @@ def _efficiency(market: Market) -> dict:
     return {
         "events": events,
         "tally": tally,
+        "rounds": rounds_detail,
+        "aggression": aggression,
         "mae": round(sum(errs) / len(errs), 2) if errs else None,
         "bias": round(sum(signed) / len(signed), 2) if signed else None,
         "converging": (errs[0] > errs[-1]) if len(errs) >= 2 else None,

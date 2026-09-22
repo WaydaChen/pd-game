@@ -676,7 +676,44 @@ function renderEfficiency(rv){
           e.converging===true?'　·　隨資訊揭露而收斂 ✓':e.converging===false?'　·　沒有收斂':''}</div></div>
       <div class="metric"><div class="k">內線可得利潤</div><div class="n">${e.insider.total}</div>
         <div class="d">事後知道交割價的人，在 ${e.insider.n_trades} 筆成交上可賺的總額</div></div>
-    </div>`;
+    </div>`
+    +aggressionHTML(e);
+}
+
+// 價格偏離基本面時，是哪一邊比較積極？
+// 成交由買方去接賣價 = 主動買進；由賣方去接買價 = 主動賣出。
+// 若偏低的輪次剛好是賣方主動居多，就支持「賣方比買方積極」這個解釋。
+function aggressionHTML(e){
+  const rows=(e.rounds||[]).filter(r=>r.n>0);
+  if(!rows.length) return '';
+  const a=e.aggression||{};
+  const pct=v=>v==null?'—':Math.round(v*100)+'%';
+  let verdict='';
+  if(a.sell_share_when_low!=null&&a.low_trades>=3){
+    const s=a.sell_share_when_low;
+    verdict=`價格<b>偏低</b>的輪次（第 ${a.low_rounds.join('、')} 輪，共 ${a.low_trades} 筆成交）裡，`
+      +`有 <b>${pct(s)}</b> 是<b>賣方主動</b>去接買價。`
+      +(s>0.6?'　賣方明顯比較積極，支持「賣方比買方願意成交」的解釋。'
+        :s<0.4?'　主動方反而以買方居多，「賣方比較積極」在這一場不成立，偏低要用別的理由解釋（例如錨定或算錯期望值）。'
+        :'　兩邊差不多，這一場看不出誰比較積極。');
+  }
+  if(a.buy_share_when_high!=null&&a.high_trades>=3){
+    verdict+=`　價格<b>偏高</b>的輪次（第 ${a.high_rounds.join('、')} 輪）裡，`
+      +`有 <b>${pct(a.buy_share_when_high)}</b> 是買方主動。`;
+  }
+  if(!verdict) verdict='成交筆數太少，看不出哪一邊比較積極。';
+  return `<div style="margin-top:1rem">
+    <div class="card-title" style="font-size:.86rem">誰比較積極？</div>
+    <p class="hint" style="margin-bottom:.5rem">價格偏離基本面時，通常是某一邊比較急著成交。
+      主動買進＝買方去接別人的賣價；主動賣出＝賣方去接別人的買價。</p>
+    <div class="scroll"><table><thead><tr>
+      <th>輪</th><th>成交量</th><th>成交均價</th><th>輪初預期</th><th>偏離</th>
+      <th>主動買進</th><th>主動賣出</th><th>主動買進比例</th></tr></thead><tbody>`
+    +rows.map(r=>`<tr><td>${r.round}</td><td>${r.n}</td><td>${r.vwap}</td><td>${r.neutral}</td>
+      <td class="${cls(r.deviation)}">${r.deviation>0?'+':''}${r.deviation}</td>
+      <td>${r.taker_buy}</td><td>${r.taker_sell}</td>
+      <td class="${r.buy_ratio>=0.6?'pos':r.buy_ratio<=0.4?'neg':''}">${pct(r.buy_ratio)}</td></tr>`).join('')
+    +`</tbody></table></div><div class="verdict" style="margin-top:.7rem">${verdict}</div></div>`;
 }
 
 function drawScatter(rv){
