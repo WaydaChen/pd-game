@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZIP-Code 期貨交易 — 學生端</title>
+<title>ZIP-Code Futures — Student</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -47,6 +47,23 @@ input:focus{border-color:var(--accent);}
 .dgt.revealed{background:linear-gradient(135deg,rgba(255,138,92,.25),rgba(255,138,92,.05));border-color:rgba(255,138,92,.4);color:var(--accent2);}
 .dgt.blank{color:var(--text3);}
 .expected{text-align:center;font-size:.78rem;color:var(--text2);margin-bottom:.3rem;}
+
+/* 行情列：最新成交價 + 最佳買賣價 */
+.ticker{display:flex;align-items:center;gap:.9rem;flex-wrap:wrap;}
+.tk-last{display:flex;flex-direction:column;line-height:1.05;min-width:96px;}
+.tk-last .l{font-size:.66rem;color:var(--text3);}
+.tk-last .v{font-size:2rem;font-weight:700;font-family:'Noto Serif TC',serif;
+  font-variant-numeric:tabular-nums;transition:color .2s;}
+.tk-last .chg{font-size:.76rem;font-variant-numeric:tabular-nums;}
+.tk-bbo{display:flex;gap:.5rem;flex:1;min-width:180px;}
+.tk-bbo .c{flex:1;background:var(--bg3);border-radius:var(--rs);padding:.4rem .5rem;text-align:center;}
+.tk-bbo .c .k{font-size:.64rem;color:var(--text3);}
+.tk-bbo .c .n{font-size:1.15rem;font-weight:700;font-variant-numeric:tabular-nums;}
+.tk-bbo .bid .n{color:var(--green);}.tk-bbo .ofr .n{color:var(--red);}
+.tk-sub{font-size:.72rem;color:var(--text2);margin-top:.5rem;}
+@keyframes tkflash{0%{background:rgba(255,138,92,.28);}100%{background:transparent;}}
+.tk-flash{animation:tkflash .6s ease-out;border-radius:var(--rs);}
+@media (prefers-reduced-motion:reduce){.tk-flash{animation:none;}}
 
 /* book */
 .book{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
@@ -96,21 +113,21 @@ input:focus{border-color:var(--accent);}
   <div class="screen active" id="screen-join">
     <div class="hero">
       <div class="hero-icon">📈</div>
-      <h1>ZIP-Code 期貨交易<br><span style="font-size:.7em;font-weight:400;color:var(--text2)">ZIP-Code Futures Trading</span></h1>
-      <p>交割價 = 五個祕密數字之和，逐輪揭曉。掛買賣價成交，第五輪後結算損益。<br>Delivery price = sum of five secret digits, revealed round by round. Quote to trade; settle after round 5.</p>
+      <h1>ZIP-Code Futures<br><span style="font-size:.7em;font-weight:400;color:var(--text2)">ZIP-Code 期貨交易</span></h1>
+      <p>Delivery price = the sum of five secret digits, revealed one per round. Post quotes to trade; settle after round 5.<br><span style="color:var(--text3)">交割價 = 五個祕密數字之和，逐輪揭曉。掛買賣價成交，第五輪後結算損益。</span></p>
     </div>
     <div class="card">
       <div id="join-alert"></div>
       <div class="fg">
-        <label>房間代碼 / Room Code</label>
-        <input type="text" id="in-code" placeholder="例如 K7M3PQ" maxlength="6" autocapitalize="characters" style="text-transform:uppercase">
+        <label>Room Code (房間代碼)</label>
+        <input type="text" id="in-code" placeholder="e.g. K7M3PQ" maxlength="6" autocapitalize="characters" style="text-transform:uppercase">
       </div>
       <div class="fg">
-        <label>姓名或學號 / Name or Student ID</label>
-        <input type="text" id="in-name" placeholder="輸入你的姓名或學號">
+        <label>Student ID (學號)</label>
+        <input type="text" id="in-name" placeholder="Your student ID">
       </div>
-      <button class="btn btn-primary" id="btn-join">進場 / Enter</button>
-      <p class="hint">重新整理或斷線後，輸入同一組姓名／學號即可恢復部位（大小寫、全形半形、中文字之間的空白都不影響）。教師請由 <a href="/teacher-zip" style="color:var(--accent)">教師端</a> 建立房間。<br>Re-enter the same name or ID after a refresh to restore your position — case and spacing don't matter.</p>
+      <button class="btn btn-primary" id="btn-join">Enter (進場)</button>
+      <p class="hint">Re-enter the same student ID after a refresh or a dropped connection and your position comes back — case, full-width characters and spacing don't matter. Instructors create rooms from the <a href="/teacher-zip" style="color:var(--accent)">teacher page</a>.<br>斷線後輸入同一個學號即可恢復部位。教師請由教師端建立房間。</p>
     </div>
   </div>
 
@@ -118,59 +135,76 @@ input:focus{border-color:var(--accent);}
   <div class="screen" id="screen-trade">
     <div class="topbar">
       <span class="badge" id="my-badge">—</span>
-      <div class="stat"><span class="l">淨部位 Net</span><span class="v" id="my-net">0</span></div>
-      <div class="stat"><span class="l">已結算損益 P&amp;L</span><span class="v" id="my-pnl">0</span></div>
+      <div class="stat"><span class="l">Net (淨部位)</span><span class="v" id="my-net">0</span></div>
+      <div class="stat"><span class="l">Settled P&amp;L (已結算損益)</span><span class="v" id="my-pnl">0</span></div>
       <div class="spacer"></div>
-      <span class="phase-tag" id="phase-tag">大廳 Lobby</span>
+      <span class="phase-tag" id="phase-tag">Lobby (大廳)</span>
       <span class="countdown" id="countdown">--</span>
     </div>
 
     <div id="trade-alert"></div>
 
     <div class="card">
-      <div class="card-title">交割價數字 Delivery-price digits（第 <span id="round-no">0</span> / 5 輪 Round）</div>
+      <div class="card-title">Delivery-price digits (交割價數字) — Round <span id="round-no">0</span> / 5</div>
       <div class="digits" id="digits"></div>
       <div class="expected" id="expected"></div>
     </div>
 
     <!-- 結算面板 -->
     <div class="settle-box" id="settle-box" style="display:none">
-      <div style="font-size:.8rem;color:var(--text2)">交割價 Delivery Price</div>
+      <div style="font-size:.8rem;color:var(--text2)">Delivery Price (交割價)</div>
       <div class="dp" id="settle-dp">—</div>
-      <div style="font-size:.8rem;color:var(--text2);margin-top:.5rem">你的損益 Your P&amp;L</div>
+      <div style="font-size:.8rem;color:var(--text2);margin-top:.5rem">Your P&amp;L (你的損益)</div>
       <div class="pnl" id="settle-pnl">—</div>
     </div>
 
+    <div class="card" id="ticker-card">
+      <div class="card-title">Market (即時行情)</div>
+      <div class="ticker">
+        <div class="tk-last">
+          <span class="l">Last (最新成交價)</span>
+          <span class="v" id="tk-last">—</span>
+          <span class="chg" id="tk-chg"></span>
+        </div>
+        <div class="tk-bbo">
+          <div class="c bid"><div class="k">Bid (最佳買價)</div><div class="n" id="tk-bid">—</div></div>
+          <div class="c"><div class="k">Spread (價差)</div><div class="n" id="tk-spread">—</div></div>
+          <div class="c ofr"><div class="k">Offer (最佳賣價)</div><div class="n" id="tk-offer">—</div></div>
+        </div>
+      </div>
+      <div class="tk-sub" id="tk-sub"></div>
+    </div>
+
     <div class="card" id="book-card">
-      <div class="card-title">委託簿 Order Book <span id="mode-tag" class="phase-tag"></span></div>
+      <div class="card-title">Order Book (委託簿) <span id="mode-tag" class="phase-tag"></span></div>
       <div class="book">
-        <div class="book-col bids"><h4>買價 BID</h4><div class="olist" id="bids"></div></div>
-        <div class="book-col offers"><h4>賣價 OFFER</h4><div class="olist" id="offers"></div></div>
+        <div class="book-col bids"><h4>BID (買價)</h4><div class="olist" id="bids"></div></div>
+        <div class="book-col offers"><h4>OFFER (賣價)</h4><div class="olist" id="offers"></div></div>
       </div>
 
       <div class="take-row" id="take-row">
-        <button class="btn btn-green" id="btn-take-bid" disabled>賣給最佳買價 Sell @bid <span id="tb-px"></span></button>
-        <button class="btn btn-red" id="btn-take-offer" disabled>買進最佳賣價 Buy @offer <span id="to-px"></span></button>
+        <button class="btn btn-green" id="btn-take-bid" disabled>Sell @bid <span id="tb-px"></span><br><small style="opacity:.75">賣給最佳買價</small></button>
+        <button class="btn btn-red" id="btn-take-offer" disabled>Buy @offer <span id="to-px"></span><br><small style="opacity:.75">買進最佳賣價</small></button>
       </div>
 
       <div class="qrow" style="margin-top:.8rem">
         <div class="fg">
-          <label>價格（<span class="px-range">0–50</span> 整數） Price</label>
+          <label>Price (價格) · whole numbers <span class="px-range">0–50</span></label>
           <input type="number" id="in-price" min="0" max="50" placeholder="22">
         </div>
       </div>
       <div class="take-row" style="margin-top:.5rem">
-        <button class="btn btn-green" id="btn-bid">掛買價 Post BID</button>
-        <button class="btn btn-red" id="btn-offer">掛賣價 Post OFFER</button>
+        <button class="btn btn-green" id="btn-bid">Post BID<br><small style="opacity:.75">掛買價</small></button>
+        <button class="btn btn-red" id="btn-offer">Post OFFER<br><small style="opacity:.75">掛賣價</small></button>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-title">成交紀錄 Trade History</div>
-      <div class="trade-list" id="trades"><div class="empty">尚無成交 No trades yet</div></div>
+      <div class="card-title">Trade History (成交紀錄)</div>
+      <div class="trade-list" id="trades"><div class="empty">No trades yet (尚無成交)</div></div>
     </div>
 
-    <p class="hint"><span class="conn-dot" id="conn-dot"></span> <span id="conn-text">已連線 Connected</span></p>
+    <p class="hint"><span class="conn-dot" id="conn-dot"></span> <span id="conn-text">Connected (已連線)</span></p>
   </div>
 
 </div>
@@ -193,8 +227,8 @@ function flashTradeAlert(msg,kind='err'){
 $('#btn-join').onclick=()=>{
   code=$('#in-code').value.trim().toUpperCase();
   name=$('#in-name').value.trim();
-  if(!code){showAlert('#join-alert','請輸入房間代碼 / Please enter room code');return;}
-  if(!name){showAlert('#join-alert','請輸入姓名或學號 / Please enter name or ID');return;}
+  if(!code){showAlert('#join-alert','Please enter the room code (請輸入房間代碼)');return;}
+  if(!name){showAlert('#join-alert','Please enter your student ID (請輸入學號)');return;}
   connect();
 };
 $('#in-name').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-join').click();});
@@ -204,7 +238,8 @@ $('#in-name').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-join').c
   const room=(q.get('room')||q.get('code')||'').trim().toUpperCase();
   if(room){
     $('#in-code').value=room;
-    showAlert('#join-alert',`已帶入房間代碼 ${esc(room)}，請輸入姓名或學號 / Room code filled in — enter your name or ID`,'info');
+    showAlert('#join-alert',`Room code ${esc(room)} filled in — now enter your student ID`+
+      `<br><span style="opacity:.8">已帶入房間代碼，請輸入學號</span>`,'info');
     $('#in-name').focus();
   }
 })();
@@ -227,8 +262,8 @@ function connect(){
       myTid=m.trader_id; myBadge=m.badge;
       $('#screen-join').classList.remove('active');
       $('#screen-trade').classList.add('active');
-      flashTradeAlert(`歡迎回來，${esc(m.name)}（代號 ${m.badge}）　淨部位 ${m.net}　`
-        +`已結算損益 ${m.pnl}　已成交 ${m.n_trades} 筆 / Welcome back — position restored.`,'info');
+      flashTradeAlert(`Welcome back, ${esc(m.name)} (${m.badge}) — position restored.　`
+        +`Net ${m.net}　Settled P&L ${m.pnl}　${m.n_trades} trade(s)`,'info');
       return;
     }
     if(m.type==='joined'){
@@ -237,6 +272,7 @@ function connect(){
       $('#screen-trade').classList.add('active');
       return;
     }
+    if(m.type==='notice'){ flashTradeAlert(m.message,'info'); return; }
     if(m.type==='reveal'){ /* 由 state 一起更新，這裡可加動畫 */ return; }
     if(m.type==='state'){ state=m; render(); }
   };
@@ -249,7 +285,7 @@ function scheduleReconnect(){
 }
 function setConn(ok){
   $('#conn-dot').classList.toggle('off',!ok);
-  $('#conn-text').textContent=ok?'已連線 Connected':'連線中斷，重新連線中… Reconnecting…';
+  $('#conn-text').textContent=ok?'Connected (已連線)':'Reconnecting… (連線中斷，重新連線中)';
 }
 
 // ── 送出 ──
@@ -260,7 +296,7 @@ function quote(side){
   const p=parseInt($('#in-price').value,10);
   const hi=(state&&state.max_quote)||50;
   if(isNaN(p)||p<0||p>hi){
-    flashTradeAlert(`價格需為 0–${hi} 的整數 / Price must be an integer 0–${hi}`);return;}
+    flashTradeAlert(`Price must be a whole number between 0 and ${hi} (價格需為 0–${hi} 的整數)`);return;}
   send({type:'quote',side,price:p});
   $('#in-price').value='';
 }
@@ -282,7 +318,8 @@ setInterval(()=>{
 },250);
 
 // ── 繪製 ──
-const PHASE_LABEL={lobby:'大廳 Lobby',open:'交易中 Trading',closed:'本輪結束 Round closed',settled:'已結算 Settled'};
+const PHASE_LABEL={lobby:'Lobby (大廳)',open:'Trading (交易中)',
+                   closed:'Round closed (本輪結束)',settled:'Settled (已結算)'};
 function render(){
   if(!state)return;
   const me=state.me||{net:0,pnl:0};
@@ -298,7 +335,7 @@ function render(){
   // 保證金：啟用時顯示可用資金
   $('#phase-tag').textContent=PHASE_LABEL[state.phase]||state.phase;
   $('#round-no').textContent=state.round;
-  $('#mode-tag').textContent=state.mode==='outcry'?'嗊價模式 Outcry':'電子撮合 Electronic';
+  $('#mode-tag').textContent=state.mode==='outcry'?'Open outcry (喊價模式)':'Electronic (電子撮合)';
 
   // 數字
   const dg=$('#digits'); dg.innerHTML='';
@@ -314,9 +351,12 @@ function render(){
     const priorSum=revealed.reduce((a,b)=>a+b,0);
     const remaining=5-revealed.length;
     const exp=(priorSum+remaining*4.5).toFixed(1);
-    let txt=`目前預期交割價 ≈ ${exp}（已揭 ${revealed.length} 位，其餘各期望 4.5） / Expected delivery ≈ ${exp}`;
+    let txt=`Expected delivery price ≈ ${exp}　(${revealed.length} digit(s) revealed; each remaining digit counts as 4.5)`
+      +`　·　目前預期交割價 ≈ ${exp}`;
     $('#expected').textContent=txt;
   }else{ $('#expected').textContent=''; }
+
+  renderTicker();
 
   // 委託簿
   const canTrade=state.phase==='open';
@@ -353,6 +393,51 @@ function render(){
   }
 }
 
+// 即時行情：最新成交價、與上一筆的漲跌、最佳買賣價與價差
+let lastSeenTrade=null;
+function renderTicker(){
+  const trades=state.trades||[];
+  const last=trades.length?trades[trades.length-1]:null;
+  const prev=trades.length>1?trades[trades.length-2]:null;
+  const el=$('#tk-last'), chg=$('#tk-chg');
+  if(last){
+    el.textContent=last.price;
+    const d=prev?last.price-prev.price:0;
+    el.style.color=d>0?'var(--green)':d<0?'var(--red)':'var(--text)';
+    chg.textContent=prev?`${d>0?'▲ +':d<0?'▼ ':'＝ '}${d===0?'0':Math.abs(d)*(d<0?-1:1)}　(prev ${prev.price})`
+      :'First trade (本輪第一筆成交)';
+    chg.className='chg '+(d>0?'pos':d<0?'neg':'');
+    // 有新成交就閃一下
+    if(last.id!==lastSeenTrade){
+      if(lastSeenTrade!==null){
+        const card=$('#ticker-card');
+        card.classList.remove('tk-flash'); void card.offsetWidth; card.classList.add('tk-flash');
+      }
+      lastSeenTrade=last.id;
+    }
+  }else{
+    el.textContent='—'; el.style.color='var(--text3)';
+    chg.textContent='No trades yet (尚無成交)'; chg.className='chg';
+  }
+  const bb=state.best_bid, bo=state.best_offer;
+  $('#tk-bid').textContent=bb!=null?bb:'—';
+  $('#tk-offer').textContent=bo!=null?bo:'—';
+  $('#tk-spread').textContent=(bb!=null&&bo!=null)?(bo-bb):'—';
+  // 最新成交價相對於「中性預期交割價」偏離多少 —— 學生最該注意的數字
+  const W=state.weights||[1,1,1,1,1];
+  const rev=state.revealed.filter(d=>d!==null);
+  let neutral=0;
+  rev.forEach((d,i)=>neutral+=W[i]*d);
+  for(let i=rev.length;i<W.length;i++) neutral+=W[i]*4.5;
+  const vol=trades.filter(t=>t.round===state.round).length;
+  let sub=`${vol} trade(s) this round　·　${trades.length} in total`;
+  // 偏離提示由教師決定要不要開（預設關閉，讓學生自己算）
+  if(last&&state.config&&state.config.show_deviation)
+    sub+=`　·　last vs expected ${neutral.toFixed(1)}: `
+      +`${last.price>neutral?'+'+(last.price-neutral).toFixed(1)+' above':last.price<neutral?'−'+(neutral-last.price).toFixed(1)+' below':'equal'}`;
+  $('#tk-sub').textContent=sub;
+}
+
 function renderBook(canTrade){
   const outcry=state.mode==='outcry';
   const bids=state.book.filter(o=>o.side==='bid').sort((a,b)=>b.price-a.price||a.ts-b.ts);
@@ -368,15 +453,15 @@ function orow(o,side,canTrade,outcry){
   const isMine=(state.my_orders||[]).some(x=>x.id===o.id);
   let btn='';
   if(isMine){
-    btn=`<button class="mini wd" data-wd="${o.id}">撤單</button>`;
+    btn=`<button class="mini wd" data-wd="${o.id}" title="撤單">Cancel</button>`;
   }else if(canTrade){
     if(outcry){
       // 喊價：任何看得見的都可成交
-      btn=side==='bid'?`<button class="mini take-b" data-take="${o.id}">賣</button>`
-                      :`<button class="mini take-o" data-take="${o.id}">買</button>`;
+      btn=side==='bid'?`<button class="mini take-b" data-take="${o.id}" title="賣給這個買價">Sell</button>`
+                      :`<button class="mini take-o" data-take="${o.id}" title="買進這個賣價">Buy</button>`;
     }else if(isBest){
-      btn=side==='bid'?`<button class="mini take-b" data-take="${o.id}">賣</button>`
-                      :`<button class="mini take-o" data-take="${o.id}">買</button>`;
+      btn=side==='bid'?`<button class="mini take-b" data-take="${o.id}" title="賣給最佳買價">Sell</button>`
+                      :`<button class="mini take-o" data-take="${o.id}" title="買進最佳賣價">Buy</button>`;
     }
   }
   const bd=outcry&&o.badge?`<span class="bd">${o.badge}</span>`:'';
@@ -386,11 +471,11 @@ function orow(o,side,canTrade,outcry){
 function renderTrades(){
   const el=$('#trades');
   const list=(state.trades||[]).slice().reverse().slice(0,30);
-  if(!list.length){el.innerHTML='<div class="empty">尚無成交 No trades yet</div>';return;}
+  if(!list.length){el.innerHTML='<div class="empty">No trades yet (尚無成交)</div>';return;}
   el.innerHTML=list.map(t=>{
     let role='';
-    if(t.role==='buy')role='<span class="pill buy">我買進 Bought</span>';
-    else if(t.role==='sell')role='<span class="pill sell">我賣出 Sold</span>';
+    if(t.role==='buy')role='<span class="pill buy" title="我買進">Bought</span>';
+    else if(t.role==='sell')role='<span class="pill sell" title="我賣出">Sold</span>';
     const cp=(t.buyer_badge&&state.mode==='outcry')?`<span class="r">${t.seller_badge}→${t.buyer_badge}</span>`:'';
     return `<div class="trow"><span class="r">R${t.round}</span><span class="px" style="font-weight:700">${t.price}</span>${role}${cp}</div>`;
   }).join('');

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZIP-Code 期貨交易 — 教師端</title>
+<title>ZIP-Code Futures — Teacher</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -107,51 +107,52 @@ details.adv .inner{padding:.3rem 0 .8rem;border-top:1px solid var(--border);}
   <div class="screen active" id="screen-setup">
     <div class="hero">
       <div class="hero-icon">📈</div>
-      <h1>ZIP-Code 期貨交易 — 教師端</h1>
-      <p>建立一個即時期貨市場，主持五輪交易並匯出完整資料。</p>
+      <h1>ZIP-Code Futures — Teacher</h1>
+      <p>Open a live futures market, run five rounds of trading, and export all the data.</p>
     </div>
 
     <div class="card">
-      <div class="card-title">建立新房間</div>
+      <div class="card-title">New room</div>
       <div id="setup-alert"></div>
       <div class="fg">
-        <label>每輪秒數（30–600）</label>
+        <label>Seconds per round (30–600)</label>
         <input type="number" id="s-seconds" value="180" min="30" max="600">
       </div>
       <details class="adv">
-        <summary><b>進階選項</b><span>撮合模式（電子／喊價）</span></summary>
+        <summary><b>Advanced</b><span>Matching rule: electronic or open outcry</span></summary>
         <div class="inner">
           <div class="fg">
-            <label>撮合模式</label>
+            <label>Matching rule</label>
             <select id="s-mode">
-              <option value="electronic">電子撮合（匿名、嚴格價格優先）</option>
-              <option value="outcry">喊價模式（部分可見、顯示對手代號）</option>
+              <option value="electronic">Electronic — anonymous, best price only</option>
+              <option value="outcry">Open outcry — you see only some orders, badges shown</option>
             </select>
           </div>
           <div class="grid2" id="outcry-opts" style="display:none">
             <div class="fg">
-              <label>可見比例（喊價模式，0.1–1.0）</label>
+              <label>Share of orders each trader sees (0.1–1.0)</label>
               <input type="number" id="s-visible" value="0.4" min="0.1" max="1" step="0.05">
             </div>
             <div class="fg">
-              <label>重抽間隔秒數</label>
+              <label>Reshuffle every N seconds</label>
               <input type="number" id="s-resample" value="3" min="1" max="30">
             </div>
           </div>
         </div>
       </details>
-      <p class="hint" style="margin-bottom:.7rem">保證金不在遊戲中結算（與論文相同）。交易結束後，
-        檢討面板的逐日結算表（習題 3）可以任意設定原始／維持保證金。</p>
-      <button class="btn btn-primary btn-block" id="btn-create">建立房間</button>
+      <p class="hint" style="margin-bottom:.7rem">No margin is collected during the game, just as in
+        the paper. After trading you can set any initial and maintenance margin in the
+        mark-to-market table (Exercise 3).</p>
+      <button class="btn btn-primary btn-block" id="btn-create">Create room</button>
     </div>
 
     <div class="card">
-      <div class="card-title">以主持碼接手（重新整理後）</div>
+      <div class="card-title">Resume with your host key (after a refresh)</div>
       <div class="grid2">
-        <div class="fg"><label>房間代碼</label><input type="text" id="r-code" maxlength="6" style="text-transform:uppercase"></div>
-        <div class="fg"><label>主持碼</label><input type="text" id="r-key" maxlength="4" style="text-transform:uppercase"></div>
+        <div class="fg"><label>Room code</label><input type="text" id="r-code" maxlength="6" style="text-transform:uppercase"></div>
+        <div class="fg"><label>Host key</label><input type="text" id="r-key" maxlength="4" style="text-transform:uppercase"></div>
       </div>
-      <button class="btn btn-ghost btn-block" id="btn-resume">接手主持</button>
+      <button class="btn btn-ghost btn-block" id="btn-resume">Resume hosting</button>
     </div>
   </div>
 
@@ -159,51 +160,60 @@ details.adv .inner{padding:.3rem 0 .8rem;border-top:1px solid var(--border);}
   <div class="screen" id="screen-dash">
     <div class="card">
       <div class="codebox">
-        <div class="b"><div class="l">房間代碼（給學生）</div><div class="v" id="d-code">—</div></div>
-        <div class="b"><div class="l">主持碼（接手用）</div><div class="v" id="d-key">—</div></div>
-        <div class="b"><div class="l">模式</div><div class="v" id="d-mode" style="font-size:1.1rem">—</div></div>
-        <div class="b"><div class="l">已進場</div><div class="v" id="d-count">0</div></div>
+        <div class="b"><div class="l">Room code (give to students)</div><div class="v" id="d-code">—</div></div>
+        <div class="b"><div class="l">Host key (to resume)</div><div class="v" id="d-key">—</div></div>
+        <div class="b"><div class="l">Mode</div><div class="v" id="d-mode" style="font-size:1.1rem">—</div></div>
+        <div class="b"><div class="l">Joined</div><div class="v" id="d-count">0</div></div>
       </div>
       <div class="entry">
-        <div class="qr-frame"><img id="qr-img" alt="學生入口 QR code" width="150" height="150"></div>
+        <div class="qr-frame"><img id="qr-img" alt="Student entry QR code" width="150" height="150"></div>
         <div class="entry-info">
-          <div class="l">學生入口（掃 QR code 會自動帶入房間代碼，只要再輸入姓名）</div>
-          <button type="button" class="url-box" id="d-url" title="點擊複製">—</button>
+          <div class="l">Student entry. Scanning the QR code fills in the room code, so students only type their student ID.</div>
+          <button type="button" class="url-box" id="d-url" title="Click to copy">—</button>
           <div class="entry-actions">
-            <button type="button" class="btn btn-ghost btn-sm" id="btn-qr-full">🔍 放大 QR code 投影</button>
-            <a id="d-board" href="#" target="_blank" class="btn btn-ghost btn-sm">開啟公開看板 ↗</a>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-qr-full">🔍 Show big QR code</button>
+            <a id="d-board" href="#" target="_blank" class="btn btn-ghost btn-sm">Open market board ↗</a>
           </div>
-          <p class="hint" style="margin-top:.2rem">公開看板大廳時會放大顯示這個 QR code，開盤後縮到角落；只顯示公開資訊，沒有姓名、部位與損益。</p>
+          <p class="hint" style="margin-top:.2rem">The market board shows this QR code in large size before
+            the first round, then moves it to the corner. It shows public data only: no names, positions or P&amp;L.</p>
         </div>
       </div>
     </div>
 
     <div class="dash-top">
       <div class="card">
-        <div class="card-title">交割價數字 · 第 <span id="d-round">0</span>/5 輪 <span class="phase-tag" id="d-phase">大廳</span></div>
+        <div class="card-title">Delivery-price digits · Round <span id="d-round">0</span>/5 <span class="phase-tag" id="d-phase">Lobby</span></div>
         <div class="digits" id="digits"></div>
         <div class="countdown" id="countdown">--</div>
         <div class="controls">
-          <button class="btn btn-green" id="btn-open">開始本輪</button>
-          <button class="btn btn-red" id="btn-close">結束本輪並揭露</button>
+          <button class="btn btn-green" id="btn-open">Open round</button>
+          <button class="btn btn-red" id="btn-close">Close round &amp; reveal</button>
         </div>
+        <div class="fg" style="margin-top:.6rem;margin-bottom:0">
+          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+            <input type="checkbox" id="d-show-dev" style="width:auto">
+            Show students how far the last trade is from the expected delivery price
+          </label>
+        </div>
+        <p class="hint">Off by default, so students work out the expected price themselves.
+          You can switch it any time; it appears in the students' market strip.</p>
         <p class="hint" id="flow-hint"></p>
       </div>
 
       <div class="card">
-        <div class="card-title">委託簿（即時）</div>
+        <div class="card-title">Order book (live)</div>
         <div class="book">
-          <div class="book-col bids"><h4>買價 BID</h4><div id="d-bids"></div></div>
-          <div class="book-col offers"><h4>賣價 OFFER</h4><div id="d-offers"></div></div>
+          <div class="book-col bids"><h4>BIDS</h4><div id="d-bids"></div></div>
+          <div class="book-col offers"><h4>OFFERS</h4><div id="d-offers"></div></div>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-title">交易者部位與損益</div>
+      <div class="card-title">Traders: positions and P&amp;L</div>
       <div class="scroll">
         <table id="traders-tbl">
-          <thead><tr><th>代號</th><th>姓名</th><th>成交數</th><th>淨部位</th><th>已結算損益 P&amp;L</th></tr></thead>
+          <thead><tr><th>Badge</th><th>Student ID</th><th>Trades</th><th>Net</th><th>Settled P&amp;L</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -211,92 +221,97 @@ details.adv .inner{padding:.3rem 0 .8rem;border-top:1px solid var(--border);}
 
     <div class="grid2">
       <div class="card">
-        <div class="card-title">成交紀錄</div>
+        <div class="card-title">Trades</div>
         <div class="trade-list" id="d-trades"></div>
       </div>
       <div class="card">
-        <div class="card-title">資料匯出</div>
+        <div class="card-title">Export data</div>
         <div class="export-row">
-          <button class="btn btn-ghost" onclick="exportCsv('trades')">匯出成交 trades.csv</button>
-          <button class="btn btn-ghost" onclick="exportCsv('orders')">匯出委託 orders.csv</button>
-          <button class="btn btn-ghost" onclick="exportCsv('summary')">匯出摘要 summary.csv</button>
-          <button class="btn btn-ghost" onclick="exportCsv('efficiency')">匯出效率檢驗 efficiency.csv（結算後）</button>
+          <button class="btn btn-ghost" onclick="exportCsv('trades')">trades.csv</button>
+          <button class="btn btn-ghost" onclick="exportCsv('orders')">orders.csv</button>
+          <button class="btn btn-ghost" onclick="exportCsv('summary')">summary.csv</button>
+          <button class="btn btn-ghost" onclick="exportCsv('efficiency')">efficiency.csv (after settlement)</button>
         </div>
-        <p class="hint">CSV 為 UTF-8 with BOM，Excel 直接開啟不亂碼。完整事件流另存於伺服器 data/{代碼}.jsonl。</p>
+        <p class="hint">CSV files are UTF-8 with BOM, so Excel opens them correctly. The full event log is
+        saved on the server as data/{room code}.jsonl.</p>
       </div>
     </div>
 
     <!-- 檢討面板 -->
     <div class="card" id="review-card" style="display:none">
-      <div class="card-title">📊 檢討面板</div>
+      <div class="card-title">📊 Debriefing</div>
       <div class="scroll">
         <table id="review-tbl">
-          <thead><tr><th>輪</th><th>揭露數字</th><th>成交量</th><th>新開多單</th><th>平掉多單</th><th>未平倉</th><th>結算價</th><th>輪初預期交割價</th></tr></thead>
+          <thead><tr><th>Round</th><th>Digit</th><th>Volume</th><th>Longs opened</th><th>Longs closed</th><th>Open interest</th><th>Settlement price</th><th>Expected delivery price</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
-      <p class="hint">習題 1 的中間步驟：<b>新開多單</b>等於成交量（每筆成交都產生一口多單）；
-        <b>平掉多單</b>包含「以前開的多單這一輪被賣掉」和「這一輪開的多單當場抵銷掉」（買方原本是空單）。
-        未平倉 = 前一輪未平倉 + 新開 − 平掉。</p>
+      <p class="hint">The middle steps of Exercise 1. <b>Longs opened</b> equals volume, because every
+        trade creates one long contract. <b>Longs closed</b> counts two things: a long opened earlier and
+        sold this round, and a long opened this round that cancels at once because the buyer was short.
+        Open interest = previous open interest + opened − closed.</p>
       <div style="margin-top:1rem">
-        <div class="card-title" style="font-size:.9rem">逐日結算 Marking to Market（習題 3）</div>
-        <p class="hint" style="margin-bottom:.6rem">事後的假設練習，跟論文一樣：遊戲中並沒有真的收保證金。
-          用班上交易出來的結算價，示範保證金帳戶會怎麼走。改下面兩個數字，表格會重算。
-          某輪沒有成交時沿用前一輪結算價（第一輪也沒有就用中性價 22.5）。</p>
+        <div class="card-title" style="font-size:.9rem">Marking to market (Exercise 3)</div>
+        <p class="hint" style="margin-bottom:.6rem">A "what if" exercise done after trading, as in the paper:
+          no margin was collected during the game. It uses the class's own settlement prices to show how a
+          margin account would move. Change the two numbers below and the table is recalculated.
+          If a round had no trades, the previous round's price is used (22.5 if round 1 had none).</p>
         <div class="margin-ctrl">
-          <div class="fg"><label>原始保證金</label><input type="number" id="m-orig" value="10" min="0" step="1"></div>
-          <div class="fg"><label>維持保證金</label><input type="number" id="m-maint" value="8" min="0" step="1"></div>
+          <div class="fg"><label>Initial margin</label><input type="number" id="m-orig" value="10" min="0" step="1"></div>
+          <div class="fg"><label>Maintenance margin</label><input type="number" id="m-maint" value="8" min="0" step="1"></div>
         </div>
         <div class="fg">
-          <label>選一位交易者，看完整的逐日結算表</label>
+          <label>Pick a trader to see the full table</label>
           <select id="m-who"></select>
         </div>
         <div class="scroll"><table id="mtm-one"><thead></thead><tbody></tbody></table></div>
         <p class="hint" id="mtm-note"></p>
-        <div class="card-title" style="font-size:.86rem;margin-top:1rem">全班每日損益總覽</div>
+        <div class="card-title" style="font-size:.86rem;margin-top:1rem">Daily P&amp;L for the whole class</div>
         <div class="scroll"><table id="mtm-tbl"><thead></thead><tbody></tbody></table></div>
       </div>
       <div style="margin-top:1.4rem">
-        <div class="card-title" style="font-size:.9rem">期貨與現貨的套利關係（習題 5）</div>
-        <p class="hint" style="margin-bottom:.6rem">照論文的算法：假設每一輪都有平行的現貨市場，
-          可用連續複利 r 借貸，標的是不配息的投資性資產。期貨價格 F 用<b>每輪開始時的預期交割價</b>，
-          第 t 輪距交割還有 T − t 期（T = 6），無套利現貨價 S* = F·e<sup>−r(T−t)</sup>。
-          交割時 T − t = 0，所以 S* = F = 交割價：這就是現貨與期貨價格的收斂。</p>
+        <div class="card-title" style="font-size:.9rem">Spot–futures arbitrage (Exercise 5)</div>
+        <p class="hint" style="margin-bottom:.6rem">Same method as the paper. Assume a spot market exists in
+          every round, you can borrow and lend at rate r (continuous compounding), and the asset pays no
+          income. The futures price F is the <b>expected delivery price at the start of the round</b>.
+          Round t is T − t periods from delivery (T = 6), so the no-arbitrage spot price is
+          S* = F·e<sup>−r(T−t)</sup>. At delivery T − t = 0, so S* = F = the delivery price.
+          That is spot–futures convergence.</p>
         <div class="margin-ctrl">
           <div class="fg">
-            <label>期貨價格 F 用哪一個</label>
+            <label>Which futures price F to use</label>
             <select id="ex5-f">
-              <option value="expected">輪初預期交割價（論文的做法）</option>
-              <option value="settle">每輪實際結算價（班上真的交易出來的價格）</option>
+              <option value="expected">Expected delivery price at the start of the round (the paper)</option>
+              <option value="settle">Actual settlement price each round (what the class traded)</option>
             </select>
           </div>
           <div class="fg">
-            <label>現貨價</label>
+            <label>Spot price</label>
             <select id="ex5-spotmode">
-              <option value="fixed">固定值（論文的做法）</option>
-              <option value="theory">理論無套利價（由預期交割價折現）</option>
+              <option value="fixed">A fixed number (the paper)</option>
+              <option value="theory">The no-arbitrage price (expected delivery price, discounted)</option>
             </select>
           </div>
         </div>
         <div class="margin-ctrl">
-          <div class="fg"><label>利率 r（連續複利，每一輪一期）</label><input type="number" id="ex5-r" value="0.1" min="0" step="0.01"></div>
-          <div class="fg" id="ex5-spot-row"><label>固定現貨價</label><input type="number" id="ex5-spot" value="20" min="0" step="1"></div>
+          <div class="fg"><label>Interest rate r (continuous, one period per round)</label><input type="number" id="ex5-r" value="0.1" min="0" step="0.01"></div>
+          <div class="fg" id="ex5-spot-row"><label>Fixed spot price</label><input type="number" id="ex5-spot" value="20" min="0" step="1"></div>
         </div>
         <div class="scroll"><table id="ex5-tbl"><thead></thead><tbody></tbody></table></div>
         <canvas id="ex5chart" height="230" style="margin-top:.7rem"></canvas>
         <p class="hint" id="ex5-note"></p>
       </div>
       <div style="margin-top:1.4rem">
-        <div class="card-title" style="font-size:.9rem">🔬 市場效率檢驗（習題 6）</div>
+        <div class="card-title" style="font-size:.9rem">🔬 Market efficiency (Exercise 6)</div>
         <div id="eff-body"></div>
       </div>
       <div style="margin-top:1rem">
-        <div class="card-title" style="font-size:.9rem">成交價 vs 輪初預期交割價</div>
+        <div class="card-title" style="font-size:.9rem">Trade prices vs expected delivery price</div>
         <canvas id="scatter" height="220"></canvas>
       </div>
     </div>
 
-    <p class="hint"><span class="conn-dot" id="conn-dot"></span> <span id="conn-text">已連線</span></p>
+    <p class="hint"><span class="conn-dot" id="conn-dot"></span> <span id="conn-text">Connected</span></p>
   </div>
 
 </div>
@@ -319,17 +334,17 @@ $('#btn-create').onclick=async()=>{
   };
   try{
     const r=await fetch('/api/zip/room',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!r.ok)throw new Error('建立失敗');
+    if(!r.ok)throw new Error('failed');
     const d=await r.json();
     code=d.code; hostKey=d.host_key;
     enterDash();
-  }catch(e){ showAlert('#setup-alert','建立房間失敗，請稍後再試'); }
+  }catch(e){ showAlert('#setup-alert','Could not create the room. Please try again.'); }
 };
 
 $('#btn-resume').onclick=()=>{
   code=$('#r-code').value.trim().toUpperCase();
   hostKey=$('#r-key').value.trim().toUpperCase();
-  if(!code||!hostKey){showAlert('#setup-alert','請輸入房間代碼與主持碼');return;}
+  if(!code||!hostKey){showAlert('#setup-alert','Please enter the room code and host key');return;}
   enterDash();
 };
 
@@ -352,7 +367,7 @@ function qrSrc(url,size){
 }
 $('#d-url').onclick=()=>{
   const el=$('#d-url'), url=studentURL();
-  const done=()=>{ el.textContent='✓ 已複製！'; setTimeout(()=>el.textContent=url,1200); };
+  const done=()=>{ el.textContent='✓ Copied'; setTimeout(()=>el.textContent=url,1200); };
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done,()=>{});
 };
 $('#btn-qr-full').onclick=()=>{
@@ -363,10 +378,10 @@ $('#btn-qr-full').onclick=()=>{
     +'flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:2rem;';
   ov.onclick=()=>ov.remove();
   ov.innerHTML=`<div style="background:#fff;padding:1.5rem;border-radius:16px;line-height:0;">
-      <img src="${qrSrc(url,size)}" width="${size}" height="${size}" alt="學生入口 QR code"></div>
+      <img src="${qrSrc(url,size)}" width="${size}" height="${size}" alt="Student entry QR code"></div>
     <div style="margin-top:1.5rem;font-family:'Noto Serif TC',serif;font-size:2rem;letter-spacing:.4em;color:var(--accent2);font-weight:700;">${code}</div>
     <div style="margin-top:.5rem;color:var(--text2);font-size:.95rem;font-family:monospace;word-break:break-all;text-align:center;">${url}</div>
-    <div style="margin-top:1rem;color:var(--text3);font-size:.8rem;">點擊任意處關閉</div>`;
+    <div style="margin-top:1rem;color:var(--text3);font-size:.8rem;">Click anywhere to close</div>`;
   document.body.appendChild(ov);
 };
 
@@ -384,9 +399,10 @@ function connect(){
   ws.onclose=()=>{ setConn(false); scheduleReconnect(); };
 }
 function scheduleReconnect(){ if(reconnectTimer)return; reconnectTimer=setTimeout(()=>{reconnectTimer=null;if(code&&hostKey)connect();},1500); }
-function setConn(ok){ $('#conn-dot').classList.toggle('off',!ok); $('#conn-text').textContent=ok?'已連線':'連線中斷，重新連線中…'; }
+function setConn(ok){ $('#conn-dot').classList.toggle('off',!ok); $('#conn-text').textContent=ok?'Connected':'Reconnecting…'; }
 function send(o){ if(ws&&ws.readyState===1)ws.send(JSON.stringify(o)); }
 
+$('#d-show-dev').onchange=e=>send({type:'set_config',show_deviation:e.target.checked});
 $('#btn-open').onclick=()=>send({type:'open_round'});
 $('#btn-close').onclick=()=>send({type:'close_round'});
 
@@ -402,14 +418,16 @@ setInterval(()=>{
   }else{ cd.textContent='--'; cd.style.color='var(--text3)'; }
 },250);
 
-const PHASE={lobby:'大廳',open:'交易中',closed:'本輪結束',settled:'已結算'};
+const PHASE={lobby:'Lobby',open:'Trading',closed:'Round closed',settled:'Settled'};
 function render(){
   if(!state)return;
-  $('#d-mode').textContent=state.mode==='outcry'?'喊價':'電子';
+  $('#d-mode').textContent=state.mode==='outcry'?'Outcry':'Electronic';
   $('#d-count').textContent=state.trader_count;
   $('#d-round').textContent=state.round;
   $('#d-phase').textContent=PHASE[state.phase]||state.phase;
 
+  if(state.config&&document.activeElement!==$('#d-show-dev'))
+    $('#d-show-dev').checked=!!state.config.show_deviation;
   const dg=$('#digits'); dg.innerHTML='';
   state.revealed.forEach(d=>{
     const el=document.createElement('div');
@@ -423,10 +441,10 @@ function render(){
   $('#btn-open').disabled=!canOpen;
   $('#btn-close').disabled=state.phase!=='open';
   let hint='';
-  if(state.phase==='lobby')hint='等待學生進場，按「開始本輪」開盤第 1 輪。';
-  else if(state.phase==='open')hint='交易進行中。時間到會自動收盤並揭露數字。';
-  else if(state.phase==='closed')hint=`第 ${state.round} 輪已結束，按「開始本輪」開盤下一輪。`;
-  else if(state.phase==='settled')hint='五輪結束，已結算。可查看檢討面板並匯出資料。';
+  if(state.phase==='lobby')hint='Waiting for students. Press "Open round" to start round 1.';
+  else if(state.phase==='open')hint='Trading. The round closes automatically when time runs out, and one digit is revealed.';
+  else if(state.phase==='closed')hint=`Round ${state.round} is over. Press "Open round" for the next one.`;
+  else if(state.phase==='settled')hint='All five rounds are done and the contract has settled. See the debriefing below and export the data.';
   $('#flow-hint').textContent=hint;
 
   // 委託簿
@@ -441,7 +459,7 @@ function render(){
     <td><b style="color:${t.color}">${t.badge}</b></td><td>${esc(t.name)}</td>
     <td>${t.n_trades}</td>
     <td class="${cls(t.net)}">${t.net}</td>
-    <td class="${cls(t.pnl)}">${t.pnl>0?'+':''}${t.pnl}</td></tr>`).join('')||'<tr><td colspan="5" class="hint">尚無交易者</td></tr>';
+    <td class="${cls(t.pnl)}">${t.pnl>0?'+':''}${t.pnl}</td></tr>`).join('')||'<tr><td colspan="5" class="hint">No traders yet</td></tr>';
 
   // 成交
   const tl=(state.trades||[]).slice().reverse().slice(0,40);
@@ -467,7 +485,7 @@ function renderReview(rv){
     <td class="pos">+${r.opened}</td>
     <td class="${r.closed?'neg':''}">${r.closed?'−'+r.closed:'0'}</td>
     <td title="${prev} + ${r.opened} − ${r.closed} = ${r.open_interest}"><b>${r.open_interest}</b></td>
-    <td>${r.settle_price??'<span class="hint">無成交</span>'}</td>
+    <td>${r.settle_price??'<span class="hint">no trades</span>'}</td>
     <td>${r.expected_delivery.toFixed(1)}</td></tr>`;
   }).join('');
   renderMtm();
@@ -489,16 +507,16 @@ function renderMtmOne(){
   if(!reviewData)return;
   const L=(reviewData.ledgers||[]).find(x=>x.badge===$('#m-who').value);
   if(!L){ $('#mtm-one thead').innerHTML='';
-          $('#mtm-one tbody').innerHTML='<tr><td class="hint">尚無交易者</td></tr>';
+          $('#mtm-one tbody').innerHTML='<tr><td class="hint">No traders yet</td></tr>';
           $('#mtm-note').textContent=''; return; }
   $('#mtm-one thead').innerHTML='<tr>'+
-    ['日 Day','結算價','當日成交','期末部位','保證金存提','每日損益','累計損益',
-     '維持水準','追繳前餘額','追繳金額','追繳後餘額']
+    ['Day','Settlement price','Trades today','Position','Margin paid in','Daily gain',
+     'Cumulative gain','Maintenance level','Balance before call','Margin call','Balance after call']
     .map(h=>`<th>${h}</th>`).join('')+'</tr>';
   $('#mtm-one tbody').innerHTML=(L.rows||[]).map(r=>{
-    const last=r.label==='交割';
+    const last=r.label==='Delivery';   // 帳本的最後一列是交割日
     return `<tr>
-    <td>${last?'交割 Delivery':'第 '+r.label.slice(1)+' 輪'}</td>
+    <td>${last?'Delivery':'Round '+r.label.slice(1)}</td>
     <td>${r.settle}</td>
     <td>${r.trades||'—'}</td>
     <td class="${cls(r.pos)}">${r.pos}</td>
@@ -508,12 +526,13 @@ function renderMtmOne(){
     <td class="hint">${r.maintenance||'—'}</td>
     <td class="${!last&&r.pre_call<r.maintenance?'neg':''}">${r.pre_call}</td>
     <td class="${r.call?'neg':''}">${r.call?r.call+' ⚠️':'—'}</td>
-    <td>${last?'全數退回 '+r.returned:r.balance}</td></tr>`;
+    <td>${last?'all returned: '+r.returned:r.balance}</td></tr>`;
   }).join('');
-  $('#mtm-note').textContent=`${L.badge}（${L.name}）：累計損益 ${L.pnl}　·　`
-    +(L.calls?`共 ${L.calls} 次追繳、合計補繳 ${L.call_total}`:'全程未被追繳')
-    +'　·　「追繳前餘額」就是論文 Table 5 的保證金餘額欄；低於維持水準就要追繳回原始水準。'
-    +'交割日只做最後一次結算，帳戶全數退回，不再追繳。';
+  $('#mtm-note').textContent=`${L.badge} (${L.name}): cumulative gain ${L.pnl}　·　`
+    +(L.calls?`${L.calls} margin call(s), ${L.call_total} paid in total`:'never called')
+    +'　·　"Balance before call" is the margin balance column in Table 5 of the paper. '
+    +'If it falls below the maintenance level, the trader tops it back up to the initial level. '
+    +'On the delivery day there is one final settlement and the whole account is returned, so there is no call.';
 }
 
 function renderMtm(){
@@ -528,8 +547,8 @@ function renderMtm(){
     if(keep&&[...who.options].some(o=>o.value===keep)) who.value=keep; }
   renderMtmOne();
   // 全班總覽：每人一列，每格是當日損益（被追繳的那天標記）
-  const labels=reviewData.rounds.map(r=>'R'+r.round).concat(['交割']);
-  $('#mtm-tbl thead').innerHTML='<tr>'+['交易者'].concat(labels).concat(['累計','追繳'])
+  const labels=reviewData.rounds.map(r=>'R'+r.round).concat(['Delivery']);
+  $('#mtm-tbl thead').innerHTML='<tr>'+['Trader'].concat(labels).concat(['Total','Calls'])
     .map(h=>`<th>${h}</th>`).join('')+'</tr>';
   $('#mtm-tbl tbody').innerHTML=(reviewData.ledgers||[]).map(L=>{
     const by={}; (L.rows||[]).forEach(r=>by[r.label]=r);
@@ -537,7 +556,7 @@ function renderMtm(){
       return r?`<td class="${cls(r.daily)}">${r.daily}${r.call?' ⚠️':''}</td>`:'<td class="hint">—</td>'; });
     return `<tr><td><b style="color:${L.color}">${L.badge}</b></td>${cells.join('')}`
       +`<td class="${cls(L.pnl)}"><b>${L.pnl}</b></td><td class="${L.calls?'neg':''}">${L.calls||'—'}</td></tr>`;
-  }).join('')||'<tr><td class="hint">尚無資料</td></tr>';
+  }).join('')||'<tr><td class="hint">No data yet</td></tr>';
 }
 
 // ── 習題 5：期貨與現貨的套利關係 ──
@@ -545,18 +564,18 @@ function renderMtm(){
 // 用論文自己的資料（數字 4,7,5,0,2）會得到 13.6, 14.7, 18.2, 20.5, 18.5, 18.0。
 function ex5Rows(F, D, r, spots, T){
   const rows=F.map(function(f,i){
-    const t=i+1, tau=T-t, S=f*Math.exp(-r*tau);   // 由 F 反推的無套利現貨價
+    const t=i+1, tau=T-t, S=f*Math.exp(-r*tau);   // implied spot from F
     const spot=Array.isArray(spots)?spots[i]:spots;
-    const Fstar=spot*Math.exp(r*tau);             // 由現貨推出的理論期貨價
+    const Fstar=spot*Math.exp(r*tau);             // theoretical futures from spot
     let action=null, profit=0;
-    if(spot>S+1e-9){ action='short'; profit=Fstar-f; }       // 現貨太貴／期貨太便宜
-    else if(spot<S-1e-9){ action='long'; profit=f-Fstar; }   // 現貨太便宜／期貨太貴
+    if(spot>S+1e-9){ action='short'; profit=Fstar-f; }       // spot dear / futures cheap
+    else if(spot<S-1e-9){ action='long'; profit=f-Fstar; }   // spot cheap / futures dear
     // 兩種比法是同一個不等式：S > S* ⟺ F* > F，
     // 差額換算到同一個時點也相同：(S − S*)·e^(r(T−t)) = F* − F
-    return {label:'第 '+t+' 輪', t:t, tau:tau, F:f, S:S, spot:spot, Fstar:Fstar,
+    return {label:'Round '+t, t:t, tau:tau, F:f, S:S, spot:spot, Fstar:Fstar,
             dSpot:spot-S, dFut:Fstar-f, action:action, profit:profit};
   });
-  rows.push({label:'交割', t:T, tau:0, F:D, S:D, spot:D, Fstar:D,
+  rows.push({label:'Delivery', t:T, tau:0, F:D, S:D, spot:D, Fstar:D,
              dSpot:0, dFut:0, action:null, profit:0, delivery:true});
   return rows;
 }
@@ -576,35 +595,36 @@ function renderEx5(rv){
   const rows=ex5Rows(F, rv.delivery_price, r, spots, T);
   const num=(v,c)=>`<td class="${c||''}">${v.toFixed(1)}</td>`;
   const dif=v=>`<td class="${cls(v)}">${v>0?'+':''}${v.toFixed(2)}</td>`;
-  $('#ex5-tbl thead').innerHTML='<tr>'+['','距交割 T − t',
-    '實際現貨價 S','隱含現貨價 S*','S − S*',
-    '實際期貨價 F（'+(useSettle?'結算價':'預期交割價')+'）','理論期貨價 F*','F* − F',
-    '套利做法','每單位套利利潤（交割時）']
+  $('#ex5-tbl thead').innerHTML='<tr>'+['','T − t',
+    'Spot price S','Implied spot S*','S − S*',
+    'Futures F ('+(useSettle?'settlement price':'expected delivery price')+')','Theoretical futures F*','F* − F',
+    'What to do','Profit per unit (at delivery)']
     .map(h=>`<th>${h}</th>`).join('')+'</tr>';
   $('#ex5-tbl tbody').innerHTML=rows.map(x=>{
-    if(x.delivery) return `<tr><td>交割</td><td>0</td>${num(x.spot)}${num(x.S)}<td>0</td>
+    if(x.delivery) return `<tr><td>Delivery</td><td>0</td>${num(x.spot)}${num(x.S)}<td>0</td>
       ${num(x.F)}${num(x.Fstar)}<td>0</td>
-      <td class="hint" colspan="2">到期時現貨價 = 期貨價 = 交割價</td></tr>`;
-    const act=x.action==='short'?'放空現貨、做多期貨':x.action==='long'?'買進現貨、放空期貨':'沒有套利機會';
+      <td class="hint" colspan="2">at delivery: spot = futures = delivery price</td></tr>`;
+    const act=x.action==='short'?'Sell spot, buy futures':x.action==='long'?'Buy spot, sell futures':'no arbitrage';
     return `<tr><td>${x.label}</td><td>${x.tau}</td>
       ${num(x.spot)}${num(x.S)}${dif(x.dSpot)}
       ${num(x.F)}${num(x.Fstar)}${dif(x.dFut)}
       <td>${act}</td><td>${x.action?x.profit.toFixed(2):'—'}</td></tr>`;
   }).join('');
   const hi=rows.filter(x=>x.action==='short').map(x=>x.t), lo=rows.filter(x=>x.action==='long').map(x=>x.t);
-  let note='S* 是由期貨價折現「倒推」出來的現貨價（隱含現貨價），不是觀察到的價格；'
-    +'F* 則是由現貨價推出的理論期貨價。兩欄的正負號一定一致，因為 S > S* 和 F* > F 是同一個不等式；'
-    +'金額也相同，只差在計價的時點：(S − S*) × e^(r(T−t)) = F* − F。'
-    +'　'
-    +(hi.length?`現貨高於 S* 的輪次：${hi.join('、')}（放空現貨、做多期貨）。`:'')
-    +(lo.length?`　現貨低於 S* 的輪次：${lo.join('、')}（買進現貨、放空期貨）。`:'')
-    +(hi.length||lo.length?'':'目前設定下沒有任何套利機會。')
-    +'　套利利潤 = |現貨價 × e^(r(T−t)) − F|，在交割時實現。';
-  if(theorySpot) note+='　現貨走的是理論無套利路徑，所以錯價完全來自期貨端：'
-    +'套利利潤就等於 |實際成交價 − 預期交割價|，也就是班上偏離基本面的幅度。';
-  else note+='　固定現貨價是外生假設，不是市場均衡的結果：它既沒有隨時間增值，'
-    +'交割時也不等於交割價，請跟學生講明這一點。';
-  note+='　r 是「每一輪」的資金成本，把一輪當成一個完整的利率期間。';
+  let note='S* is the spot price backed out from the futures price, not a price anyone observes. '
+    +'F* is the futures price implied by the spot price. The two difference columns always have the same '
+    +'sign, because S > S* and F* > F are the same inequality. The amounts match too, once you move them '
+    +'to the same date: (S − S*) × e^(r(T−t)) = F* − F.　'
+    +(hi.length?`Spot is above S* in round(s) ${hi.join(', ')}: sell spot and buy futures.`:'')
+    +(lo.length?`　Spot is below S* in round(s) ${lo.join(', ')}: buy spot and sell futures.`:'')
+    +(hi.length||lo.length?'':'With these settings there is no arbitrage.')
+    +'　Profit = |spot × e^(r(T−t)) − F|, earned at delivery.';
+  if(theorySpot) note+='　The spot price follows the no-arbitrage path, so all the mispricing sits in the '
+    +'futures. The arbitrage profit equals |traded price − expected delivery price|: how far the class '
+    +'moved away from fundamental value.';
+  else note+='　A fixed spot price is an outside assumption, not a market outcome: it does not grow over '
+    +'time and it does not equal the delivery price at the end. Tell students this.';
+  note+='　r is the cost of money for one round; each round counts as one full interest period.';
   $('#ex5-note').textContent=note;
   drawEx5(rows);
 }
@@ -621,7 +641,7 @@ function drawEx5(rows){
   for(let g=0;g<=4;g++){ const v=lo+(hi-lo)*g/4, y=sy(v);
     ctx.strokeStyle='rgba(255,255,255,.07)';ctx.beginPath();ctx.moveTo(PL,y);ctx.lineTo(W-PR,y);ctx.stroke();
     ctx.fillStyle='#5c5f7a';ctx.fillText(v.toFixed(0),4,y+4); }
-  rows.forEach(x=>{ ctx.fillStyle='#5c5f7a'; ctx.fillText(x.delivery?'交割':'R'+x.t, sx(x.t)-10, H-8); });
+  rows.forEach(x=>{ ctx.fillStyle='#5c5f7a'; ctx.fillText(x.delivery?'Del.':'R'+x.t, sx(x.t)-10, H-8); });
   const line=(key,color,dash)=>{ ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.setLineDash(dash);
     ctx.beginPath(); rows.forEach((x,i)=>i?ctx.lineTo(sx(x.t),sy(x[key])):ctx.moveTo(sx(x.t),sy(x[key])));
     ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle=color;
@@ -631,62 +651,64 @@ function drawEx5(rows){
   line('spot','#f0b429',[2,4]);
   ctx.lineWidth=1;
   ctx.font='11px sans-serif';
-  ctx.fillStyle='#4a9eff';ctx.fillText('— 期貨價格 F',PL+6,PT+10);
-  ctx.fillStyle='#ff8a5c';ctx.fillText('- - 無套利現貨價 S*',PL+6,PT+24);
-  ctx.fillStyle='#f0b429';ctx.fillText('· · 現貨價',PL+6,PT+38);
+  ctx.fillStyle='#4a9eff';ctx.fillText('— futures F',PL+6,PT+10);
+  ctx.fillStyle='#ff8a5c';ctx.fillText('- - implied spot S*',PL+6,PT+24);
+  ctx.fillStyle='#f0b429';ctx.fillText('· · spot price',PL+6,PT+38);
 }
 
 // ── 習題 6：市場效率 ──
 // 論文的判準：數字 > 4.5 是好消息。這裡展開成方向、幅度、代價三層。
 function betaWord(b){
-  if(b==null) return {t:'—',c:'',d:'資料不足'};
-  if(b<0)      return {t:b.toFixed(2),c:'bad', d:'價格逆著消息走 —— 市場沒把資訊讀對'};
-  if(b<0.5)    return {t:b.toFixed(2),c:'bad', d:'嚴重反應不足：新資訊幾乎沒反映到價格上'};
-  if(b<0.85)   return {t:b.toFixed(2),c:'warn',d:'反應不足：價格動了，但幅度不夠'};
-  if(b<=1.15)  return {t:b.toFixed(2),c:'good',d:'接近完全反應 —— 效率市場的樣子'};
-  if(b<=1.6)   return {t:b.toFixed(2),c:'warn',d:'過度反應：價格衝過頭了'};
-  return         {t:b.toFixed(2),c:'bad', d:'嚴重過度反應'};
+  if(b==null) return {t:'—',c:'',d:'not enough data'};
+  if(b<0)      return {t:b.toFixed(2),c:'bad', d:'Prices moved against the news. The market read it wrong.'};
+  if(b<0.5)    return {t:b.toFixed(2),c:'bad', d:'Strong under-reaction: the news barely reached prices.'};
+  if(b<0.85)   return {t:b.toFixed(2),c:'warn',d:'Under-reaction: prices moved, but not far enough.'};
+  if(b<=1.15)  return {t:b.toFixed(2),c:'good',d:'Close to a full reaction. This is what an efficient market looks like.'};
+  if(b<=1.6)   return {t:b.toFixed(2),c:'warn',d:'Over-reaction: prices moved too far.'};
+  return         {t:b.toFixed(2),c:'bad', d:'Strong over-reaction.'};
 }
 function renderEfficiency(rv){
   const e=rv.efficiency;
-  if(!e||!e.events.length){ $('#eff-body').innerHTML='<p class="hint">沒有可分析的事件。</p>'; return; }
+  if(!e||!e.events.length){ $('#eff-body').innerHTML='<p class="hint">No events to analyse.</p>'; return; }
   const t=e.tally, bw=betaWord(t?t.beta:null);
   const rate=t?Math.round(t.rate*100):null;
   const rc=rate==null?'':rate>=75?'good':rate>=50?'warn':'bad';
-  const bias=e.bias==null?'—':(e.bias>0.5?'系統性偏高（樂觀）':e.bias<-0.5?'系統性偏低（悲觀）':'無明顯偏誤');
+  const bias=e.bias==null?'—':(e.bias>0.5?'prices sat above value':e.bias<-0.5?'prices sat below value':'no clear bias');
   const verdict=t
-    ? `這個市場在 <b>${t.n}</b> 次揭露中，有 <b>${t.k}</b> 次（${rate}%）讓價格往消息的方向移動，`
-      +`反應幅度是應有幅度的 <b class="${bw.c}">${bw.t} 倍</b> —— ${bw.d}。`
-      +`事後來看，知道交割價的內線可以在這些成交上賺走 <b>${e.insider.total}</b>（平均每筆 ${e.insider.per_trade}）。`
-    : '成交太少，無法判定這個市場有沒有把資訊反映進價格。';
+    ? `Out of <b>${t.n}</b> reveals, prices moved the right way <b>${t.k}</b> time(s) (${rate}%). `
+      +`The size of the move was <b class="${bw.c}">${bw.t}×</b> what it should have been — ${bw.d} `
+      +`Looking back, someone who knew the delivery price could have taken <b>${e.insider.total}</b> `
+      +`from these trades (${e.insider.per_trade} per trade on average).`
+    : 'Too few trades to say whether this market put the news into prices.';
   $('#eff-body').innerHTML=`<div class="verdict">${verdict}</div>
-    <p class="hint" style="margin-bottom:.6rem"><b>怎麼讀：</b>應有變動 = 揭露數字 − 4.5，也就是這則消息
-      「應該」讓預期交割價移動多少。價格反應 = 下一輪均價 − 本輪均價。β 是兩者過原點迴歸的斜率：
-      1 = 完全反應、&lt;1 = 反應不足、&gt;1 = 過度反應。
-      <span style="color:var(--amber)">⚠️ 第 5 位揭露後就結算，事件最多只有 4 個 ——
-      這是課堂用的描述統計，不是有檢定力的迴歸。</span></p>
+    <p class="hint" style="margin-bottom:.6rem"><b>How to read this.</b> "Should move" = the revealed digit
+      minus 4.5: how far this piece of news ought to shift the expected delivery price. "Price move" = next
+      round's average price minus this round's. β is the slope when you regress one on the other through
+      the origin: 1 = full reaction, &lt;1 = under-reaction, &gt;1 = over-reaction.
+      <span style="color:var(--amber)">⚠️ The contract settles right after the fifth digit, so there are at
+      most 4 events. Treat β as a classroom description, not a real statistical test.</span></p>
     <div class="scroll"><table><thead><tr>
-      <th>揭露</th><th>數字</th><th>消息</th><th>應有變動</th>
-      <th>揭露前均價</th><th>揭露後均價</th><th>價格反應</th><th>同向？</th>
+      <th>Reveal</th><th>Digit</th><th>News</th><th>Should move</th>
+      <th>Avg price before</th><th>Avg price after</th><th>Price move</th><th>Same way?</th>
     </tr></thead><tbody>${e.events.map(ev=>`<tr>
       <td>R${ev.round}→R${ev.round+1}</td><td>${ev.digit}</td>
-      <td class="${ev.news==='good'?'pos':'neg'}">${ev.news==='good'?'好消息':'壞消息'}</td>
+      <td class="${ev.news==='good'?'pos':'neg'}">${ev.news==='good'?'good':'bad'}</td>
       <td class="${cls(ev.delta)}">${ev.delta>0?'+':''}${ev.delta}</td>
-      <td>${ev.vwap_before==null?'<span class="hint">無成交</span>':ev.vwap_before}</td>
-      <td>${ev.vwap_after==null?'<span class="hint">無成交</span>':ev.vwap_after}</td>
+      <td>${ev.vwap_before==null?'<span class="hint">no trades</span>':ev.vwap_before}</td>
+      <td>${ev.vwap_after==null?'<span class="hint">no trades</span>':ev.vwap_after}</td>
       <td class="${cls(ev.response)}">${ev.response==null?'—':(ev.response>0?'+':'')+ev.response}</td>
-      <td>${ev.agree==null?'<span class="hint">無法判定</span>':(ev.agree?'<span class="pos">✓</span>':'<span class="neg">✗</span>')}</td>
+      <td>${ev.agree==null?'<span class="hint">n/a</span>':(ev.agree?'<span class="pos">✓</span>':'<span class="neg">✗</span>')}</td>
     </tr>`).join('')}</tbody></table></div>
     <div class="metrics">
-      <div class="metric"><div class="k">方向一致率</div><div class="n ${rc}">${rate==null?'—':rate+'%'}</div>
-        <div class="d">${t?`${t.n} 次可判定的揭露中有 ${t.k} 次方向正確`:'可用事件不足'}</div></div>
-      <div class="metric"><div class="k">反應係數 β</div><div class="n ${bw.c}">${bw.t}</div>
+      <div class="metric"><div class="k">MOVED THE RIGHT WAY</div><div class="n ${rc}">${rate==null?'—':rate+'%'}</div>
+        <div class="d">${t?`${t.k} of ${t.n} reveals`:'not enough events'}</div></div>
+      <div class="metric"><div class="k">REACTION β</div><div class="n ${bw.c}">${bw.t}</div>
         <div class="d">${bw.d}</div></div>
-      <div class="metric"><div class="k">平均定價誤差</div><div class="n">${e.mae??'—'}</div>
-        <div class="d">各輪均價離輪初預期交割價的平均距離　·　${bias}${
-          e.converging===true?'　·　隨資訊揭露而收斂 ✓':e.converging===false?'　·　沒有收斂':''}</div></div>
-      <div class="metric"><div class="k">內線可得利潤</div><div class="n">${e.insider.total}</div>
-        <div class="d">事後知道交割價的人，在 ${e.insider.n_trades} 筆成交上可賺的總額</div></div>
+      <div class="metric"><div class="k">AVERAGE MISPRICING</div><div class="n">${e.mae??'—'}</div>
+        <div class="d">how far each round's average price sat from the expected delivery price　·　${bias}${
+          e.converging===true?'　·　shrinks as digits are revealed ✓':e.converging===false?'　·　does not shrink':''}</div></div>
+      <div class="metric"><div class="k">INSIDER PROFIT</div><div class="n">${e.insider.total}</div>
+        <div class="d">what someone who knew the delivery price could take from these ${e.insider.n_trades} trades</div></div>
     </div>`
     +aggressionHTML(e);
 }
@@ -702,24 +724,25 @@ function aggressionHTML(e){
   let verdict='';
   if(a.sell_share_when_low!=null&&a.low_trades>=3){
     const s=a.sell_share_when_low;
-    verdict=`價格<b>偏低</b>的輪次（第 ${a.low_rounds.join('、')} 輪，共 ${a.low_trades} 筆成交）裡，`
-      +`有 <b>${pct(s)}</b> 是<b>賣方主動</b>去接買價。`
-      +(s>0.6?'　賣方明顯比較積極，支持「賣方比買方願意成交」的解釋。'
-        :s<0.4?'　主動方反而以買方居多，「賣方比較積極」在這一場不成立，偏低要用別的理由解釋（例如錨定或算錯期望值）。'
-        :'　兩邊差不多，這一場看不出誰比較積極。');
+    verdict=`In the round(s) where prices sat <b>below</b> value (round ${a.low_rounds.join(', ')}, `
+      +`${a.low_trades} trades), <b>${pct(s)}</b> were started by the <b>seller</b> hitting a bid.`
+      +(s>0.6?'　Sellers were clearly the eager side, which supports the idea that sellers were more willing to trade.'
+        :s<0.4?'　Buyers were the eager side instead, so that idea does not hold here. Something else pushed prices down, such as anchoring on early prices or getting the expected value wrong.'
+        :'　The two sides were about equal, so this session shows no clear answer.');
   }
   if(a.buy_share_when_high!=null&&a.high_trades>=3){
-    verdict+=`　價格<b>偏高</b>的輪次（第 ${a.high_rounds.join('、')} 輪）裡，`
-      +`有 <b>${pct(a.buy_share_when_high)}</b> 是買方主動。`;
+    verdict+=`　In the round(s) where prices sat <b>above</b> value (round ${a.high_rounds.join(', ')}), `
+      +`<b>${pct(a.buy_share_when_high)}</b> were started by the buyer.`;
   }
-  if(!verdict) verdict='成交筆數太少，看不出哪一邊比較積極。';
+  if(!verdict) verdict='Too few trades to tell which side was more eager.';
   return `<div style="margin-top:1rem">
-    <div class="card-title" style="font-size:.86rem">誰比較積極？</div>
-    <p class="hint" style="margin-bottom:.5rem">價格偏離基本面時，通常是某一邊比較急著成交。
-      主動買進＝買方去接別人的賣價；主動賣出＝賣方去接別人的買價。</p>
+    <div class="card-title" style="font-size:.86rem">Which side was more eager?</div>
+    <p class="hint" style="margin-bottom:.5rem">When prices drift away from value, one side is usually in more
+      of a hurry. "Buyer started it" means the buyer took someone's offer; "seller started it" means the
+      seller hit someone's bid.</p>
     <div class="scroll"><table><thead><tr>
-      <th>輪</th><th>成交量</th><th>成交均價</th><th>輪初預期</th><th>偏離</th>
-      <th>主動買進</th><th>主動賣出</th><th>主動買進比例</th></tr></thead><tbody>`
+      <th>Round</th><th>Volume</th><th>Avg price</th><th>Expected</th><th>Gap</th>
+      <th>Buyer started</th><th>Seller started</th><th>Buyer share</th></tr></thead><tbody>`
     +rows.map(r=>`<tr><td>${r.round}</td><td>${r.n}</td><td>${r.vwap}</td><td>${r.neutral}</td>
       <td class="${cls(r.deviation)}">${r.deviation>0?'+':''}${r.deviation}</td>
       <td>${r.taker_buy}</td><td>${r.taker_sell}</td>
@@ -745,11 +768,11 @@ function drawScatter(rv){
   ctx.strokeStyle='rgba(255,255,255,.15)';ctx.beginPath();ctx.moveTo(sx(0),sy(0));ctx.lineTo(sx(maxV),sy(maxV));ctx.stroke();
   // 交割價水平線
   ctx.strokeStyle='rgba(255,138,92,.5)';ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(sx(0),sy(dp));ctx.lineTo(sx(maxV),sy(dp));ctx.stroke();ctx.setLineDash([]);
-  ctx.fillStyle='rgba(255,138,92,.8)';ctx.font='11px sans-serif';ctx.fillText('交割價 '+dp,sx(maxV)-70,sy(dp)-4);
+  ctx.fillStyle='rgba(255,138,92,.8)';ctx.font='11px sans-serif';ctx.fillText('delivery price '+dp,sx(maxV)-100,sy(dp)-4);
   // 軸
   ctx.strokeStyle='rgba(255,255,255,.25)';ctx.beginPath();ctx.moveTo(pad,H-pad);ctx.lineTo(W-8,H-pad);ctx.moveTo(pad,H-pad);ctx.lineTo(pad,8);ctx.stroke();
-  ctx.fillStyle='#9a9db8';ctx.fillText('輪初預期交割價 →',pad+4,H-pad+16);
-  ctx.save();ctx.translate(12,H-pad);ctx.rotate(-Math.PI/2);ctx.fillText('成交價 →',0,0);ctx.restore();
+  ctx.fillStyle='#9a9db8';ctx.fillText('expected delivery price →',pad+4,H-pad+16);
+  ctx.save();ctx.translate(12,H-pad);ctx.rotate(-Math.PI/2);ctx.fillText('trade price →',0,0);ctx.restore();
   // 點
   pts.forEach(p=>{ ctx.fillStyle='#4a9eff';ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),3.5,0,7);ctx.fill(); });
 }

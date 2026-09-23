@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZIP-Code 期貨交易 — 公開看板</title>
+<title>ZIP-Code Futures — Market Board</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -132,21 +132,21 @@ canvas{flex:1;min-height:0;width:100%;}
 <body>
 
 <div class="join" id="screen-join">
-  <h1>📈 公開看板</h1>
-  <p>輸入房間代碼，把這個分頁投影出去。畫面上只有公開資訊 —— 沒有姓名、沒有部位、沒有損益排行榜。</p>
-  <input type="text" id="in-code" maxlength="6" placeholder="房間代碼">
-  <button id="btn-go">開始投影</button>
-  <p style="color:var(--text3);font-size:1.6vh">按 F11 全螢幕</p>
+  <h1>📈 Market Board</h1>
+  <p>Enter the room code and project this tab. Public market data only — no names, positions or P&amp;L.<br><span style="color:var(--text3);font-size:1.6vh">輸入房間代碼後投影。畫面只有公開資訊。</span></p>
+  <input type="text" id="in-code" maxlength="6" placeholder="ROOM CODE">
+  <button id="btn-go">Start (開始投影)</button>
+  <p style="color:var(--text3);font-size:1.6vh">Press F11 for full screen (按 F11 全螢幕)</p>
 </div>
 
 <div class="wrap hidden" id="screen-board">
 
   <div class="top">
     <div class="topqr" id="t-qr"><img alt="學生入口 QR code"></div>
-    <div class="blk"><span class="l">房間代碼</span><span class="v code" id="t-code">—</span></div>
-    <div class="blk"><span class="l">輪次</span><span class="v"><span id="t-round">0</span> / 5</span></div>
-    <div class="blk"><span class="l">交易者</span><span class="v" id="t-traders">0</span></div>
-    <span class="phase" id="t-phase">大廳</span>
+    <div class="blk"><span class="l">ROOM CODE</span><span class="v code" id="t-code">—</span></div>
+    <div class="blk"><span class="l">ROUND</span><span class="v"><span id="t-round">0</span> / 5</span></div>
+    <div class="blk"><span class="l">TRADERS</span><span class="v" id="t-traders">0</span></div>
+    <span class="phase" id="t-phase">Lobby</span>
     <span class="spacer"></span>
     <div class="blk" style="align-items:flex-end">
       <span class="l" id="t-mode"></span>
@@ -156,28 +156,28 @@ canvas{flex:1;min-height:0;width:100%;}
 
   <div class="main">
     <div class="card">
-      <h3>成交價走勢 <small>每一筆成交一個點　·　橘色虛線是輪初預期交割價</small></h3>
+      <h3>Traded prices <small>one dot per trade　·　dashed line = expected delivery price</small></h3>
       <canvas id="chart"></canvas>
       <div class="legend" id="c-legend"></div>
     </div>
 
     <div class="side">
       <div class="card">
-        <h3>交割價數字 <small>五位數字之和</small></h3>
+        <h3>Delivery-price digits <small>sum of five digits</small></h3>
         <div class="digits" id="digits"></div>
-        <div class="fidx" id="fidx"><small>目前預期交割價</small>—</div>
+        <div class="fidx" id="fidx"><small>Expected delivery price</small>—</div>
       </div>
 
       <div class="card" style="flex:1">
-        <h3>即時報價</h3>
+        <h3>Live quotes</h3>
         <div class="quotes" id="quotes"></div>
       </div>
 
       <div class="card">
         <div class="stats">
-          <div class="s"><div class="k">總成交量</div><div class="n" id="s-vol">0</div></div>
-          <div class="s"><div class="k">未平倉</div><div class="n" id="s-oi">0</div></div>
-          <div class="s"><div class="k">最新成交</div><div class="n" id="s-last">—</div></div>
+          <div class="s"><div class="k">VOLUME</div><div class="n" id="s-vol">0</div></div>
+          <div class="s"><div class="k">OPEN INTEREST</div><div class="n" id="s-oi">0</div></div>
+          <div class="s"><div class="k">LAST</div><div class="n" id="s-last">—</div></div>
         </div>
       </div>
     </div>
@@ -187,15 +187,15 @@ canvas{flex:1;min-height:0;width:100%;}
 <div class="lobbyqr" id="lobby-qr">
   <div class="frame"><img alt="學生入口 QR code"></div>
   <div class="txt">
-    <div class="k">用手機掃 QR code 進場，再輸入姓名或學號</div>
-    <div class="k">房間代碼</div>
+    <div class="k">Scan to join, then enter your student ID　·　掃碼進場後輸入學號</div>
+    <div class="k">ROOM CODE</div>
     <div class="code" id="lq-code">—</div>
     <div class="url" id="lq-url"></div>
-    <div class="cnt">已進場 <span id="lq-count">0</span> 人</div>
+    <div class="cnt"><span id="lq-count">0</span> joined</div>
   </div>
 </div>
 
-<div class="conn hidden" id="conn"><span class="dot" id="conn-dot"></span> <span id="conn-t">已連線</span></div>
+<div class="conn hidden" id="conn"><span class="dot" id="conn-dot"></span> <span id="conn-t">Connected</span></div>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -237,7 +237,7 @@ function connect(){
 function scheduleReconnect(){ if(reconnectTimer)return;
   reconnectTimer=setTimeout(()=>{reconnectTimer=null; if(code)connect();},1500); }
 function setConn(ok){ $('#conn-dot').classList.toggle('off',!ok);
-  $('#conn-t').textContent=ok?'已連線':'重新連線中…'; }
+  $('#conn-t').textContent=ok?'Connected':'Reconnecting…'; }
 
 // 倒數
 setInterval(()=>{
@@ -257,7 +257,7 @@ function expectedAfter(k){
   return v;
 }
 
-const PHASE={lobby:'大廳',open:'交易中',closed:'本輪結束',settled:'已結算'};
+const PHASE={lobby:'Lobby',open:'Trading',closed:'Round closed',settled:'Settled'};
 function render(){
   if(!state)return;
   $('#t-round').textContent=state.round;
@@ -270,7 +270,7 @@ function render(){
   $('#lobby-qr').style.display=lobby?'flex':'none';
   $('#t-qr').style.display=lobby?'none':'block';
   $('#lq-count').textContent=state.trader_count;
-  $('#t-mode').textContent=state.mode==='outcry'?'喊價模式':'電子撮合';
+  $('#t-mode').textContent=state.mode==='outcry'?'OPEN OUTCRY':'ELECTRONIC';
   $('#s-vol').textContent=state.volume;
   $('#s-oi').textContent=state.open_interest;
   $('#s-last').textContent=state.last??'—';
@@ -284,15 +284,15 @@ function render(){
   });
   const k=state.revealed.filter(d=>d!==null).length;
   $('#fidx').innerHTML=state.phase==='settled'&&state.delivery_price!=null
-    ? `<small>交割價</small>${state.delivery_price}`
-    : `<small>目前預期交割價（未揭露各以 4.5 估）</small>${expectedAfter(k).toFixed(1)}`;
+    ? `<small>Delivery price</small>${state.delivery_price}`
+    : `<small>Expected delivery price (each unrevealed digit = 4.5)</small>${expectedAfter(k).toFixed(1)}`;
 
   $('#quotes').innerHTML=`<div class="qbook"><div class="bh">
-      <span>${state.n_bids} 張買單 / ${state.n_offers} 張賣單</span></div>
+      <span>${state.n_bids} bids / ${state.n_offers} offers</span></div>
     <div class="bbo">
-      <div class="c bid"><div class="k">最佳買價</div><div class="n">${state.best_bid??'—'}</div></div>
-      <div class="c"><div class="k">價差</div><div class="n">${state.spread??'—'}</div></div>
-      <div class="c ofr"><div class="k">最佳賣價</div><div class="n">${state.best_offer??'—'}</div></div>
+      <div class="c bid"><div class="k">BEST BID</div><div class="n">${state.best_bid??'—'}</div></div>
+      <div class="c"><div class="k">SPREAD</div><div class="n">${state.spread??'—'}</div></div>
+      <div class="c ofr"><div class="k">BEST OFFER</div><div class="n">${state.best_offer??'—'}</div></div>
     </div></div>`;
   drawChart();
 }
@@ -323,7 +323,7 @@ function drawChart(){
     ctx.fillStyle='#5f6480';ctx.fillText(v.toFixed(0),6,y+4);
   }
   ctx.fillStyle='#5f6480';
-  for(let k=0;k<=N;k++) ctx.fillText(k===0?'開盤':'R'+k,sx(k)-10,H-8);
+  for(let k=0;k<=N;k++) ctx.fillText(k===0?'Open':'R'+k,sx(k)-10,H-8);
   ctx.strokeStyle='rgba(255,255,255,.12)';
   for(let k=1;k<N;k++){ ctx.beginPath();ctx.moveTo(sx(k),PT);ctx.lineTo(sx(k),H-PB);ctx.stroke(); }
 
@@ -343,11 +343,11 @@ function drawChart(){
     ctx.fillStyle='#4a9eff';
     pts.forEach(p=>{ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),4,0,7);ctx.fill();});
   }else{
-    ctx.fillStyle='#5f6480';ctx.font='2vh sans-serif';ctx.fillText('尚無成交',W/2-40,H/2);
+    ctx.fillStyle='#5f6480';ctx.font='2vh sans-serif';ctx.fillText('No trades yet',W/2-50,H/2);
   }
   ctx.lineWidth=1;
-  $('#c-legend').innerHTML='<span><i style="background:#ff8a5c"></i>輪初預期交割價</span>'
-    +'<span><i style="background:#4a9eff"></i>成交價</span>';
+  $('#c-legend').innerHTML='<span><i style="background:#ff8a5c"></i>Expected delivery price</span>'
+    +'<span><i style="background:#4a9eff"></i>Traded price</span>';
 }
 
 // 收盤揭露：整面蓋上去，讓全班同時看到
@@ -355,9 +355,9 @@ function flash(m){
   const up=m.digit>4.5;
   const el=document.createElement('div');
   el.className='flash';
-  el.innerHTML=`<div><div class="tag">第 ${m.index+1} 輪收盤</div>
+  el.innerHTML=`<div><div class="tag">END OF ROUND ${m.index+1}</div>
     <div class="d" style="color:${up?'var(--green)':'var(--red)'}">${m.digit}</div>
-    <div class="sub">${up?'好消息（大於 4.5）':'壞消息（小於 4.5）'}</div></div>`;
+    <div class="sub">${up?'Good news — above 4.5':'Bad news — below 4.5'}</div></div>`;
   el.onclick=()=>el.remove();
   document.body.appendChild(el);
   setTimeout(()=>el.remove(),6000);

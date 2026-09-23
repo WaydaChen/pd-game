@@ -63,7 +63,7 @@ CJK_GAP = re.compile("(?<=[" + _CJK + "])" + r"\s+" + "(?=[" + _CJK + "])")
 def _norm_name(name: str) -> str:
     """重連認人用的正規化鍵。
 
-    學號打成 s1234 / S1234、姓名中間多打一個空格、全形英數字，都應該算同一個人
+    學號打成 s1234 / S1234、中間多打一個空格、全形英數字，都應該算同一個人
     —— 否則學生只是換個打法就變成全新交易者。
     NFKC 把全形轉半形，casefold 吃掉大小寫，空白壓成單一空格，中文字之間的空白刪掉。
     """
@@ -131,6 +131,9 @@ class Market:
     # 跟論文的設計一致。結算後教師還可以改，逐日結算表會跟著重算。
     orig_margin: float = 10.0
     maint_margin: float = 8.0
+    # 學生端是否顯示「最新成交價相對中性預期偏離多少」。
+    # 預設關閉：那個數字等於把答案的一半告訴學生，要不要給由教師決定。
+    show_deviation: bool = False
     secret_digits: list = field(default_factory=list)   # 永不外送
     revealed: list = field(default_factory=list)
     round: int = 0
@@ -216,6 +219,35 @@ def _best_offer(market: Market) -> Optional[Order]:
     if not offers:
         return None
     return sorted(offers, key=lambda o: (o.price, o.ts))[0]
+
+
+def _matchable(market: Market, trader_id: str, side: str, price: int) -> Optional[Order]:
+    """新委託進來時，找出可以立刻成交的最佳對手單（可立即成交的限價單）。
+
+    真實交易所的做法：掛出的買價若高於（或等於）場上最佳賣價，立刻成交，而且
+    成交價用**簿子上那張**的價格，不是新單開的價格。先掛者享有價格優先，後到
+    的人得到比自己開價更好的成交。少了這一步，委託簿會停在買價高於賣價的
+    「交叉」狀態，那張掛錯的單就等著被別人撿走。
+
+    只套用在電子撮合。喊價模式維持原本的行為：學生只看得到部分報價，自動去
+    配對一張他可能根本沒看到的委託並不合理，所以那邊還是要自己按下成交。
+    另外不跟自己的委託成交，會跳過自己的單去找下一個最佳。
+    """
+    if market.mode != "electronic":
+        return None
+    if side == "bid":
+        cands = sorted((o for o in _live_offers(market) if o.price <= price),
+                       key=lambda o: (o.price, o.ts))
+    else:
+        cands = sorted((o for o in _live_bids(market) if o.price >= price),
+                       key=lambda o: (-o.price, o.ts))
+    for o in cands:
+        if o.trader_id == trader_id:
+            continue
+        if not _is_visible(market, trader_id, o):
+            continue
+        return o
+    return None
 
 
 def _is_visible(market: Market, viewer_id: Optional[str], order: Order) -> bool:
@@ -331,7 +363,7 @@ def _ledger(market: Market) -> dict:
         if D is not None:
             # 交割日：以交割價做最後一次結算，帳戶餘額（含原始保證金）全數退回。
             # 餘額照論文 Table 5 顯示退回前的金額，例如 10 + 7 = 17。
-            _mark("交割", float(D), [], final=True)
+            _mark("Delivery", float(D), [], final=True)
             rows[-1]["returned"] = round(balance, 2)
 
         out[tid] = {"rows": rows, "pnl": round(cum, 2),
@@ -441,6 +473,7 @@ def build_state(market: Market, role: str, trader_id: Optional[str]) -> dict:
             "resample_seconds": market.resample_seconds,
             "orig_margin": market.orig_margin,
             "maint_margin": market.maint_margin,
+            "show_deviation": market.show_deviation,
         },
     }
 
@@ -799,12 +832,14 @@ def _record_trade(market: Market, order: Order, taker_id: str) -> Trade:
 async def _handle_join(market: Market, conn: Conn, msg: dict):
     name = (msg.get("name") or "").strip()
     if not name:
-        await _send(conn, {"type": "error", "message": "請輸入姓名或學號"})
+        await _send(conn, {"type": "error",
+                           "message": "Please enter your student ID (請輸入學號)"})
         return
     # 重連：以正規化後的姓名／學號認人，恢復原部位（同房間內唯一）
     key = _norm_name(name)
     if not key:
-        await _send(conn, {"type": "error", "message": "請輸入姓名或學號"})
+        await _send(conn, {"type": "error",
+                           "message": "Please enter your student ID (請輸入學號)"})
         return
     existing = next((t for t in market.traders.values() if t.key == key), None)
     rejoined = existing is not None
@@ -860,6 +895,25 @@ async def _handle_quote(market: Market, conn: Conn, msg: dict):
         await _send(conn, {"type": "error",
                            "message": f"價格需在 0–{MAX_QUOTE} 之間"})
         return
+    # 可立即成交就立刻成交，不要讓委託簿停在交叉狀態
+    hit = _matchable(market, conn.trader_id, side, price)
+    if hit is not None:
+        _record_trade(market, hit, conn.trader_id)
+        if hit in market.book:
+            market.book.remove(hit)
+        _log_event(market.code, "quote_matched",
+                   {"trader_id": conn.trader_id, "side": side,
+                    "quoted_price": price, "traded_price": hit.price,
+                    "round": market.round})
+        better = abs(price - hit.price)
+        msg = (f"Your {'bid' if side == 'bid' else 'offer'} of {price} traded immediately "
+               f"at {hit.price} — the best price already on the book.")
+        if better:
+            msg += (f" That is {better} better for you than the price you typed."
+                    f"（你掛的價格立即以更好的 {hit.price} 成交）")
+        await _send(conn, {"type": "notice", "message": msg})
+        return
+
     o = Order(id=secrets.token_urlsafe(6), trader_id=conn.trader_id,
               side=side, price=price, round=market.round, ts=_now())
     market.book.append(o)
@@ -934,6 +988,10 @@ async def _handle_config(market: Market, conn: Conn, msg: dict):
         _log_event(market.code, "set_margin",
                    {"orig_margin": market.orig_margin,
                     "maint_margin": market.maint_margin})
+    if "show_deviation" in msg:
+        market.show_deviation = bool(msg["show_deviation"])
+        _log_event(market.code, "set_display",
+                   {"show_deviation": market.show_deviation})
     game_keys = {"round_seconds", "mode", "visible_fraction", "resample_seconds"}
     if not game_keys & set(msg):
         return
@@ -1057,6 +1115,7 @@ class ZipRoomSettings(BaseModel):
     resample_seconds: int = 3
     orig_margin: float = 10.0          # 僅供檢討面板（習題 3）
     maint_margin: float = 8.0
+    show_deviation: bool = False       # 學生端是否顯示偏離中性預期的提示
 
 
 @router.post("/api/zip/room")
@@ -1072,6 +1131,7 @@ def create_room(settings: ZipRoomSettings):
         resample_seconds=max(1, min(30, settings.resample_seconds)),
         orig_margin=max(0.0, settings.orig_margin),
         maint_margin=max(0.0, settings.maint_margin),
+        show_deviation=bool(settings.show_deviation),
         secret_digits=[random.randint(0, 9) for _ in range(TOTAL_ROUNDS)],
     )
     MARKETS[code] = market
@@ -1146,7 +1206,7 @@ def _export_rows(market: Market, kind: str):
 
     if kind == "orders":
         header = ["房間 room", "模式 mode", "輪次 round", "時間 ts_iso", "委託編號 order_id",
-                  "交易者姓名 trader_name", "方向 side", "價格 price", "狀態 status",
+                  "學號 student_id", "方向 side", "價格 price", "狀態 status",
                   "存續秒數 lifetime_seconds"]
         rows = [header]
         for o in market.all_orders:
@@ -1158,7 +1218,7 @@ def _export_rows(market: Market, kind: str):
         return rows
 
     if kind == "summary":
-        header = ["房間 room", "模式 mode", "交易者姓名 trader_name", "代號 badge",
+        header = ["房間 room", "模式 mode", "學號 student_id", "代號 badge",
                   "成交數 n_trades", "買進次數 n_buys", "賣出次數 n_sells",
                   "淨部位 net_position", "交割價 delivery_price",
                   "損益 pnl",
