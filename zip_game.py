@@ -342,7 +342,11 @@ def _ledger(market: Market) -> dict:
                 daily += d * (s - tr.price)
                 pos += d
             after = abs(pos)
-            deposit = (after - before) * orig
+            # 原始保證金是「帳戶必須達到的水準」，不是每開一口就再掏一次現金：
+            # 帳戶裡原有的錢算數，所以只補到水準為止的差額。這跟下面追繳
+            # 補回原始水準是同一套邏輯（舊版開倉用加總、追繳用水準，兩者不一致）。
+            # 部位減少時不退錢，留在帳戶裡，交割日一次退回。
+            deposit = max(0.0, after * orig - balance) if after > before else 0.0
             balance += deposit + daily
             cum += daily
             pre_call = balance

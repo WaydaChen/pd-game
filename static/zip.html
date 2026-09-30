@@ -483,7 +483,9 @@ function myLedger(){
     const before=Math.abs(pos);
     rt.forEach(t=>{ const d=t.role==='buy'?1:-1; daily+=d*(s-t.price); pos+=d; });
     const after=Math.abs(pos);
-    balance+=(after-before)*orig+daily;           // 2) 部位變動時存入／退回保證金
+    // 2) 原始保證金是帳戶要達到的水準，不是每口再掏一次現金：只補差額
+    const deposit=after>before?Math.max(0,after*orig-balance):0;
+    balance+=deposit+daily;
     cum+=daily;
     let call=0;
     if(!final&&after>0&&balance<after*maint){     // 3) 追繳（交割日不追繳）
