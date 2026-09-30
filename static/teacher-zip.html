@@ -803,6 +803,10 @@ function aggressionHTML(e){
   if(!rows.length) return '';
   const a=e.aggression||{};
   const pct=v=>v==null?'—':Math.round(v*100)+'%';
+  // 內線利潤的逐輪分解：該輪 Σ|交割價 − 成交價|，以及換算成每口
+  const ins={};
+  ((e.insider||{}).by_round||[]).forEach(x=>{ ins[x.round]=x; });
+  const perOf=r=>{ const x=ins[r.round]; return (x&&x.profit!=null&&r.n)?x.profit/r.n:null; };
   let verdict='';
   if(a.sell_share_when_low!=null&&a.low_trades>=3){
     const s=a.sell_share_when_low;
@@ -817,19 +821,37 @@ function aggressionHTML(e){
       +`<b>${pct(a.buy_share_when_high)}</b> were started by the buyer.`;
   }
   if(!verdict) verdict='Too few trades to tell which side was more eager.';
+  // 內線優勢應該隨著數字逐個公開而縮小。沒縮小就是資訊沒被吃進價格
+  const p0=perOf(rows[0]), p1=perOf(rows[rows.length-1]);
+  let edge='';
+  if(rows.length>=2&&p0!=null&&p1!=null){
+    edge=`　An insider's edge went from <b>${p0.toFixed(2)}</b> per contract in round ${rows[0].round} `
+      +`to <b>${p1.toFixed(2)}</b> in round ${rows[rows.length-1].round}`
+      +(p1<p0?', shrinking as the digits became public — that is information reaching prices.'
+             :'. It did not shrink, so the revealed digits were not being priced in.');
+  }
   return `<div style="margin-top:1rem">
-    <div class="card-title" style="font-size:.86rem">Which side was more eager?</div>
-    <p class="hint" style="margin-bottom:.5rem">When prices drift away from value, one side is usually in more
-      of a hurry. "Buyer started it" means the buyer took someone's offer; "seller started it" means the
-      seller hit someone's bid.</p>
+    <div class="card-title" style="font-size:.86rem">Round by round</div>
+    <p class="hint" style="margin-bottom:.5rem"><b>Gap</b> = average price − expected delivery price at the
+      start of the round. Average it with signs kept and you get the bias; average the absolute values and
+      you get the mispricing figure above; watch it shrink for convergence.
+      <b>Insider profit</b> = Σ|delivery price − trade price| for that round, so <b>per contract</b> is what
+      knowing the answer was worth on each trade.
+      <b>Buyer started it</b> means the buyer took someone's offer; <b>seller started it</b> means the seller
+      hit someone's bid — when prices drift away from value, one side is usually in more of a hurry.</p>
     <div class="scroll"><table><thead><tr>
       <th>Round</th><th>Volume</th><th>Avg price</th><th>Expected</th><th>Gap</th>
+      <th>Insider profit</th><th>Per contract</th>
       <th>Buyer started</th><th>Seller started</th><th>Buyer share</th></tr></thead><tbody>`
-    +rows.map(r=>`<tr><td>${r.round}</td><td>${r.n}</td><td>${r.vwap}</td><td>${r.neutral}</td>
+    +rows.map(r=>{
+      const x=ins[r.round]||{}, per=perOf(r);
+      return `<tr><td>${r.round}</td><td>${r.n}</td><td>${r.vwap}</td><td>${r.neutral}</td>
       <td class="${cls(r.deviation)}">${r.deviation>0?'+':''}${r.deviation}</td>
+      <td>${x.profit==null?'—':x.profit}</td><td>${per==null?'—':per.toFixed(2)}</td>
       <td>${r.taker_buy}</td><td>${r.taker_sell}</td>
-      <td class="${r.buy_ratio>=0.6?'pos':r.buy_ratio<=0.4?'neg':''}">${pct(r.buy_ratio)}</td></tr>`).join('')
-    +`</tbody></table></div><div class="verdict" style="margin-top:.7rem">${verdict}</div></div>`;
+      <td class="${r.buy_ratio>=0.6?'pos':r.buy_ratio<=0.4?'neg':''}">${pct(r.buy_ratio)}</td></tr>`;
+    }).join('')
+    +`</tbody></table></div><div class="verdict" style="margin-top:.7rem">${verdict}${edge}</div></div>`;
 }
 
 function drawScatter(rv){
