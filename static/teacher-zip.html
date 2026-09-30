@@ -678,28 +678,29 @@ function renderEx5(rv){
   const dif=v=>`<td class="${cls(v)}">${v>0?'+':''}${v.toFixed(2)}</td>`;
   $('#ex5-tbl thead').innerHTML='<tr>'+['','T − t',
     'Spot price S','Implied spot S*','S − S*',
-    'Futures F ('+(useSettle?'settlement price':'expected delivery price')+')','Theoretical futures F*','F* − F',
+    'Futures F ('+(useSettle?'settlement price':'expected delivery price')+')',
     'What to do','Profit per unit (at delivery)']
     .map(h=>`<th>${h}</th>`).join('')+'</tr>';
   $('#ex5-tbl tbody').innerHTML=rows.map(x=>{
     if(x.delivery) return `<tr><td>Delivery</td><td>0</td>${num(x.spot)}${num(x.S)}<td>0</td>
-      ${num(x.F)}${num(x.Fstar)}<td>0</td>
+      ${num(x.F)}
       <td class="hint" colspan="2">at delivery: spot = futures = delivery price</td></tr>`;
     const act=x.action==='short'?'Sell spot, buy futures':x.action==='long'?'Buy spot, sell futures':'no arbitrage';
     return `<tr><td>${x.label}</td><td>${x.tau}</td>
       ${num(x.spot)}${num(x.S)}${dif(x.dSpot)}
-      ${num(x.F)}${num(x.Fstar)}${dif(x.dFut)}
+      ${num(x.F)}
       <td>${act}</td><td>${x.action?x.profit.toFixed(2):'—'}</td></tr>`;
   }).join('');
   const hi=rows.filter(x=>x.action==='short').map(x=>x.t), lo=rows.filter(x=>x.action==='long').map(x=>x.t);
   let note='S* is the spot price backed out from the futures price, not a price anyone observes. '
-    +'F* is the futures price implied by the spot price. The two difference columns always have the same '
-    +'sign, because S > S* and F* > F are the same inequality. The amounts match too, once you move them '
-    +'to the same date: (S − S*) × e^(r(T−t)) = F* − F.　'
+    +'Compare it with the spot price S: both are prices for today, so they can be compared directly. '
+    +'Never compare S with F — with r > 0 the futures price should be above the spot price anyway, '
+    +'and that gap is the cost of carry, not a mispricing.　'
     +(hi.length?`Spot is above S* in round(s) ${hi.join(', ')}: sell spot and buy futures.`:'')
     +(lo.length?`　Spot is below S* in round(s) ${lo.join(', ')}: buy spot and sell futures.`:'')
     +(hi.length||lo.length?'':'With these settings there is no arbitrage.')
-    +'　Profit = |spot × e^(r(T−t)) − F|, earned at delivery.';
+    +'　Profit = |spot × e^(r(T−t)) − F|: the gap S − S* carried forward to the delivery date, '
+    +'which is when the arbitrage is closed out.';
   if(theorySpot) note+='　The spot price follows the no-arbitrage path, so all the mispricing sits in the '
     +'futures. The arbitrage profit equals |traded price − expected delivery price|: how far the class '
     +'moved away from fundamental value.';
