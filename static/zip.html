@@ -122,6 +122,16 @@ input:focus{border-color:var(--accent);}
 .answer-row{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;}
 .answer-row .stat{flex:1;min-width:110px;}
 .btn-mini{width:auto;padding:.45rem .9rem;font-size:.8rem;}
+/* 學生自己填的格子 */
+.ans{width:4.6rem;padding:.25rem .35rem;font-size:.8rem;text-align:right;font-family:inherit;
+  font-variant-numeric:tabular-nums;background:var(--bg3);color:var(--text);
+  border:1px solid var(--border);border-radius:4px;}
+.ans:focus{outline:none;border-color:var(--accent);}
+.ans.ok{border-color:var(--green);color:var(--green);background:rgba(78,203,138,.08);}
+.ans.bad{border-color:var(--red);color:var(--red);background:rgba(240,96,96,.08);}
+.ans.shown{border-color:var(--accent);color:var(--accent2);background:transparent;}
+.ans-big{width:6.5rem;font-size:1rem;padding:.4rem .5rem;}
+.mark-ok{color:var(--green);}.mark-bad{color:var(--red);}
 </style>
 </head>
 <body>
@@ -188,25 +198,27 @@ input:focus{border-color:var(--accent);}
       <p class="hint" id="w-pos-note"></p>
 
       <div class="work-sub">2 · Your profit or loss (你的損益)</div>
+      <div id="w-sec2">
       <div class="formula" id="w-formula">—</div>
       <div class="answer-row">
         <div class="stat">
           <span class="l">Your P&amp;L (你的損益)</span>
-          <span class="v" id="w-pnl">?</span>
+          <span id="w-pnl"></span>
         </div>
+        <button class="btn btn-ghost btn-mini" id="btn-check">Check (批改)</button>
         <button class="btn btn-ghost btn-mini" id="btn-reveal">Show answer (看答案)</button>
       </div>
+      </div>
+      <p class="hint" id="w-pnl-mark"></p>
 
       <div class="work-sub">3 · Marking to market (逐日結算)</div>
       <p class="hint" style="margin-top:0" id="w-mtm-note"></p>
       <div class="scrollx"><table class="wtbl" id="w-mtm"></table></div>
       <div class="answer-row" style="margin-top:.6rem">
-        <div class="stat">
-          <span class="l">Margin calls (被追繳次數)</span>
-          <span class="v" id="w-calls">?</span>
-        </div>
+        <button class="btn btn-ghost btn-mini" id="btn-check-mtm">Check (批改)</button>
         <button class="btn btn-ghost btn-mini" id="btn-reveal-mtm">Show answer (看答案)</button>
       </div>
+      <p class="hint" id="w-mtm-mark"></p>
     </div>
 
     <div class="card" id="ticker-card">
@@ -446,11 +458,9 @@ function render(){
 // ── 結算後的作業紙（習題 2、3）──
 // 學生手上只有自己的那幾筆成交，而那正是論文第 2、3 題的規模：
 // 原文問的是 Trader "I" 和 Trader "A"，這裡把它換成「你自己」。
-// 答案預設蓋起來 —— 一打開就看到數字，練習就不存在了。
-let showPnl=false, showMtm=false;
-
-$('#btn-reveal').onclick=()=>{ showPnl=!showPnl; renderWorksheet(); };
-$('#btn-reveal-mtm').onclick=()=>{ showMtm=!showMtm; renderWorksheet(); };
+// 數字要自己填進格子，按 Check 才知道對不對。直接看到答案就沒有練習可言了。
+const answers={};          // 學生填過的內容，重繪時要保留
+let settleShown=false;     // 結算面板的損益是否已經可以顯示
 
 function myTrades(){
   return (state.trades||[]).filter(t=>t.role).sort((a,b)=>a.ts-b.ts);
@@ -488,12 +498,89 @@ function myLedger(){
   return rows;
 }
 
+// 一個要學生填的格子。data-a 是正解，批改時才拿出來比對
+function ansCell(key,correct,big){
+  const v=answers[key]===undefined?'':answers[key];
+  return '<input class="ans'+(big?' ans-big':'')+'" type="text" inputmode="text" '
+    +'data-k="'+key+'" data-a="'+correct+'" value="'+esc(String(v))+'">';
+}
+
+// 接受 +7、-7、−7（全形負號）、7.0、1,234 這些寫法
+function parseAns(v){
+  const t=String(v).replace(/[\s,，＋]/g,'').replace(/[−–—ー]/g,'-').replace(/^\+/,'');
+  if(t==='') return null;
+  const x=parseFloat(t);
+  return isNaN(x)?null:x;
+}
+
+function baseCls(el){ return 'ans'+(el.className.indexOf('ans-big')>=0?' ans-big':''); }
+
+function bindAnswers(){
+  document.querySelectorAll('#work-card input.ans').forEach(el=>{
+    el.oninput=()=>{ answers[el.dataset.k]=el.value; el.className=baseCls(el); };
+  });
+}
+
+// 批改：空白不算錯，只回報填了的格子
+function gradeSection(sel,markSel){
+  let ok=0,bad=0,blank=0;
+  document.querySelectorAll(sel+' input.ans').forEach(el=>{
+    const got=parseAns(el.value);
+    if(got===null){ el.className=baseCls(el); blank++; return; }
+    if(Math.abs(got-parseFloat(el.dataset.a))<0.005){ el.className=baseCls(el)+' ok'; ok++; }
+    else { el.className=baseCls(el)+' bad'; bad++; }
+  });
+  const m=$(markSel);
+  if(!ok&&!bad){ m.innerHTML='Fill in the boxes first (先把格子填好)'; }
+  else{
+    m.innerHTML='<span class="'+(bad?'mark-bad':'mark-ok')+'">'+ok+' correct (對)</span>'
+      +(bad?'　<span class="mark-bad">'+bad+' wrong (錯)</span>':'')
+      +(blank?'　'+blank+' blank (未填)':'')
+      +(!bad&&!blank?'　🎉':'');
+  }
+  return {ok:ok,bad:bad,blank:blank};
+}
+
+// 看答案：填對的保持綠色，其餘填上正解
+function revealSection(sel){
+  document.querySelectorAll(sel+' input.ans').forEach(el=>{
+    const want=parseFloat(el.dataset.a);
+    const got=parseAns(el.value);
+    const right=got!==null&&Math.abs(got-want)<0.005;
+    el.value=n2(want);
+    answers[el.dataset.k]=el.value;
+    el.className=baseCls(el)+(right?' ok':' shown');
+  });
+}
+
+function showSettlePnl(){
+  settleShown=true;
+  const pnl=(state.me||{}).pnl||0;
+  const sp=$('#settle-pnl');
+  sp.textContent=sgn(pnl);
+  sp.className='pnl '+(pnl>=0?'pos':'neg');
+  $('#settle-hint').textContent='';
+}
+
+$('#btn-check').onclick=()=>{
+  const r=gradeSection('#w-sec2','#w-pnl-mark');
+  if(r.ok&&!r.bad&&!r.blank) showSettlePnl();   // 全對了才把上面的損益打開
+};
+$('#btn-reveal').onclick=()=>{
+  revealSection('#w-sec2'); showSettlePnl();
+  $('#w-pnl-mark').innerHTML='Answer shown (已顯示答案)';
+};
+$('#btn-check-mtm').onclick=()=>{ gradeSection('#w-mtm','#w-mtm-mark'); };
+$('#btn-reveal-mtm').onclick=()=>{
+  revealSection('#w-mtm');
+  $('#w-mtm-mark').innerHTML='Answer shown (已顯示答案)';
+};
+
 function renderWorksheet(){
   const D=state.delivery_price, mine=myTrades();
-  const hide='<span class="blank">?</span>';
 
-  // 1 · 自己的成交與部位變化
-  let pos=0, buys=0, sells=0, nb=0, ns=0;
+  // 1 · 自己的成交與部位變化。這一區是給定的資料，不是題目
+  let pos=0,buys=0,sells=0,nb=0,ns=0;
   let h='<thead><tr><th>Round</th><th>Side</th><th>Price</th><th>Position after</th></tr></thead><tbody>';
   if(!mine.length) h+='<tr><td colspan="4" class="blank">You made no trades (你沒有成交)</td></tr>';
   mine.forEach(t=>{
@@ -507,45 +594,40 @@ function renderWorksheet(){
     ? 'Position at delivery '+(pos>0?'+':'')+pos+'　('+nb+' bought, '+ns+' sold)'
     : '';
 
-  // 2 · 損益。先給公式，數字蓋起來
+  // 2 · 損益。公式給他們，三個數字自己算
   $('#w-formula').innerHTML=
-    'P&amp;L = Σ(sell prices) − Σ(buy prices) + (position at delivery) × (delivery price)<br>'
-    +'= '+(showPnl?n2(sells):hide)+' − '+(showPnl?n2(buys):hide)
+    'P&amp;L = Σ(sell prices) − Σ(buy prices) + (position at delivery) × (delivery price)<br>= '
+    +ansCell('sumsell',sells)+' − '+ansCell('sumbuy',buys)
     +' + ('+(pos>0?'+':'')+pos+') × '+D;
   const pnl=(state.me||{}).pnl||0;
-  const el=$('#w-pnl');
-  el.textContent=showPnl?sgn(pnl):'?';
-  el.className='v '+(showPnl?(pnl>=0?'pos':'neg'):'blank');
-  $('#btn-reveal').textContent=showPnl?'Hide answer (蓋起來)':'Show answer (看答案)';
+  $('#w-pnl').innerHTML=ansCell('pnl',pnl,true);
 
-  // 結算面板的損益跟著蓋／開，免得答案從旁邊漏出去
-  const sp=$('#settle-pnl');
-  sp.textContent=showPnl?sgn(pnl):'?';
-  sp.className='pnl '+(showPnl?(pnl>=0?'pos':'neg'):'');
-  $('#settle-hint').textContent=showPnl?'':'Work it out below (自己算算看)';
-
-  // 3 · 逐日結算。結算價給他們，其餘自己填
+  // 3 · 逐日結算。只給結算價，其餘五欄自己填
   const cfg=state.config||{};
   $('#w-mtm-note').textContent=
     'Initial margin '+cfg.orig_margin+' per contract, maintenance '+cfg.maint_margin+'. '
-    +"Daily gain = position × (today's settlement − yesterday's).";
+    +"Daily gain = position × (today's settlement − yesterday's). "
+    +'Margin call = top the account back up to the initial level. Enter 0 if there is none.';
   let m='<thead><tr><th>Day</th><th>Settlement</th><th>Position</th><th>Daily</th>'
     +'<th>Cumulative</th><th>Balance</th><th>Call</th></tr></thead><tbody>';
-  let calls=0;
   myLedger().forEach(r=>{
-    if(r.call>0) calls++;
+    const k='mtm.'+r.label+'.';
     m+='<tr class="'+(r.final?'delivery':'')+'"><td>'+r.label+'</td><td>'+n2(r.settle)+'</td>'
-      +'<td>'+(showMtm?(r.pos>0?'+':'')+r.pos:hide)+'</td>'
-      +'<td>'+(showMtm?sgn(r.daily):hide)+'</td>'
-      +'<td>'+(showMtm?sgn(r.cum):hide)+'</td>'
-      +'<td>'+(showMtm?n2(r.balance):hide)+'</td>'
-      +'<td>'+(showMtm?(r.call?n2(r.call):'—'):hide)+'</td></tr>';
+      +'<td>'+ansCell(k+'pos',r.pos)+'</td>'
+      +'<td>'+ansCell(k+'daily',r.daily)+'</td>'
+      +'<td>'+ansCell(k+'cum',r.cum)+'</td>'
+      +'<td>'+ansCell(k+'bal',r.balance)+'</td>'
+      +'<td>'+ansCell(k+'call',r.call)+'</td></tr>';
   });
   $('#w-mtm').innerHTML=m+'</tbody>';
-  const ce=$('#w-calls');
-  ce.textContent=showMtm?calls:'?';
-  ce.className='v '+(showMtm?(calls?'neg':'pos'):'blank');
-  $('#btn-reveal-mtm').textContent=showMtm?'Hide answer (蓋起來)':'Show answer (看答案)';
+
+  bindAnswers();
+  if(settleShown) showSettlePnl();
+  else{
+    $('#settle-pnl').textContent='?';
+    $('#settle-pnl').className='pnl';
+    $('#settle-hint').textContent='Work it out below (自己算算看)';
+  }
 }
 
 // 即時行情：最新成交價、與上一筆的漲跌、最佳買賣價與價差
