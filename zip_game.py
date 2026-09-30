@@ -538,6 +538,10 @@ def build_state(market: Market, role: str, trader_id: Optional[str],
             _order_view(o, market, True) for o in market.book
             if o.status == "live" and o.trader_id == trader_id
         ]
+    if market.phase == "settled":
+        # 習題 2、3 的作業紙：學生用「自己的成交 + 這五個結算價」就能自己算出
+        # 損益與逐日結算表。結算價是該輪最後一筆成交價，本來就是公開資訊。
+        base["settlement_prices"] = [round(x, 2) for x in _settle_series(market)]
     return base
 
 
