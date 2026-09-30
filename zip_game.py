@@ -38,6 +38,10 @@ MAX_DELIVERY = 9 * TOTAL_ROUNDS                  # 交割價上限 = 45
 # 還掛得出來 —— 有人掛買價 48 時，賣給他就是無風險套利。那是講無套利界限最好
 # 的現場教材，硬卡在 45 就沒有這個機會；原本的 99 則跟任何量都沒有關係。
 MAX_QUOTE = MAX_DELIVERY + 5                     # = 50
+# 單一連線送不出去（手機睡著、TCP 半開）多久就放棄，免得一個人拖住整場廣播
+SEND_TIMEOUT = 5.0
+# 廣播合併週期：100 人同時下單時，原本是 100 次全量廣播，現在最多每 0.1 秒一次
+FLUSH_SECONDS = 0.1
 CONFUSING = set("O0I1l")      # 房間代碼避開的易混淆字元
 BADGE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 COLORS = ["#7c6af7", "#4ecb8a", "#f0b429", "#4a9eff", "#ff7eb6", "#42d4f4",
@@ -169,12 +173,15 @@ def _ensure_data_dir():
     os.makedirs(DATA_DIR, exist_ok=True)
 
 
+def _log_file(code: str) -> str:
+    return os.path.join(DATA_DIR, f"{code}.jsonl")
+
+
 def _log_event(code: str, event: str, payload: dict):
     """每筆事件同步 append 到 data/{code}.jsonl（記憶體會因重啟清空，日誌不會）。"""
     _ensure_data_dir()
     rec = {"ts": _now(), "ts_iso": _iso(_now()), "event": event, **payload}
-    path = os.path.join(DATA_DIR, f"{code}.jsonl")
-    with open(path, "a", encoding="utf-8") as f:
+    with open(_log_file(code), "a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
 
@@ -442,7 +449,14 @@ def build_board_state(market: Market) -> dict:
     }
 
 
-def build_state(market: Market, role: str, trader_id: Optional[str]) -> dict:
+def build_state(market: Market, role: str, trader_id: Optional[str],
+                pos: Optional[dict] = None, led: Optional[dict] = None) -> dict:
+    """pos／led 可以由 broadcast 先算好一次再傳進來。
+
+    以前每條連線都各自呼叫一次 _ledger()，那是整場最貴的一項；100 人、
+    第四輪累積三百多筆成交時，光這一項就要 200ms，事件迴圈被塞滿、
+    每秒一次的背景計時器排不進去 —— 那就是整場凍住、倒數停住的原因。
+    """
     is_host = role == "host"
     bb = _best_bid(market)
     bo = _best_offer(market)
@@ -477,8 +491,10 @@ def build_state(market: Market, role: str, trader_id: Optional[str]) -> dict:
         },
     }
 
-    pos = _positions(market)
-    led = _ledger(market)
+    if pos is None:
+        pos = _positions(market)
+    if led is None:
+        led = _ledger(market)
 
     if is_host:
         # 教師端：完整委託簿 + 全體部位 + 全部成交（含對手身分）
@@ -717,20 +733,57 @@ def _build_review(market: Market) -> dict:
 
 # ── 廣播 ──────────────────────────────────────────────────────────────
 
+async def _send_payload(conn: Conn, payload: dict) -> bool:
+    """送給單一連線。送不出去或卡住都只影響這一條，不影響其他人。"""
+    try:
+        await asyncio.wait_for(conn.ws.send_json(payload), timeout=SEND_TIMEOUT)
+        return True
+    except Exception:
+        return False
+
+
 async def broadcast(code: str):
+    """把最新狀態推給房間裡所有人。
+
+    成本結構很重要：部位與逐日結算整場只算一次，同角色的 payload 共用，
+    最後用 gather 併發送出。以前是每條連線各自重算＋序列等待，100 人時
+    一次廣播要 200ms 以上，而且只要有人的連線半開就會卡住整串。
+    """
     market = MARKETS.get(code)
     if not market:
         return
-    dead = []
-    for conn in CONNS.get(code, []):
-        try:
-            await conn.ws.send_json(
-                build_board_state(market) if conn.role == "board"
-                else build_state(market, conn.role, conn.trader_id))
-        except Exception:
-            dead.append(conn)
-    for d in dead:
-        _remove_conn(code, d)
+    conns = list(CONNS.get(code, []))
+    if not conns:
+        return
+
+    pos = _positions(market)
+    led = _ledger(market)
+    board_payload = None
+    host_payload = None
+    seen = {}                      # trader_id -> payload（同一人開兩個分頁也只算一次）
+
+    targets, tasks = [], []
+    for conn in conns:
+        if conn.role == "board":
+            if board_payload is None:
+                board_payload = build_board_state(market)
+            payload = board_payload
+        elif conn.role == "host":
+            if host_payload is None:
+                host_payload = build_state(market, "host", None, pos, led)
+            payload = host_payload
+        else:
+            payload = seen.get(conn.trader_id)
+            if payload is None:
+                payload = build_state(market, conn.role, conn.trader_id, pos, led)
+                seen[conn.trader_id] = payload
+        targets.append(conn)
+        tasks.append(_send_payload(conn, payload))
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    for conn, ok in zip(targets, results):
+        if ok is not True:
+            _remove_conn(code, conn)
 
 
 async def _send(conn: Conn, msg: dict):
@@ -1042,7 +1095,7 @@ HANDLERS = {
 @router.websocket("/ws/{room_code}")
 async def ws_endpoint(websocket: WebSocket, room_code: str):
     await websocket.accept()
-    market = MARKETS.get(room_code)
+    market = MARKETS.get(room_code) or _restore_market(room_code)
     if not market:
         await websocket.send_json({"type": "error", "message": "找不到房間"})
         await websocket.close()
@@ -1072,7 +1125,7 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                 continue
             async with market.lock:
                 await handler(market, conn, msg)
-            await broadcast(room_code)
+            mark_dirty(room_code)
     except WebSocketDisconnect:
         pass
     except Exception:
@@ -1081,7 +1134,170 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
         _remove_conn(room_code, conn)
 
 
+# ── 從事件日誌重建房間 ────────────────────────────────────────────────
+
+def _restore_market(code: str) -> Optional[Market]:
+    """房間不在記憶體裡的時候（伺服器重啟、容器被換掉、當掉重來），用日誌重建。
+
+    日誌是每個事件同步 append 的，所以能還原到最後一個事件為止：交易者、
+    委託簿、每一筆成交、已揭露的數字、保證金設定都回得來，檢討面板照常可用。
+
+    唯一還原不了的是「還沒揭露的秘密數字」—— 那些數字從頭到尾沒離開過伺服器，
+    所以重新抽一組不會洩漏任何資訊，也不影響學生已經做過的任何判斷。
+    已經揭露過的數字會照日誌覆蓋回去，所以歷史是一致的。
+
+    中途斷掉的那一輪會以 phase='open'、沒有倒數的狀態接回來，由教師手動收盤，
+    避免伺服器擅自決定還剩幾秒。
+    """
+    path = _log_file(code)
+    if not os.path.exists(path):
+        return None
+
+    events = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                events.append(json.loads(line))
+            except ValueError:
+                continue
+    if not events:
+        return None
+
+    market = Market(
+        code=code, host_key="", mode="electronic",
+        created_at=events[0].get("ts", _now()),
+        secret_digits=[random.randint(0, 9) for _ in range(TOTAL_ROUNDS)],
+    )
+    orders = {}
+
+    for ev in events:
+        kind = ev.get("event")
+
+        if kind == "create_room":
+            market.mode = ev.get("mode", market.mode)
+            market.host_key = ev.get("host_key") or market.host_key
+            market.round_seconds = ev.get("round_seconds", market.round_seconds)
+            market.visible_fraction = ev.get("visible_fraction", market.visible_fraction)
+            market.resample_seconds = ev.get("resample_seconds", market.resample_seconds)
+            market.orig_margin = ev.get("orig_margin", market.orig_margin)
+            market.maint_margin = ev.get("maint_margin", market.maint_margin)
+            market.show_deviation = ev.get("show_deviation", market.show_deviation)
+
+        elif kind == "join":
+            tid = ev.get("trader_id")
+            if not tid or tid in market.traders:
+                continue
+            market.traders[tid] = Trader(
+                id=tid, name=ev.get("name", ""),
+                key=ev.get("key") or _norm_name(ev.get("name", "")),
+                badge=ev.get("badge") or _gen_badge(market),
+                color=COLORS[len(market.traders) % len(COLORS)],
+                joined_at=ev.get("ts", 0.0), joined_round=ev.get("round", 0),
+            )
+
+        elif kind == "open_round":
+            market.round = ev.get("round", market.round + 1)
+            market.phase = "open"
+            market.round_ends_at = None       # 接回來的回合由教師手動收盤
+            market.book = []
+
+        elif kind == "quote":
+            o = Order(id=ev.get("order_id", ""), trader_id=ev.get("trader_id", ""),
+                      side=ev.get("side", "bid"), price=ev.get("price", 0),
+                      round=ev.get("round", market.round), ts=ev.get("ts", 0.0))
+            orders[o.id] = o
+            market.book.append(o)
+            market.all_orders.append(o)
+
+        elif kind == "withdraw":
+            o = orders.get(ev.get("order_id"))
+            if o:
+                o.status = "withdrawn"
+                o.ended_at = ev.get("ts")
+                if o in market.book:
+                    market.book.remove(o)
+
+        elif kind == "trade":
+            tr = Trade(
+                id=ev.get("trade_id") or secrets.token_urlsafe(6),
+                round=ev.get("round", market.round), price=ev.get("price", 0),
+                buyer_id=ev.get("buyer_id", ""), seller_id=ev.get("seller_id", ""),
+                maker_id=ev.get("maker_id", ""), taker_id=ev.get("taker_id", ""),
+                ts=ev.get("ts", 0.0), best_bid=ev.get("best_bid"),
+                best_offer=ev.get("best_offer"), slippage=ev.get("slippage", 0),
+            )
+            market.trades.append(tr)
+            # 被吃掉的是掛單方那一張：同一人、同價、方向相符、還活著
+            side = "bid" if tr.maker_id == tr.buyer_id else "offer"
+            hit = next((o for o in market.book
+                        if o.status == "live" and o.trader_id == tr.maker_id
+                        and o.price == tr.price and o.side == side), None)
+            if hit:
+                hit.status = "filled"
+                hit.ended_at = tr.ts
+                market.book.remove(hit)
+
+        elif kind == "close_round":
+            market.phase = "closed"
+            market.round_ends_at = None
+            _clear_book(market)
+
+        elif kind == "reveal":
+            digit = ev.get("digit")
+            idx = ev.get("index", len(market.revealed))
+            if digit is not None and 0 <= idx < TOTAL_ROUNDS:
+                market.secret_digits[idx] = digit
+                while len(market.revealed) <= idx:
+                    market.revealed.append(market.secret_digits[len(market.revealed)])
+
+        elif kind == "settle":
+            digits = ev.get("secret_digits")
+            if digits:
+                market.secret_digits = list(digits)
+            market.revealed = list(market.secret_digits)
+            market.phase = "settled"
+
+        elif kind == "set_margin":
+            market.orig_margin = ev.get("orig_margin", market.orig_margin)
+            market.maint_margin = ev.get("maint_margin", market.maint_margin)
+
+        elif kind == "set_display":
+            market.show_deviation = bool(ev.get("show_deviation", market.show_deviation))
+
+    MARKETS[code] = market
+    _log_event(code, "restore",
+               {"round": market.round, "phase": market.phase,
+                "traders": len(market.traders), "trades": len(market.trades)})
+    return market
+
+
 # ── 背景計時器：倒數歸零由伺服器自動收盤 ──────────────────────────────
+
+# 待廣播的房間。交易事件很密集（100 人一起下單就是 100 次），
+# 合併成每 FLUSH_SECONDS 推一次，狀態一樣新但成本差兩個數量級。
+_DIRTY = set()
+
+
+def mark_dirty(code: str):
+    _DIRTY.add(code)
+
+
+async def _flusher():
+    while True:
+        await asyncio.sleep(FLUSH_SECONDS)
+        if not _DIRTY:
+            continue
+        codes = list(_DIRTY)
+        _DIRTY.clear()
+        for code in codes:
+            try:
+                await broadcast(code)
+            except Exception:
+                pass
+
 
 async def _ticker():
     while True:
@@ -1104,6 +1320,7 @@ async def _ticker():
 def start_ticker():
     _ensure_data_dir()
     asyncio.create_task(_ticker())
+    asyncio.create_task(_flusher())
 
 
 # ── HTTP：建立房間 / 頁面 ─────────────────────────────────────────────
@@ -1135,8 +1352,16 @@ def create_room(settings: ZipRoomSettings):
         secret_digits=[random.randint(0, 9) for _ in range(TOTAL_ROUNDS)],
     )
     MARKETS[code] = market
-    _log_event(code, "create_room",
-               {"mode": market.mode, "round_seconds": market.round_seconds})
+    _log_event(code, "create_room", {
+        "mode": market.mode,
+        "host_key": host_key,                 # 重建房間時要靠它還原教師權限
+        "round_seconds": market.round_seconds,
+        "visible_fraction": market.visible_fraction,
+        "resample_seconds": market.resample_seconds,
+        "orig_margin": market.orig_margin,
+        "maint_margin": market.maint_margin,
+        "show_deviation": market.show_deviation,
+    })
     return {"code": code, "host_key": host_key}
 
 
@@ -1270,7 +1495,7 @@ def _export_rows(market: Market, kind: str):
 
 @router.get("/api/zip/room/{code}/export.csv")
 def export_csv(code: str, kind: str = "trades", host_key: str = ""):
-    market = MARKETS.get(code)
+    market = MARKETS.get(code) or _restore_market(code)
     if not market:
         raise HTTPException(status_code=404, detail="找不到房間")
     if host_key != market.host_key:
@@ -1278,6 +1503,54 @@ def export_csv(code: str, kind: str = "trades", host_key: str = ""):
     rows = _export_rows(market, kind)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     return _csv_response(rows, f"zip-{code}-{kind}-{stamp}.csv")
+
+
+@router.get("/api/zip/room/{code}/log.jsonl")
+def export_log(code: str, host_key: str = ""):
+    """原始事件日誌。這是整場課唯一的完整紀錄，檢討面板要的東西都能從它重建。
+
+    伺服器上的 data/ 目錄在多數雲端環境是暫時的（容器一換就沒了），
+    所以每輪下課按一次存到自己電腦，是最便宜的保險。
+    """
+    market = MARKETS.get(code) or _restore_market(code)
+    if not market:
+        raise HTTPException(status_code=404, detail="找不到房間")
+    if host_key != market.host_key:
+        raise HTTPException(status_code=403, detail="主持碼錯誤")
+    path = _log_file(code)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="找不到事件日誌")
+    with open(path, encoding="utf-8") as f:
+        data = f.read()
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    return Response(
+        content=data.encode("utf-8"),
+        media_type="application/x-ndjson; charset=utf-8",
+        headers={"Content-Disposition":
+                 f'attachment; filename="zip-{code}-{stamp}.jsonl"'},
+    )
+
+
+@router.get("/api/zip/room/{code}/status")
+def room_status(code: str, host_key: str = ""):
+    """房間還在不在？教師頁重新整理後靠它決定要不要自動接回原本的房間。
+
+    房間不在記憶體裡時會先試著從日誌重建，所以伺服器重啟過也答得出來。
+    """
+    market = MARKETS.get(code) or _restore_market(code)
+    if not market:
+        raise HTTPException(status_code=404, detail="找不到房間")
+    if host_key != market.host_key:
+        raise HTTPException(status_code=403, detail="主持碼錯誤")
+    return {
+        "code": market.code,
+        "mode": market.mode,
+        "phase": market.phase,
+        "round": market.round,
+        "total_rounds": TOTAL_ROUNDS,
+        "traders": len(market.traders),
+        "trades": len(market.trades),
+    }
 
 
 # ── Admin ─────────────────────────────────────────────────────────────

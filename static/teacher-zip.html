@@ -111,6 +111,8 @@ details.adv .inner{padding:.3rem 0 .8rem;border-top:1px solid var(--border);}
       <p>Open a live futures market, run five rounds of trading, and export all the data.</p>
     </div>
 
+    <div id="resume-banner"></div>
+
     <div class="card">
       <div class="card-title">New room</div>
       <div id="setup-alert"></div>
@@ -173,6 +175,7 @@ details.adv .inner{padding:.3rem 0 .8rem;border-top:1px solid var(--border);}
           <div class="entry-actions">
             <button type="button" class="btn btn-ghost btn-sm" id="btn-qr-full">🔍 Show big QR code</button>
             <a id="d-board" href="#" target="_blank" class="btn btn-ghost btn-sm">Open market board ↗</a>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-leave">Leave this room</button>
           </div>
           <p class="hint" style="margin-top:.2rem">The market board shows this QR code in large size before
             the first round, then moves it to the corner. It shows public data only: no names, positions or P&amp;L.</p>
@@ -231,9 +234,12 @@ details.adv .inner{padding:.3rem 0 .8rem;border-top:1px solid var(--border);}
           <button class="btn btn-ghost" onclick="exportCsv('orders')">orders.csv</button>
           <button class="btn btn-ghost" onclick="exportCsv('summary')">summary.csv</button>
           <button class="btn btn-ghost" onclick="exportCsv('efficiency')">efficiency.csv (after settlement)</button>
+          <button class="btn btn-ghost" onclick="downloadLog()">raw log (.jsonl)</button>
         </div>
-        <p class="hint">CSV files are UTF-8 with BOM, so Excel opens them correctly. The full event log is
-        saved on the server as data/{room code}.jsonl.</p>
+        <p class="hint">CSV files are UTF-8 with BOM, so Excel opens them correctly.
+        The raw log holds every quote and trade of this session, and the whole room can be
+        rebuilt from it. <b>Download it once at the end of each round</b> — the server's copy
+        is erased whenever the container restarts.</p>
       </div>
     </div>
 
@@ -324,8 +330,73 @@ function showAlert(sel,msg,kind='err'){const el=$(sel);el.innerHTML=msg?`<div cl
 
 $('#s-mode').onchange=e=>{ $('#outcry-opts').style.display=e.target.value==='outcry'?'grid':'none'; };
 
+// ── 記住進行中的房間 ──
+// 教師頁重新整理最容易出的意外：順手又按了 Create room，開出一個空房間，
+// 看到 0 個學生就以為全班不見了 —— 其實所有人都還在舊房間，而舊房間的
+// 主持碼只顯示在儀表板上，重新整理之後就再也看不到了。
+const ROOM_KEY='zip-teacher-room';
+
+function saveRoom(){
+  try{ localStorage.setItem(ROOM_KEY,JSON.stringify({code,hostKey,ts:Date.now()})); }catch(e){}
+}
+function loadRoom(){
+  try{
+    const r=JSON.parse(localStorage.getItem(ROOM_KEY)||'null');
+    return (r&&r.code&&r.hostKey)?r:null;
+  }catch(e){ return null; }
+}
+function clearRoom(){ try{ localStorage.removeItem(ROOM_KEY); }catch(e){} }
+
+// 伺服器上那個房間還在不在（重啟過的話會從日誌接回來）
+async function roomStatus(c,k){
+  try{
+    const r=await fetch(`/api/zip/room/${encodeURIComponent(c)}/status?host_key=${encodeURIComponent(k)}`);
+    return r.ok?await r.json():null;
+  }catch(e){ return null; }
+}
+
+function describeRoom(st){
+  const where=st.phase==='settled'?'finished':`round ${st.round} of ${st.total_rounds}`;
+  return `${where}, ${st.traders} student${st.traders===1?'':'s'}, ${st.trades} trade${st.trades===1?'':'s'}`;
+}
+
+function showResumeBanner(saved,st){
+  $('#resume-banner').innerHTML=
+    `<div class="alert warn">
+       <div style="margin-bottom:.5rem">Room <b>${saved.code}</b> (${describeRoom(st)}) is still open
+       on this computer. Creating a new room does <b>not</b> move the students — they stay in ${saved.code}.</div>
+       <button class="btn btn-ghost btn-sm" id="bn-resume">Resume ${saved.code}</button>
+       <button class="btn btn-ghost btn-sm" id="bn-forget">Forget it</button>
+     </div>`;
+  $('#bn-resume').onclick=()=>{ code=saved.code; hostKey=saved.hostKey; enterDash(); };
+  $('#bn-forget').onclick=()=>{ clearRoom(); $('#resume-banner').innerHTML=''; };
+}
+
+// 開頁時：本機記得的房間如果還在伺服器上、而且還沒結算，就直接接回去
+(async()=>{
+  const saved=loadRoom();
+  if(!saved) return;
+  const st=await roomStatus(saved.code,saved.hostKey);
+  if(!st){ clearRoom(); return; }          // 房間真的沒了，或主持碼已失效
+  const fresh=Date.now()-(saved.ts||0)<12*3600*1000;
+  if(st.phase!=='settled'&&fresh){
+    code=saved.code; hostKey=saved.hostKey; enterDash();
+  }else{
+    showResumeBanner(saved,st);            // 已結算或放了太久，讓你自己決定
+  }
+})();
+
 // ── 建立房間 ──
 $('#btn-create').onclick=async()=>{
+  const prev=loadRoom();
+  if(prev){
+    const st=await roomStatus(prev.code,prev.hostKey);
+    if(st&&st.phase!=='settled'&&!confirm(
+        `Room ${prev.code} is still running (${describeRoom(st)}).\n\n`
+        +`A new room does NOT move those students — they stay in ${prev.code}, `
+        +`and you need its host key ${prev.hostKey} to get back to it.\n\n`
+        +`Create a new room anyway?`)) return;
+  }
   const body={
     mode:$('#s-mode').value,
     round_seconds:parseInt($('#s-seconds').value,10)||180,
@@ -349,6 +420,8 @@ $('#btn-resume').onclick=()=>{
 };
 
 function enterDash(){
+  saveRoom();
+  $('#resume-banner').innerHTML='';
   $('#screen-setup').classList.remove('active');
   $('#screen-dash').classList.add('active');
   $('#d-code').textContent=code;
@@ -359,6 +432,14 @@ function enterDash(){
   $('#d-board').href=`/zip-board?code=${encodeURIComponent(code)}`;
   connect();
 }
+
+// 離開房間：只是放掉這台電腦上的紀錄，房間本身還活著，學生也還在裡面
+$('#btn-leave').onclick=()=>{
+  if(!confirm(`Leave room ${code}?\n\nThe room keeps running and the students stay in it. `
+      +`Write down the host key ${hostKey} — you need it to come back.`)) return;
+  clearRoom();
+  location.reload();
+};
 
 // ── 學生入口 QR code（與其他遊戲相同，用 api.qrserver.com 產生圖片）──
 function studentURL(){ return `${location.origin}/zip?room=${encodeURIComponent(code)}`; }
@@ -780,6 +861,11 @@ function drawScatter(rv){
 // ── 匯出 ──
 function exportCsv(kind){
   const url=`/api/zip/room/${code}/export.csv?kind=${kind}&host_key=${encodeURIComponent(hostKey)}`;
+  window.open(url,'_blank');
+}
+
+function downloadLog(){
+  const url=`/api/zip/room/${code}/log.jsonl?host_key=${encodeURIComponent(hostKey)}`;
   window.open(url,'_blank');
 }
 </script>
