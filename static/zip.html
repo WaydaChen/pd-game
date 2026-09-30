@@ -488,11 +488,12 @@ function myLedger(){
     const deposit=after>before?Math.max(0,after*orig-balance):0;
     balance+=deposit+daily;
     cum+=daily;
+    const preCall=balance;                        // 論文 Table 5 記的是追繳前的餘額
     let call=0;
     if(!final&&after>0&&balance<after*maint){     // 3) 追繳（交割日不追繳）
       call=after*orig-balance; balance+=call;
     }
-    rows.push({label:label,settle:s,pos:pos,daily:daily,cum:cum,
+    rows.push({label:label,settle:s,pos:pos,daily:daily,cum:cum,preCall:preCall,
                call:call,balance:balance,final:!!final});
     prev=s;
   }
@@ -613,11 +614,12 @@ function renderWorksheet(){
     +'Margin call = top the account back up to the initial level; enter 0 if there is none. '
     +'Fill in the last three columns for the first two days only.';
   let m='<thead><tr><th>Day</th><th>Settlement</th><th>Position</th><th>Daily</th>'
-    +'<th>Cumulative</th><th>Balance</th><th>Call</th></tr></thead><tbody>';
+    +'<th>Balance before call</th><th>Balance after call</th>'
+    +'<th>Margin call</th></tr></thead><tbody>';
   // 只有前兩天的「累計／餘額／追繳」要自己填。
   // 部位從上面第 1 區就看得出來，當日損益是機械式的乘法 —— 兩者都直接給，
   // 留下來的才是真正要想的：損益怎麼累加、保證金帳戶怎麼走、會不會被追繳。
-  const FILL=['cum','bal','call'];
+  const FILL=['balpre','balpost','call'];
   myLedger().forEach((r,i)=>{
     const k='mtm.'+r.label+'.', fill=i<2;
     const c=(key,val,fmt)=>(fill&&FILL.indexOf(key)>=0)
@@ -625,8 +627,8 @@ function renderWorksheet(){
     m+='<tr class="'+(r.final?'delivery':'')+'"><td>'+r.label+'</td><td>'+n2(r.settle)+'</td>'
       +'<td>'+c('pos',r.pos,(r.pos>0?'+':'')+r.pos)+'</td>'
       +'<td>'+c('daily',r.daily,sgn(r.daily))+'</td>'
-      +'<td>'+c('cum',r.cum,sgn(r.cum))+'</td>'
-      +'<td>'+c('bal',r.balance,n2(r.balance))+'</td>'
+      +'<td>'+c('balpre',r.preCall,n2(r.preCall))+'</td>'
+      +'<td>'+c('balpost',r.balance,n2(r.balance))+'</td>'
       +'<td>'+c('call',r.call,r.call?n2(r.call):'—')+'</td></tr>';
   });
   $('#w-mtm').innerHTML=m+'</tbody>';
