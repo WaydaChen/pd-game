@@ -132,6 +132,7 @@ input:focus{border-color:var(--accent);}
 .ans.shown{border-color:var(--accent);color:var(--accent2);background:transparent;}
 .ans-big{width:6.5rem;font-size:1rem;padding:.4rem .5rem;}
 .mark-ok{color:var(--green);}.mark-bad{color:var(--red);}
+.given{color:var(--text2);}
 </style>
 </head>
 <body>
@@ -609,17 +610,21 @@ function renderWorksheet(){
   $('#w-mtm-note').textContent=
     'Initial margin '+cfg.orig_margin+' per contract, maintenance '+cfg.maint_margin+'. '
     +"Daily gain = position × (today's settlement − yesterday's). "
-    +'Margin call = top the account back up to the initial level. Enter 0 if there is none.';
+    +'Margin call = top the account back up to the initial level; enter 0 if there is none. '
+    +'Fill in the first two days — the rest are worked out for you.';
   let m='<thead><tr><th>Day</th><th>Settlement</th><th>Position</th><th>Daily</th>'
     +'<th>Cumulative</th><th>Balance</th><th>Call</th></tr></thead><tbody>';
-  myLedger().forEach(r=>{
-    const k='mtm.'+r.label+'.';
+  // 只有前兩天要自己填。第 2 天通常就會踩到追繳，機制在那裡已經看得完整，
+  // 剩下四列直接給答案 —— 手機上填 30 個格子只是在消耗耐心，不是在學東西。
+  myLedger().forEach((r,i)=>{
+    const k='mtm.'+r.label+'.', fill=i<2;
+    const c=(key,val,fmt)=>fill?ansCell(k+key,val):'<span class="given">'+fmt+'</span>';
     m+='<tr class="'+(r.final?'delivery':'')+'"><td>'+r.label+'</td><td>'+n2(r.settle)+'</td>'
-      +'<td>'+ansCell(k+'pos',r.pos)+'</td>'
-      +'<td>'+ansCell(k+'daily',r.daily)+'</td>'
-      +'<td>'+ansCell(k+'cum',r.cum)+'</td>'
-      +'<td>'+ansCell(k+'bal',r.balance)+'</td>'
-      +'<td>'+ansCell(k+'call',r.call)+'</td></tr>';
+      +'<td>'+c('pos',r.pos,(r.pos>0?'+':'')+r.pos)+'</td>'
+      +'<td>'+c('daily',r.daily,sgn(r.daily))+'</td>'
+      +'<td>'+c('cum',r.cum,sgn(r.cum))+'</td>'
+      +'<td>'+c('bal',r.balance,n2(r.balance))+'</td>'
+      +'<td>'+c('call',r.call,r.call?n2(r.call):'—')+'</td></tr>';
   });
   $('#w-mtm').innerHTML=m+'</tbody>';
 
