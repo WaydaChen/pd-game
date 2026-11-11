@@ -16,7 +16,7 @@ import json
 import os
 import threading
 from datetime import datetime, timezone
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, Response
@@ -77,6 +77,47 @@ def _clean_best(best: Dict[str, int]) -> Dict[str, int]:
     return out
 
 
+def _score(best: Dict[str, int], pts: List[int]) -> int:
+    """每關得分 = 配分 × 星數 / 3（四捨五入）；沒有配分表時退回星數加總。"""
+    if not pts:
+        return sum(best.values())
+    total = 0
+    for k, stars in best.items():
+        i = int(k)
+        if i < len(pts):
+            total += int(pts[i] * min(stars, MAX_PTS_PER_LEVEL) / MAX_PTS_PER_LEVEL + 0.5)
+    return total
+
+
+def _clean_pts(pts: List[int]) -> List[int]:
+    out = []
+    for v in (pts or [])[:MAX_LEVEL_INDEX + 1]:
+        try:
+            out.append(max(0, min(100, int(v))))
+        except (TypeError, ValueError):
+            out.append(0)
+    return out
+
+
+def _name_key(name: str) -> str:
+    return "".join((name or "").split()).casefold()
+
+
+def _mask(name: str) -> str:
+    n = (name or "").strip()
+    if len(n) <= 1:
+        return n
+    if len(n) == 2:
+        return n[0] + "○"
+    return n[0] + "○" * (len(n) - 2) + n[-1]
+
+
+def _check_owner(rec: Optional[dict], name: str) -> None:
+    """同一個學號只能由第一次登記的姓名使用，避免打錯學號蓋掉別人的成績。"""
+    if rec and _name_key(rec.get("name")) != _name_key(name):
+        raise HTTPException(409, {"code": "name_mismatch", "masked": _mask(rec.get("name"))})
+
+
 def _public(rec: Optional[dict]) -> Optional[dict]:
     if not rec:
         return None
@@ -129,6 +170,7 @@ def login(req: LoginReq):
     dept, sid, name = _check_identity(req.dept, req.sid, req.name)
     with _lock:
         rec = _load().get(sid)
+    _check_owner(rec, name)
     return {"sid": sid, "record": _public(rec)}
 
 
@@ -138,6 +180,7 @@ class SaveReq(BaseModel):
     name: str
     lang: str = "zh"
     best: Dict[str, int] = {}
+    pts: List[int] = []          # 每關配分（依關卡順序）
     max_score: int = 0
     # 'auto'     : 第一次 / 繼續進度，逐關取最高分合併進正式成績
     # 'overwrite': 重新挑戰後選擇覆蓋原成績
@@ -152,31 +195,36 @@ def save(req: SaveReq):
         raise HTTPException(400, "mode 錯誤")
     lang = "en" if req.lang == "en" else "zh"
     best = _clean_best(req.best)
-    score = sum(best.values())
-    max_score = max(0, min(int(req.max_score or 0), (MAX_LEVEL_INDEX + 1) * MAX_PTS_PER_LEVEL))
+    attempt_best = dict(best)
+    pts = _clean_pts(req.pts)
+    max_score = sum(pts) if pts else max(0, min(int(req.max_score or 0), 1000))
+    score = _score(best, pts)
     now = _now_iso()
 
     with _lock:
         records = _load()
         rec = records.get(sid)
+        _check_owner(rec, name)
         if req.mode == "auto":
             if rec:
                 merged = dict(rec.get("best") or {})
                 for k, v in best.items():
                     merged[k] = max(merged.get(k, 0), v)
                 best = merged
-            score = sum(best.values())
+            score = _score(best, pts)
         if req.mode in ("auto", "overwrite") or not rec:
             new = dict(rec or {"created_at": now, "plays": 1})
             new.update({
                 "dept": dept, "sid": sid, "name": name, "lang": lang,
-                "best": best, "score": score,
-                "max_score": max(max_score, (rec or {}).get("max_score", 0)),
+                "best": best, "score": score, "pts": pts,
+                "max_score": max_score,
                 "solved": len(best), "updated_at": now,
             })
             records[sid] = new
         else:
             new = rec
+            if pts:  # 保留原成績，但用目前的配分重算，讓舊紀錄的分數可以比較
+                new["score"], new["pts"], new["max_score"] = _score(new.get("best") or {}, pts), pts, max_score
         if req.mode != "auto":
             new["plays"] = (new.get("plays") or 1) + (1 if rec else 0)
             records[sid] = new
@@ -184,8 +232,8 @@ def save(req: SaveReq):
         if req.mode != "auto":
             _log_attempt({"ts": now, "sid": sid, "dept": dept, "name": name,
                           "lang": lang, "mode": req.mode,
-                          "attempt_score": sum(_clean_best(req.best).values()),
-                          "attempt_best": _clean_best(req.best),
+                          "attempt_score": _score(attempt_best, pts),
+                          "attempt_best": attempt_best,
                           "official_score": new["score"]})
     return {"ok": True, "record": _public(records[sid])}
 

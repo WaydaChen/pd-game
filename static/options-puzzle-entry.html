@@ -85,7 +85,8 @@ const T = {
     cont:'繼續上次進度', contNote:'從已過的關卡接著玩，新過關的分數會自動存入。',
     replay:'重新挑戰（從零開始）', replayNote:'所有關卡重來；結束時可選擇是否覆蓋原有成績。',
     back:'不是我 / 換人', pts:'分',
-    mismatch:(r)=>`⚠ 這個學號已登記為「${r.dept} ${r.name}」`,
+    mismatch:(r)=>`⚠ 這個學號上次登記的系級是「${r.dept}」`,
+    nameErr:(m)=>`這個學號已經由「${m}」登記，姓名不符。請確認學號和姓名（要跟第一次登記時一樣）；如果真的是你，請找老師處理。`,
   },
   en: {
     title:'Options <span>Puzzle</span>', sub:'Build target payoff shapes from option pieces', lang:'Language 選擇語言',
@@ -95,7 +96,8 @@ const T = {
     cont:'Continue my progress', contNote:'Pick up where you left off; new solves are saved automatically.',
     replay:'Replay from scratch', replayNote:'All levels reset. When you finish, you choose whether to overwrite your saved score.',
     back:'Not me / switch user', pts:'pts',
-    mismatch:(r)=>`⚠ This ID is registered as "${r.dept} ${r.name}"`,
+    mismatch:(r)=>`⚠ This ID was last registered under department "${r.dept}"`,
+    nameErr:(m)=>`This student ID is already registered to "${m}" and the name does not match. Check your ID and name (they must match your first registration); if this really is you, ask your teacher.`,
   },
 };
 const $ = id => document.getElementById(id);
@@ -127,7 +129,7 @@ function start(mode){
 function showRecord(){
   const t = T[lang], r = record;
   let w = `👤 ${esc(who.dept)}　<b>${esc(who.sid)}</b>　${esc(who.name)}`;
-  if (r.name !== who.name || r.dept !== who.dept) w += `<br><span style="color:var(--put);font-size:13px">${esc(t.mismatch(r))}</span>`;
+  if (r.dept !== who.dept) w += `<br><span style="color:var(--put);font-size:13px">${esc(t.mismatch(r))}</span>`;
   $('who').innerHTML = w;
   $('recScore').innerHTML = `${r.score} <small>/ ${r.max_score} ${t.pts}</small>`;
   $('recMeta').textContent = t.meta(r);
@@ -136,7 +138,11 @@ function showRecord(){
 
 async function login(dept, sid, name){
   const res = await fetch('/api/optpuzzle/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({dept, sid, name})});
-  if (!res.ok){ let m = T[lang].net; try{ m = (await res.json()).detail || m; }catch(e){} throw new Error(m); }
+  if (!res.ok){
+    let m = T[lang].net;
+    try{ const d = (await res.json()).detail; m = (d && d.code==='name_mismatch') ? T[lang].nameErr(d.masked) : (typeof d==='string' ? d : m); }catch(e){}
+    throw new Error(m);
+  }
   return res.json();
 }
 

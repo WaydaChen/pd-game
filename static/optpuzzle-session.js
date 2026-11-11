@@ -30,8 +30,8 @@
   const replay = sess.mode === 'replay' && !!sess.record;
   window.OPT_INIT_BEST = replay ? {} : ((sess.record && sess.record.best) || {});
 
-  let cur = { best: Object.assign({}, window.OPT_INIT_BEST), score: 0, max: (sess.record && sess.record.max_score) || 0 };
-  cur.score = Object.values(cur.best).reduce((a, b) => a + b, 0);
+  let cur = { best: Object.assign({}, window.OPT_INIT_BEST), score: 0, max: (sess.record && sess.record.max_score) || 0, pts: [] };
+  if (!replay && sess.record) cur.score = sess.record.score || 0;
   let dirty = false, finished = false;
 
   function post(body) {
@@ -46,12 +46,12 @@
     try { sessionStorage.setItem(KEY, JSON.stringify(sess)); } catch (e) {}
   }
 
-  window.optOnScore = function (best, total, max) {
-    cur = { best: Object.assign({}, best), score: total, max: max };
+  window.optOnScore = function (best, total, max, pts) {
+    cur = { best: Object.assign({}, best), score: total, max: max, pts: pts || [] };
     render();
     if (replay) { dirty = true; setStatus(T.notSaved); return; }
     setStatus(T.saving);
-    post({ best: cur.best, max_score: max, mode: 'auto' })
+    post({ best: cur.best, pts: cur.pts, max_score: max, mode: 'auto' })
       .then(res => { storeRecord(res.record); setStatus(T.saved); })
       .catch(() => setStatus(T.saveFail));
   };
@@ -87,7 +87,7 @@
   function setStatus(t) { const s = document.getElementById('opsSt'); if (s) s.textContent = t; }
 
   function maxScore() {
-    try { if (typeof LEVELS !== 'undefined' && typeof MAXPTS !== 'undefined') return LEVELS.filter(x => x.target).length * MAXPTS; } catch (e) {}
+    try { if (typeof MAX_TOTAL !== 'undefined') return MAX_TOTAL; } catch (e) {}
     return cur.max || 0;
   }
 
@@ -122,7 +122,7 @@
       const a = b.dataset.a;
       if (a === 'back') { m.classList.remove('show'); return; }
       m.querySelectorAll('button').forEach(x => x.disabled = true);
-      post({ best: cur.best, max_score: mx, mode: a })
+      post({ best: cur.best, pts: cur.pts, max_score: mx, mode: a })
         .then(res => {
           storeRecord(res.record); finished = true; dirty = false;
           m.querySelector('.box').innerHTML = `

@@ -60,6 +60,9 @@
   .drop .empty{color:var(--muted);font-size:13px;margin:auto}
   .placed{display:flex;align-items:center;gap:8px;border:2px solid currentColor;border-radius:10px;padding:6px 8px;background:#fff;animation:pop .2s ease}
   @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
+  .placed.far{border-style:dashed}
+  .named{display:none;margin-top:10px;padding:8px 12px;border-radius:10px;background:#eef4ff;border:1px solid #c9dafa;font-size:14px}
+  .named.show{display:block}
   .placed .nm{font-weight:700;font-size:13px;color:var(--ink)}
   .placed select{font:inherit;font-size:13px;border:1px solid var(--line);border-radius:6px;padding:1px 4px;background:#fff}
   .qty{display:flex;align-items:center;gap:2px;color:var(--ink);font-size:13px}
@@ -102,7 +105,7 @@
   <section class="card tray">
     <h2>PIECES</h2>
     <div class="pieces" id="tray"></div>
-    <div class="tip">Spot S₀ = 100 · Volatility 25% · 3 months to expiry · Rate 0<br>Premiums come from Black-Scholes, so parity relationships hold exactly.</div>
+    <div class="tip" id="trayTip">Spot S₀ = 100 · Volatility 25% · 3 months to expiry · Rate 0<br>Premiums come from Black-Scholes, so parity relationships hold exactly.</div>
   </section>
 
   <div class="right">
@@ -133,6 +136,7 @@
         <div class="stat"><div class="k" id="k2">Max loss</div><div class="v" id="stMin">—</div></div>
         <div class="stat"><div class="k" id="k3">Breakeven(s)</div><div class="v" id="stBe">—</div></div>
       </div>
+      <div class="named" id="named"></div>
       <div class="win" id="win"></div>
     </section>
 
@@ -188,7 +192,16 @@ function callPx(K, t=T){
 const putPx = (K, t=T) => callPx(K, t) - S0 + K; // put-call parity, r = 0
 const DPAY = 10; // digital (cash-or-nothing) call pays 10 if S > K at expiry
 function digitalPx(K, t=T){ const d2 = (Math.log(S0/K)-0.5*SIG*SIG*t)/(SIG*Math.sqrt(t)); return DPAY*N(d2); }
-const priceOf = p => TYPES[p.t].kind==='call' ? callPx(p.K) : TYPES[p.t].kind==='put' ? putPx(p.K) : digitalPx(p.K);
+// ── 不同到期日：近月 T、遠月 T2。圖上一律是「近月到期那天」的損益 ──
+const T2 = 0.5;
+function bsCall(S, K, t){
+  if (t <= 1e-9) return Math.max(S-K, 0);
+  const d1 = (Math.log(S/K)+0.5*SIG*SIG*t)/(SIG*Math.sqrt(t));
+  return S*N(d1) - K*N(d1-SIG*Math.sqrt(t));
+}
+const bsPut = (S, K, t) => bsCall(S, K, t) - S + K;
+const matOf = p => p.m==='far' ? T2 : T;
+const priceOf = p => TYPES[p.t].kind==='call' ? callPx(p.K, matOf(p)) : TYPES[p.t].kind==='put' ? putPx(p.K, matOf(p)) : digitalPx(p.K);
 
 const TYPES = {
   LC:{nm:'Long Call', en:'buy a call',  kind:'call', sign:+1, cls:'c-call'},
@@ -206,85 +219,179 @@ function pnl(p, S){
   const t = TYPES[p.t], q = p.q || 1;
   if (t.kind==='stock') return t.sign*(S-S0)*q;
   if (t.kind==='digital') return t.sign*((S>p.K?DPAY:0)-digitalPx(p.K))*q;
-  if (t.kind==='call')  return t.sign*(Math.max(S-p.K,0)-callPx(p.K))*q;
-  return t.sign*(Math.max(p.K-S,0)-putPx(p.K))*q;
+  const tau = matOf(p) - T; // 近月到期那天，這片還剩多久
+  if (t.kind==='call')  return t.sign*(bsCall(S,p.K,tau)-callPx(p.K,matOf(p)))*q;
+  return t.sign*(bsPut(S,p.K,tau)-putPx(p.K,matOf(p)))*q;
 }
 const total = (ps, S) => ps.reduce((a,p)=>a+pnl(p,S),0);
+const NM = {"synLong": "Synthetic Long Stock", "synShort": "Synthetic Short Stock", "longCall": "Long Call", "protPut": "Protective Put (same shape as a long call)", "longPut": "Long Put", "shortCall": "Short Call", "shortPut": "Short Put (same shape as a covered call)", "covCall": "Covered Call (same shape as a short put)", "straddle": "Long Straddle", "shortStraddle": "Short Straddle", "strap": "Strap (2 calls + 1 put)", "strip": "Strip (1 call + 2 puts)", "bull": "Bull Spread", "collar": "Collar (same shape as a bull spread)", "bear": "Bear Spread", "strangle": "Long Strangle", "shortStrangle": "Short Strangle", "ratio": "Ratio Spread", "backspread": "Backspread", "putRatio": "Put Ratio Spread", "putBack": "Put Backspread", "trf": "TRF – Target Redemption Forward (single period)", "fly": "Butterfly", "ironFly": "Iron Butterfly (same shape as a butterfly)", "brokenFly": "Broken-wing Butterfly", "shortFly": "Short Butterfly", "revIronFly": "Reverse Iron Butterfly", "ladder": "Christmas Tree (Ladder)", "seagull": "Seagull", "jade": "Jade Lizard", "condor": "Condor", "ironCondor": "Iron Condor (same shape as a condor)", "shortCondor": "Short Condor", "revIronCondor": "Reverse Iron Condor", "doubleFly": "Double Butterfly", "cal": "Calendar Spread", "revCal": "Reverse Calendar Spread", "diag": "Diagonal Spread", "dblCal": "Double Calendar", "dblDiag": "Double Diagonal"};
+const NAMED_PFX = "This combination is called: ";
+
+// ── 著名組合辨識：用到期損益的「轉彎」（各履約價的斜率變化）判斷形狀 ──
+function kinkSig(ps){
+  if (ps.some(p=>TYPES[p.t].kind==='digital')) return null;
+  let L = 0; const k = {};
+  ps.forEach(p=>{ const ty = TYPES[p.t], q = (p.q||1)*ty.sign;
+    if (ty.kind==='stock'){ L += q; return; }
+    if (ty.kind==='put') L -= q;
+    k[p.K] = (k[p.K]||0) + q; });
+  const K = Object.keys(k).map(Number).filter(x=>Math.abs(k[x])>1e-9).sort((a,b)=>a-b);
+  return {L, K, a:K.map(x=>k[x])};
+}
+const RULES = [
+  {L:1,  a:[],        f:(K,o)=>o.stock?null:NM.synLong},
+  {L:-1, a:[],        f:(K,o)=>o.stock?null:NM.synShort},
+  {L:0,  a:[1],       f:(K,o)=>o.stock?NM.protPut:NM.longCall},
+  {L:-1, a:[1],       f:()=>NM.longPut},
+  {L:0,  a:[-1],      f:()=>NM.shortCall},
+  {L:1,  a:[-1],      f:(K,o)=>o.stock?NM.covCall:NM.shortPut},
+  {L:-1, a:[2],       f:()=>NM.straddle},
+  {L:1,  a:[-2],      f:()=>NM.shortStraddle},
+  {L:-1, a:[3],       f:()=>NM.strap},
+  {L:-2, a:[3],       f:()=>NM.strip},
+  {L:0,  a:[1,-1],    f:(K,o)=>o.stock?NM.collar:NM.bull},
+  {L:0,  a:[-1,1],    f:()=>NM.bear},
+  {L:-1, a:[1,1],     f:()=>NM.strangle},
+  {L:1,  a:[-1,-1],   f:()=>NM.shortStrangle},
+  {L:0,  a:[1,-2],    f:()=>NM.ratio},
+  {L:0,  a:[-1,2],    f:()=>NM.backspread},
+  {L:0,  a:[-1,3],    f:()=>NM.backspread},
+  {L:1,  a:[-2,1],    f:()=>NM.putRatio},
+  {L:-1, a:[2,-1],    f:()=>NM.putBack},
+  {L:2,  a:[-1,-1],   f:()=>NM.trf},
+  {L:0,  a:[1,-2,1],  f:(K,o)=>K[1]-K[0]===K[2]-K[1] ? (o.iron?NM.ironFly:NM.fly) : NM.brokenFly},
+  {L:0,  a:[-1,2,-1], f:(K,o)=>o.iron?NM.revIronFly:NM.shortFly},
+  {L:0,  a:[1,-1,-1], f:()=>NM.ladder},
+  {L:1,  a:[-1,1,-1], f:()=>NM.seagull},
+  {L:1,  a:[-1,-1,1], f:()=>NM.jade},
+  {L:0,  a:[1,-1,-1,1], f:(K,o)=>o.iron?NM.ironCondor:NM.condor},
+  {L:0,  a:[-1,1,1,-1], f:(K,o)=>o.iron?NM.revIronCondor:NM.shortCondor},
+  {L:0,  a:[1,-2,2,-2,1], f:()=>NM.doubleFly},
+];
+function calPair(a, b){
+  const ta = TYPES[a.t], tb = TYPES[b.t];
+  if (ta.kind!==tb.kind || (a.m==='far')===(b.m==='far') || ta.sign===tb.sign || (a.q||1)!==(b.q||1)) return null;
+  const far = a.m==='far' ? a : b, near = far===a ? b : a;
+  if (TYPES[far.t].sign < 0) return far.K===near.K ? 'revCal' : null;
+  return far.K===near.K ? 'cal' : 'diag';
+}
+function stratName(ps){
+  if (!ps.length) return null;
+  if (ps.some(p=>p.m==='far')){
+    if (ps.some(p=>!['call','put'].includes(TYPES[p.t].kind))) return null;
+    if (ps.length===2){ const r = calPair(ps[0], ps[1]); return r ? NM[r] : null; }
+    if (ps.length===4){
+      for (const [i,j,k,l] of [[0,1,2,3],[0,2,1,3],[0,3,1,2]]){
+        const r1 = calPair(ps[i],ps[j]), r2 = calPair(ps[k],ps[l]);
+        if (r1 && r2 && r1!=='revCal' && r2!=='revCal') return NM[r1==='cal'&&r2==='cal' ? 'dblCal' : 'dblDiag'];
+      }
+    }
+    return null;
+  }
+  const s = kinkSig(ps); if (!s) return null;
+  const has = k => ps.some(p=>TYPES[p.t].kind===k);
+  const o = {iron: has('call') && has('put'), stock: has('stock')};
+  for (const r of RULES){
+    if (r.a.length !== s.a.length) continue;
+    const c = r.a.length ? s.a[0]/r.a[0] : s.L/r.L;
+    if (!(c > 0) || Math.abs(s.L - c*r.L) > 1e-9) continue;
+    if (r.a.some((x,i)=>Math.abs(s.a[i]-c*x) > 1e-9)) continue;
+    const n = r.f(s.K, o); if (n) return n;
+  }
+  return null;
+}
+function renderName(){
+  const el = $('named'), n = LEVELS[lv].draw ? null : stratName(board);
+  el.innerHTML = n ? `🏷️ ${NAMED_PFX}<b>${n}</b>` : '';
+  el.classList.toggle('show', !!n);
+}
 
 const LEVELS = [
-  {title:'Bullish, but cap the downside', story:'You think the stock will rise, but you do not want unlimited downside risk. Build it with a single piece.',
+  {pts:2, title:'Bullish, but cap the downside', story:'You think the stock will rise, but you do not want unlimited downside risk. Build it with a single piece.',
    target:[{t:'LC',K:100}], h1:'Think: you want to profit on a rise with limited loss on a fall. Is that buying or selling?', hint:'Just 1 piece. Which one profits on the way up but has a limited loss on the way down?',
    lesson:'Long call: the most you can lose is the premium you paid, and the upside is unlimited.'},
-  {title:'Bearish, still limited risk', story:'This time you are bearish. Again one piece, and the most you can lose is the premium.',
+  {pts:2, title:'Bearish, still limited risk', story:'This time you are bearish. Again one piece, and the most you can lose is the premium.',
    target:[{t:'LP',K:100}], h1:'The opposite direction of the previous level.', hint:'1 piece, red family.',
    lesson:'Long put: the lower the stock goes, the more you make. Maximum loss is the premium.'},
-  {title:'Mildly bullish, but cheaper', story:'You only expect a move up to around 110. Can you give up gains above 110 in exchange for a cheaper position?',
+  {pts:3, title:'Mildly bullish, but cheaper', story:'You only expect a move up to around 110. Can you give up gains above 110 in exchange for a cheaper position?',
    target:[{t:'LC',K:90},{t:'SC',K:110}], h1:'Start from the piece in level 1, then find a way to flatten the upside.', hint:'2 pieces, both calls: buy one, sell one, at a lower and a higher strike (90 / 110).',
    lesson:'Bull call spread: selling the higher-strike call claws back premium, at the cost of capping the upside.'},
-  {title:'Big move, unknown direction', story:'Earnings are coming. You are sure the stock will move a lot, you just do not know which way.',
+  {pts:3, title:'Big move, unknown direction', story:'Earnings are coming. You are sure the stock will move a lot, you just do not know which way.',
    target:[{t:'LC',K:100},{t:'LP',K:100}], h1:'You need one piece that profits on a rise and one that profits on a fall.', hint:'2 pieces at the same strike: one call and one put, both bought.',
    lesson:'Straddle: profits either way. Its enemy is a stock that does not move, which burns both premiums.'},
-  {title:'Synthetic stock (stock locked)', story:'The target is the P&L of owning the stock, but stock pieces are locked. Build it from options only.',
+  {pts:3, title:'Synthetic stock (stock locked)', story:'The target is the P&L of owning the stock, but stock pieces are locked. Build it from options only.',
    target:[{t:'LS'}], answer:[{t:'LC',K:100},{t:'SP',K:100}], banned:['LS','SS'], h1:'Which combination behaves like a call on the way up, and like being forced to buy the stock on the way down?', hint:'2 pieces, same strike: buy a call, then add a sold... what?',
    lesson:'Call − Put = Stock − Strike (put-call parity). Two completely different sets of pieces make exactly the same shape.'},
-  {title:'Covered call without the stock', story:'The target is "own the stock + sell the 110 call". No stock allowed, and only 1 piece.',
+  {pts:3, title:'Covered call without the stock', story:'The target is "own the stock + sell the 110 call". No stock allowed, and only 1 piece.',
    target:[{t:'LS'},{t:'SC',K:110}], answer:[{t:'SP',K:110}], banned:['LS','SS'], h1:'The target is sloped on the left and flat on the right. Is there a piece that already looks like that?', hint:'One piece is enough. Sloped on the left, flat on the right. Which piece looks like that? Watch the strike.',
    lesson:'Covered call ≡ short put at the same strike. Many people think the covered call is "more conservative", but the risk shape is identical.'},
-  {title:'Betting on no move: butterfly', story:'You think the stock will finish near 100 and want to bet on that cheaply.',
+  {pts:3, title:'Betting on no move: butterfly', story:'You think the stock will finish near 100 and want to bet on that cheaply.',
    target:[{t:'LC',K:90},{t:'SC',K:100,q:2},{t:'LC',K:110}], h1:'High in the middle, low on both sides. Which strike is the peak, and do you buy or sell there?', hint:'3 pieces, 4 contracts: buy 90, sell 100 ×2, buy 110, all calls.',
    lesson:'Butterfly: low cost, peak profit at the middle strike, limited loss on both sides.'},
-  {title:'Collect rent in a range: iron condor', story:'You expect the stock to stay between 90 and 110. Collect premium, but protect both sides.',
+  {pts:3, title:'Collect rent in a range: iron condor', story:'You expect the stock to stay between 90 and 110. Collect premium, but protect both sides.',
    target:[{t:'LP',K:80},{t:'SP',K:90},{t:'SC',K:110},{t:'LC',K:120}], h1:'Split it into left and right halves. What spread is each half?', hint:'4 pieces: sell the 90 put and the 110 call for premium, then buy protection further out on each side (80 and 120).',
    lesson:'Iron condor: a bull put spread plus a bear call spread. You collect premium while both wings cap the risk.'},
-  {adv:true, title:'Strangle: the U shape', story:'Like a straddle, a bet on a big move, but cheaper: you accept a wider dead zone in the middle.',
+  {pts:3, adv:true, title:'Strangle: the U shape', story:'Like a straddle, a bet on a big move, but cheaper: you accept a wider dead zone in the middle.',
    target:[{t:'LP',K:90},{t:'LC',K:110}], h1:'Very like level 4, except the bottom of the V has been widened.', hint:'2 pieces, both bought: a lower-strike put and a higher-strike call.',
    lesson:'Strangle: cheaper than a straddle, but the stock has to travel further before it pays.'},
-  {adv:true, title:'Twin peaks: the M shape', story:'You think the stock will finish at either 90 or 110, you just do not know which.',
+  {pts:4, adv:true, title:'Twin peaks: the M shape', story:'You think the stock will finish at either 90 or 110, you just do not know which.',
    target:[{t:'LC',K:80},{t:'SC',K:90,q:2},{t:'LC',K:100,q:2},{t:'SC',K:110,q:2},{t:'LC',K:120}], h1:'This shape is two familiar shapes added together.', hint:'Place two butterflies side by side, one centered on 90 and one on 110. The 100 strike is shared, so buy 2 there.',
    lesson:'Shapes simply add. Two butterflies stacked make twin peaks; this is what "every butterfly is a pixel" means.'},
-  {adv:true, title:'Broken-wing butterfly', story:'A butterfly, but you fear a drop more: you want almost no loss on the downside and accept extra risk if the stock rallies too far.',
+  {pts:4, adv:true, title:'Broken-wing butterfly', story:'A butterfly, but you fear a drop more: you want almost no loss on the downside and accept extra risk if the stock rallies too far.',
    target:[{t:'LC',K:90},{t:'SC',K:100,q:2},{t:'LC',K:120}], h1:'Start from the butterfly in level 7 and change just one thing.', hint:'Same as a regular butterfly (buy 90, sell 100 ×2), but the upper wing is "broken" and moved out to 120.',
    lesson:'Broken-wing butterfly: the wings are lopsided. One side is nearly risk-free, the other gains an extra stretch of loss.'},
-  {adv:true, title:'Ratio spread: the dangerous roof', story:'Mildly bullish and you want it nearly free. The trick is selling one extra contract. Watch the max loss box.',
+  {pts:4, adv:true, title:'Ratio spread: the dangerous roof', story:'Mildly bullish and you want it nearly free. The trick is selling one extra contract. Watch the max loss box.',
    target:[{t:'LC',K:100},{t:'SC',K:110,q:2}], h1:'Start from a bull call spread, then do a bit more at the higher strike.', hint:'2 kinds of piece: buy 1 × 100 call, sell 2 × 110 calls.',
    lesson:'Ratio spread: cheap, but the extra short contract is naked. A big rally means unlimited loss ⚠'},
-  {adv:true, title:'Christmas tree (call ladder)', story:'Bullish up to around 100–110, but you do not believe in more. Buy one, sell two, strikes stepping up.',
+  {pts:4, adv:true, title:'Christmas tree (call ladder)', story:'Bullish up to around 100–110, but you do not believe in more. Buy one, sell two, strikes stepping up.',
    target:[{t:'LC',K:90},{t:'SC',K:100},{t:'SC',K:110}], h1:'Count how many times the line bends, and whether each bend goes up or down.', hint:'3 calls: buy the 90, then sell one each at 100 and 110.',
    lesson:'Ladder / Christmas tree: collects one more premium than a bull spread, but losses become unlimited above the top strike.'},
-  {adv:true, title:'Seagull', story:'You want a bull call spread but do not want to pay any premium, and you will take on downside risk to fund it.',
+  {pts:4, adv:true, title:'Seagull', story:'You want a bull call spread but do not want to pay any premium, and you will take on downside risk to fund it.',
    target:[{t:'SP',K:90},{t:'LC',K:100},{t:'SC',K:120}], h1:'Flat on the right, rising in the middle, falling on the left. What kind of piece makes the left slope?', hint:'Build a bull call spread first (buy 100, sell 120 calls), then sell the 90 put to pay for it.',
    lesson:'Seagull: three pieces make "slope, slope, flat". Common in corporate hedging.'},
-  {adv:true, title:'Jade lizard', story:'Neutral to bullish: sell a put, plus a short bear call spread, hoping not to lose much if the stock rallies.',
+  {pts:4, adv:true, title:'Jade lizard', story:'Neutral to bullish: sell a put, plus a short bear call spread, hoping not to lose much if the stock rallies.',
    target:[{t:'SP',K:90},{t:'SC',K:110},{t:'LC',K:120}], h1:'The left side looks like a short put. The right side looks like a capped... what?', hint:'3 pieces: sell the 90 put, sell the 110 call, buy the 120 call.',
    lesson:'Jade lizard: ideally the total premium exceeds the width of the call spread (10), leaving no upside risk. Here it only collects about 2.56, so the right side still loses. Check the max loss box.'},
-  {adv:true, title:'Steeper and steeper: the accelerator', story:'You are very bullish and want gains to speed up the higher it goes. Make the line steeper at every strike.',
+  {pts:2, adv:true, title:'Steeper and steeper: the accelerator', story:'You are very bullish and want gains to speed up the higher it goes. Make the line steeper at every strike.',
    target:[{t:'LC',K:90},{t:'LC',K:100},{t:'LC',K:110}], h1:'The slope goes up by 1 at every strike. Which kind of piece adds slope upward?', hint:'3 calls: buy one each at 90, 100 and 110. The slope goes up by 1 at every strike.',
    lesson:'Each extra call adds 1 to the slope: how much the line bends at a strike is how many contracts sit there. The last segment has slope 3.'},
-  {adv:true, title:'It hurts more the further it falls', story:'The flip side of collecting premium: sell one put at each of three strikes. Watch how fast losses grow on the way down.',
+  {pts:2, adv:true, title:'It hurts more the further it falls', story:'The flip side of collecting premium: sell one put at each of three strikes. Watch how fast losses grow on the way down.',
    target:[{t:'SP',K:90},{t:'SP',K:100},{t:'SP',K:110}], h1:'The mirror image of the previous level: the further left, the steeper.', hint:'Sell 3 puts: one each at 90, 100 and 110.',
    lesson:'Stacked short puts lose faster the further the stock falls, with the slope reaching 3. This is "picking up pennies in front of a steamroller".'},
-  {adv:true, title:'Backspread 1×3', story:'You believe in a huge rally. Sell one 100 call for cash, then use it to buy several 110 calls.',
+  {pts:4, adv:true, title:'Backspread 1×3', story:'You believe in a huge rally. Sell one 100 call for cash, then use it to buy several 110 calls.',
    target:[{t:'SC',K:100},{t:'LC',K:110,q:3}], h1:'The low point is at 110 and the slope is +2 after it. First think about what happens at 100.', hint:'2 kinds of piece: sell 1 × 100 call, buy 3 × 110 calls.',
    lesson:'Backspread: a small rally is the worst case (the low point is at 110); after that the slope is +2, so gains accelerate.'},
-  {adv:true, title:'The arch: a semicircle in straight lines', story:'Build an arch from line segments with slopes 0, +2, +1, −1, −2, 0 in turn.',
+  {pts:5, adv:true, title:'The arch: a semicircle in straight lines', story:'Build an arch from line segments with slopes 0, +2, +1, −1, −2, 0 in turn.',
    target:[{t:'LC',K:80,q:2},{t:'SC',K:90},{t:'SC',K:100,q:2},{t:'SC',K:110},{t:'LC',K:120,q:2}], h1:'The difference between neighbouring slopes is the contract count at that strike.', hint:'The bend at each strike is the contract count, all calls: buy 2 at 80, sell 1 at 90, sell 2 at 100, sell 1 at 110, buy 2 at 120.',
    lesson:'The bends get sharper toward the edges, so the counts grow there. Shrink the strike spacing and it looks more and more like a semicircle (try it in Draw mode).'},
-  {adv:true, title:'Half covered: slope ½', story:'You own 1 share and want to sell the 100 call on only half of it. Above 100 you keep half of the upside. (The + / − buttons move in steps of 0.5)',
+  {pts:4, adv:true, title:'Half covered: slope ½', story:'You own 1 share and want to sell the 100 call on only half of it. Above 100 you keep half of the upside. (The + / − buttons move in steps of 0.5)',
    target:[{t:'LS'},{t:'SC',K:100,q:0.5}], h1:'To go from slope 1 down to ½, what do you need to do at 100?', hint:'2 pieces: long stock ×1, short 100 call ×0.5.',
    lesson:'Contract counts need not be whole numbers. Selling half a call drops the slope from 1 to ½. That is a partial covered call: trading half your upside for premium.'},
-  {adv:true, title:'🎂 Two-tier cake', story:'Build the side view of a two-tier cake: a wide bottom tier, a narrow top tier, flat tops and sides as steep as you can. (This level adds the 85, 95, 105 and 115 strikes)',
+  {pts:5, adv:true, title:'🎂 Two-tier cake', story:'Build the side view of a two-tier cake: a wide bottom tier, a narrow top tier, flat tops and sides as steep as you can. (This level adds the 85, 95, 105 and 115 strikes)',
    target:[{t:'LC',K:80,q:2},{t:'SC',K:85,q:2},{t:'LC',K:90,q:2},{t:'SC',K:95,q:2},{t:'SC',K:105,q:2},{t:'LC',K:110,q:2},{t:'SC',K:115,q:2},{t:'LC',K:120,q:2}], h1:'A cake is two steps stacked up. Every corner of a step is a place where the line bends.', hint:'All calls, 2 contracts each. The corners are at 80, 85, 90, 95, 105, 110, 115 and 120: buy where it bends up, sell where it bends down.',
    lesson:'A truly vertical wall cannot be built, only approximated with steeper slopes: the straighter the wall, the more contracts you need. It is the same reason a step payoff needs lots of digital options.'},
-  {adv:true, title:'🎂 A real cake: digital options', story:'The walls in the last level were sloped. This time use the new piece, the digital call: at expiry it pays 10 if the stock is above the strike, otherwise 0. Build a two-tier cake with perfectly vertical sides.',
+  {pts:5, adv:true, title:'🎂 A real cake: digital options', story:'The walls in the last level were sloped. This time use the new piece, the digital call: at expiry it pays 10 if the stock is above the strike, otherwise 0. Build a two-tier cake with perfectly vertical sides.',
    target:[{t:'LD',K:80},{t:'LD',K:90},{t:'SD',K:110},{t:'SD',K:120}], h1:'A digital call is itself a step. You need one step per wall of the cake.', hint:'4 digital calls: the two left walls jump up (buy), the two right walls jump down (sell). The walls are at 80, 90, 110 and 120.',
    lesson:'Digital options are "step pieces": they make vertical walls that straight-line pieces cannot. Seen the other way, approximating a step with ordinary calls means a very narrow spread in very large size, which is why digitals are so hard to hedge near expiry when the stock is close to the strike.'},
-  {adv:true, title:'⚠️ TRF: the trap that looks free', story:'The sales pitch: "Gain 1× when you are right, exit automatically once you hit your target, and pay no premium." What it leaves out: you lose 2× when you are wrong. Build the shape of one TRF settlement.',
+  {pts:5, adv:true, title:'⚠️ TRF: the trap that looks free', story:'The sales pitch: "Gain 1× when you are right, exit automatically once you hit your target, and pay no premium." What it leaves out: you lose 2× when you are wrong. Build the shape of one TRF settlement.',
    target:[{t:'LC',K:100},{t:'SP',K:100,q:2},{t:'SC',K:110}], h1:'The two sides have different slopes: slope 1 when you are right, slope 2 when you are wrong, and the line goes flat once the gain reaches a certain level.', hint:'3 kinds of piece, strikes 100 and 110 only: a call for the upside, a doubled put sale to pay for it, then sell a 110 call to cap the gain.',
    lesson:'TRF (Target Redemption Forward): gains are capped, losses are doubled and unlimited. Compare the max profit and max loss boxes to see how lopsided it is. A real TRF has many settlements and knocks out early once the target is hit, but keeps losing all the way to maturity when wrong, so the true risk is worse than this picture. When the renminbi weakened in 2015–2016, many companies and individuals in Taiwan suffered heavy losses on these products.'},
-  {title:'Draw it: any shape', draw:true,
+  {pts:4, adv:true, cal:true, title:'📅 Calendar spread: profit from time decay', story:'From this level on, every option can expire in the "near" month (3 months) or the "far" month (6 months). You think the stock will sit near 100 for the next 3 months. Near-month options lose time value faster than far-month ones: sell the near, buy the far, and earn the difference. The chart shows P&L on the near-month expiry date.',
+   target:[{t:'SC',K:100},{t:'LC',K:100,m:'far'}], h1:'Both pieces are 100-strike calls; only the expiry differs. The one about to expire loses time value fastest. Do you want to own it or sell it?', hint:'2 pieces, both 100 calls: sell the near month, buy the far month (switch expiry with the dropdown on the board).',
+   lesson:'Calendar spread: net cost about 2.06. If the stock is exactly 100 at near-month expiry, the near call expires worthless while the far call is still worth about 4.98, a profit of about 2.92. The further the stock moves, the closer the two values get, and the most you can lose is the 2.06. The curve is smooth because the far call still has time value.'},
+  {pts:3, adv:true, cal:true, title:'📅 Calendar spread (no calls allowed)', story:'Same calendar-spread shape, but this time calls are banned.',
+   target:[{t:'SC',K:100},{t:'LC',K:100,m:'far'}], answer:[{t:'SP',K:100},{t:'LP',K:100,m:'far'}], banned:['LC','SC'], h1:'Recall put-call parity from level 5: a call and a put with the same strike and expiry differ only by "stock − strike".', hint:'2 pieces, both 100 puts: sell the near month, buy the far month.',
+   lesson:'With a zero rate, call − put = stock − strike, regardless of expiry. Swap both calls for puts with the same strike and the "stock − strike" parts cancel (one bought, one sold), so the P&L is identical.'},
+  {pts:4, adv:true, cal:true, title:'📅 Diagonal spread', story:'Mildly bullish: you want to hold a long-dated call while selling a higher-strike near-month call to collect rent.',
+   target:[{t:'SC',K:110},{t:'LC',K:100,m:'far'}], h1:'Like a calendar spread you sell the near and buy the far, but the two strikes differ.', hint:'2 calls: sell the near-month 110, buy the far-month 100.',
+   lesson:'Diagonal spread: net cost about 5.36. Best case is the stock near 110 at near-month expiry (about +6.3); a big drop loses at most 5.36. It behaves like a bull spread that pays itself rent, and is also called the "Poor Man\'s Covered Call": the far-month call stands in for the stock at a fraction of the cost.'},
+  {pts:4, adv:true, cal:true, title:'📅 Double calendar', story:'You expect the stock to range between 90 and 110 but do not know where it will settle. Put a calendar spread at each of the two strikes.',
+   target:[{t:'SP',K:90},{t:'LP',K:90,m:'far'},{t:'SC',K:110},{t:'LC',K:110,m:'far'}], h1:'Split it into two familiar shapes, left and right. Where does each one peak?', hint:'4 pieces: puts at 90 and calls at 110; in each case sell the near month and buy the far month.',
+   lesson:'Double calendar: two calendar spreads side by side, with a wider profit zone than a single one. Using puts below and calls above is market convention (out-of-the-money options trade more easily); as two levels ago showed, the P&L is the same either way.'},
+  {pts:2, title:'Draw it: any shape', draw:true,
    story:'Press and drag on the chart to draw the payoff at expiry you want. The page works out which options you need. Try the semicircle: watch what happens to the contract counts at the edges.',
    target:null, hint:'There is just one rule: however much the line bends at a strike is how many contracts you buy (bends up) or sell (bends down) there. A semicircle gets steeper toward its edges, so the counts explode.'},
-  {title:'Free play', story:'No target. Combine anything and see what shapes you can make.', target:null, hint:'Try this: can you build a bull spread using only puts?', lesson:''},
+  {pts:2, title:'Free play', cal:true, story:'No target. Combine anything and see what shapes you can make. Options can be near or far month, and famous combinations are named below the chart.', target:null, hint:'Try this: can you build a bull spread using only puts?', lesson:''},
 ];
 
 let lv = 0, board = [], solved = new Set(), uid = 0, hintsUsed = 0, scored = false;
@@ -293,6 +400,7 @@ let best = {};
 best = Object.assign({}, window.OPT_INIT_BEST || {}); Object.keys(best).forEach(k=>solved.add(+k));
 
 const $ = id => document.getElementById(id);
+const BASE_TIP = $('trayTip').innerHTML, CAL_TIP = "Spot S₀ = 100 · Volatility 25% · Rate 0<br><b>Near</b> month expires in 3 months, <b>far</b> month in 6. The chart shows P&amp;L on the <b>near-month expiry date</b>; far-month pieces are still alive then and are valued with Black-Scholes (volatility unchanged).";
 
 function miniSVG(t){
   const p = {t, K:100}, pts=[];
@@ -329,14 +437,19 @@ function renderBoard(){
     const ty = TYPES[p.t];
     const strike = ty.kind==='stock' ? '' :
       `<select data-id="${p.id}">${STRIKES.map(k=>`<option ${k===p.K?'selected':''}>${k}</option>`).join('')}</select>`;
+    const mat = (LEVELS[lv].cal && (ty.kind==='call'||ty.kind==='put')) ?
+      `<select data-mid="${p.id}"><option value="near" ${p.m!=='far'?'selected':''}>near</option><option value="far" ${p.m==='far'?'selected':''}>far</option></select>` : '';
     const prem = ty.kind==='stock' ? `cost ${S0}` :
       `${ty.sign>0?'pay':'receive'} ${priceOf(p).toFixed(2)}`;
-    return `<div class="placed ${ty.cls}"><div><div class="nm">${ty.nm} ${strike}</div><div class="prem">${prem}</div></div>
+    return `<div class="placed ${ty.cls} ${p.m==='far'?'far':''}"><div><div class="nm">${ty.nm} ${strike} ${mat}</div><div class="prem">${prem}</div></div>
       <div class="qty"><button data-dq="-1" data-id="${p.id}">−</button><span>×${p.q}</span><button data-dq="1" data-id="${p.id}">+</button></div>
       <button class="x" data-rm="${p.id}" title="Remove">✕</button></div>`;
   }).join('');
-  d.querySelectorAll('select').forEach(s=>s.addEventListener('change',e=>{
+  d.querySelectorAll('select[data-id]').forEach(s=>s.addEventListener('change',e=>{
     board.find(p=>p.id==s.dataset.id).K = +s.value; update();
+  }));
+  d.querySelectorAll('select[data-mid]').forEach(s=>s.addEventListener('change',e=>{
+    board.find(p=>p.id==s.dataset.mid).m = s.value; update();
   }));
   d.querySelectorAll('[data-dq]').forEach(b=>b.addEventListener('click',()=>{
     const p = board.find(p=>p.id==b.dataset.id); p.q = Math.max(0.5, Math.min(5, p.q + 0.5 * +b.dataset.dq)); update();
@@ -372,7 +485,7 @@ function renderChart(){
     g += `<line x1="${X(k)}" x2="${X(k)}" y1="${Tp}" y2="${H-B}" stroke="#efe9dc"/>`;
     if (k%10===0) g += `<text x="${X(k)}" y="${H-B+16}" text-anchor="middle" font-size="11" fill="#8a8f99">${k}</text>`;
   });
-  g += `<text x="${W-R}" y="${H-4}" text-anchor="end" font-size="11" fill="#8a8f99">Stock price at expiry →</text>`;
+  g += `<text x="${W-R}" y="${H-4}" text-anchor="end" font-size="11" fill="#8a8f99">${LEVELS[lv].cal ? 'Stock price at near-month expiry →' : 'Stock price at expiry →'}</text>`;
   g += `<text x="${L}" y="${H-4}" font-size="11" fill="#8a8f99">${XMIN}</text>`;
   const colors = {call:'#9db8e8', put:'#e8a993', stock:'#94cfae', digital:'#c3a6ec'};
   pieceV.forEach((arr,i)=>{ g += `<path d="${path(arr)}" fill="none" stroke="${colors[TYPES[board[i].t].kind]}" stroke-width="2" opacity=".75"/>`; });
@@ -411,7 +524,7 @@ function renderStats(){
 const MAXPTS = 3;
 const stars = n => '★'.repeat(n) + '☆'.repeat(MAXPTS-n);
 function answerText(L){
-  return (L.answer||L.target).map(p=>{ const t=TYPES[p.t]; return `${t.nm}${t.kind==='stock'?'':' '+p.K} ×${p.q||1}`; }).join(', ');
+  return (L.answer||L.target).map(p=>{ const t=TYPES[p.t]; return `${t.nm}${t.kind==='stock'?'':' '+p.K}${L.cal&&(t.kind==='call'||t.kind==='put') ? (p.m==='far'?' far':' near') : ''} ×${p.q||1}`; }).join(', ');
 }
 function renderHints(){
   const L = LEVELS[lv], btn = $('hintBtn');
@@ -420,9 +533,17 @@ function renderHints(){
   $('hint').innerHTML = tiers.slice(0,hintsUsed).map((h,i)=> `<div>${i===2 ? '🔑 Answer: ' : `💡 Hint ${i+1}: `}${h}</div>`).join('');
   $('hint').classList.toggle('show', hintsUsed>0);
   btn.disabled = hintsUsed>=3;
-  btn.textContent = hintsUsed>=3 ? 'No more hints' : (hintsUsed===2 ? 'Answer' : 'Hint ' + (hintsUsed+1)) + (scored ? '' : ' (−1 pt)');
+  btn.textContent = hintsUsed>=3 ? 'No more hints' : (hintsUsed===2 ? 'Answer' : 'Hint ' + (hintsUsed+1)) + (scored ? '' : ' (−1 star)');
 }
-function totalScore(){ return Object.values(best).reduce((a,b)=>a+b,0); }
+// 本關得分 = 配分 × 星數 / 3（四捨五入）；畫畫、自由模式嘗試即得滿分
+const lvPts = (i, st) => LEVELS[i] ? Math.round((LEVELS[i].pts||0) * Math.min(st, MAXPTS) / MAXPTS) : 0;
+const MAX_TOTAL = LEVELS.reduce((a,x)=>a+(x.pts||0), 0);
+function totalScore(){ return Object.entries(best).reduce((a,[i,v])=>a+lvPts(+i, v), 0); }
+function saveScore(){ if (window.optOnScore) window.optOnScore(best, totalScore(), MAX_TOTAL, LEVELS.map(x=>x.pts||0)); }
+function awardTry(){
+  if (solved.has(lv)) return;
+  best[lv] = MAXPTS; solved.add(lv); saveScore(); renderLevelHead();
+}
 
 function renderLevelHead(){
   const L = LEVELS[lv];
@@ -430,26 +551,30 @@ function renderLevelHead(){
   $('lvTitle').textContent = L.title;
   $('lvStory').textContent = L.story;
   renderHints();
-  $('levels').innerHTML = LEVELS.map((x,i)=>`<button class="lvbtn ${i===lv?'cur':''} ${solved.has(i)?'done':''}" data-lv="${i}">${x.draw?'✏️ Draw':x.target? (i+1)+(solved.has(i)?' '+stars(best[i]||0):'') : 'Free'}</button>`).join('');
-  const puz = LEVELS.filter(x=>x.target).length;
-  $('levels').insertAdjacentHTML('beforeend', `<span class="lvbtn" style="cursor:default;border-color:transparent;font-weight:700;color:var(--ink)">Score ${totalScore()} / ${puz*MAXPTS}</span>`);
+  $('levels').innerHTML = LEVELS.map((x,i)=>`<button class="lvbtn ${i===lv?'cur':''} ${solved.has(i)?'done':''}" data-lv="${i}">${x.draw?'✏️ Draw'+(solved.has(i)?' ✓':''):x.target? (i+1)+(solved.has(i)?' '+stars(best[i]||0):'') : 'Free'+(solved.has(i)?' ✓':'')}</button>`).join('');
+  $('levels').insertAdjacentHTML('beforeend', `<span class="lvbtn" style="cursor:default;border-color:transparent;font-weight:700;color:var(--ink)">Score ${totalScore()} / ${MAX_TOTAL}</span>`);
   $('levels').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>goLevel(+b.dataset.lv)));
 }
 
 function update(){
-  if (LEVELS[lv].draw){ renderDraw(); $('win').classList.remove('show'); $('nextBtn').disabled = lv>=LEVELS.length-1; return; }
-  renderBoard(); renderChart(); renderStats();
+  if (LEVELS[lv].draw){ renderDraw(); $('named').classList.remove('show');
+    $('win').innerHTML = solved.has(lv) ? `<b>✏️ You tried drawing mode</b> &nbsp;+${LEVELS[lv].pts} pts. Try different shapes and watch the option counts change.` : `Drawing mode: press and drag on the chart to draw your own line and earn ${LEVELS[lv].pts} pts.`; $('win').classList.add('show');
+    $('nextBtn').disabled = lv>=LEVELS.length-1; return; }
+  renderBoard(); renderChart(); renderStats(); renderName();
   const ok = isSolved(), L = LEVELS[lv];
   if (ok){
     if (!scored){
       scored = true;
       const pts = Math.max(0, MAXPTS - hintsUsed);
       best[lv] = Math.max(best[lv]||0, pts); solved.add(lv);
-      if (window.optOnScore) window.optOnScore(best, totalScore(), LEVELS.filter(x=>x.target).length*MAXPTS);
+      saveScore();
       renderLevelHead();
     }
-    $('win').innerHTML = `<b>Solved!</b> &nbsp;Points this level: <b>${stars(Math.max(0,MAXPTS-hintsUsed))}</b><p>${L.lesson}</p>`;
+    $('win').innerHTML = `<b>Solved!</b> &nbsp;<b>${stars(Math.max(0,MAXPTS-hintsUsed))}</b> (+${lvPts(lv, Math.max(0,MAXPTS-hintsUsed))} / ${L.pts} pts)<p>${L.lesson}</p>`;
     $('win').classList.add('show');
+  } else if (!L.target){
+    if (board.length>=2 && stratName(board)) awardTry();
+    $('win').innerHTML = solved.has(lv) ? `<b>🧩 You built a famous combination</b> &nbsp;Free play +${LEVELS[lv].pts} pts. Keep experimenting!` : `Free play: build any named combination (2+ pieces) to earn ${LEVELS[lv].pts} pts.`; $('win').classList.add('show');
   } else $('win').classList.remove('show');
   $('nextBtn').disabled = !(ok || solved.has(lv)) || lv>=LEVELS.length-1;
 }
@@ -467,6 +592,7 @@ function goLevel(i){
   $('legend').innerHTML = dm
     ? '<span><i style="border-color:var(--target);border-top-style:dashed"></i>Your drawing</span><span><i style="border-color:var(--sum)"></i>Payoff of the option position</span><span><i style="border-color:#c9ccd3;border-top-width:2px"></i>Strikes</span>'
     : '<span><i style="border-color:var(--target);border-top-style:dashed"></i>Target shape</span><span><i style="border-color:var(--sum)"></i>Your combined position</span><span><i style="border-color:#c9ccd3;border-top-width:2px"></i>Individual pieces</span>';
+  $('trayTip').innerHTML = LEVELS[lv].cal ? CAL_TIP : BASE_TIP;
   renderLevelHead(); renderTray(); update();
 }
 
@@ -582,6 +708,7 @@ $('chart').addEventListener('pointerdown', e=>{
   if (!LEVELS[lv].draw) return;
   $('chart').setPointerCapture(e.pointerId);
   lastPt = svgPt(e); paint(lastPt,lastPt); renderDraw();
+  if (!solved.has(lv)){ awardTry(); update(); }
 });
 $('chart').addEventListener('pointermove', e=>{
   if (!LEVELS[lv].draw || !lastPt) return;
