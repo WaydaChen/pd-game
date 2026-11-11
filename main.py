@@ -50,6 +50,8 @@ import urllib.error
 
 import zip_game
 
+import options_puzzle
+
 
 
 app = FastAPI(title="囚犯困境 API")
@@ -57,6 +59,8 @@ app = FastAPI(title="囚犯困境 API")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(zip_game.router)
+
+app.include_router(options_puzzle.router)
 
 
 

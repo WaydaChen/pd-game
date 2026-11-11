@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>選擇權拼圖 — 教師成績</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#f6f1e7;--paper:#fffdf8;--ink:#1f2430;--muted:#6b6f7a;--line:#e3dccd;--call:#2f6fd6;--put:#d2542f;--ok:#2e9a63}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC",system-ui,sans-serif;line-height:1.5}
+  .wrap{max-width:1100px;margin:0 auto;padding:24px 16px 48px}
+  h1{font-size:24px;font-weight:900;margin:0 0 4px}
+  h1 span{color:var(--call)}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 18px}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  input{font:inherit;padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:#fff;min-width:0}
+  button,a.btn{font:inherit;font-size:14px;border:1.5px solid var(--ink);background:var(--ink);color:#fff;border-radius:10px;padding:8px 14px;cursor:pointer;text-decoration:none}
+  .ghost{background:#fff !important;color:var(--ink) !important;border-color:var(--line) !important}
+  .link{font-family:ui-monospace,monospace;font-size:14px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 10px;word-break:break-all}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .stat{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 14px}
+  .stat .k{font-size:12px;color:var(--muted)} .stat .v{font-size:20px;font-weight:900}
+  .tbl{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:14px;background:#fff}
+  th,td{border-bottom:1px solid var(--line);padding:7px 10px;text-align:left;white-space:nowrap}
+  th{font-size:12px;color:var(--muted);cursor:pointer;user-select:none;position:sticky;top:0;background:#fff}
+  td.n{text-align:right;font-variant-numeric:tabular-nums}
+  .err{color:var(--put);font-size:13px}
+  .muted{color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>選擇權<span>拼圖</span> · 教師成績</h1>
+  <p class="sub">學生從入口頁選中文 / 英文版，登記系級、學號、姓名後開始；成績以學號為準。</p>
+
+  <div class="card">
+    <div class="muted" style="margin-bottom:6px">學生入口（貼給學生或投影）</div>
+    <div class="row"><span class="link" id="stuLink"></span><button class="ghost" id="copyBtn">複製</button><a class="btn ghost" href="/options-puzzle" target="_blank">開啟</a></div>
+  </div>
+
+  <div class="card">
+    <form class="row" id="tokForm">
+      <input id="tok" type="password" placeholder="ADMIN_TOKEN" autocomplete="current-password" style="flex:1;max-width:280px">
+      <button type="submit">載入成績</button>
+      <a class="btn ghost" id="csvBtn" href="#">下載 CSV</a>
+      <label class="muted"><input type="checkbox" id="auto" checked> 每 10 秒自動更新</label>
+    </form>
+    <p class="err" id="err"></p>
+  </div>
+
+  <div class="card" id="out" style="display:none">
+    <div class="stats" id="stats"></div>
+    <input id="q" placeholder="搜尋系級 / 學號 / 姓名" style="width:100%;max-width:320px;margin-bottom:10px">
+    <div class="tbl"><table><thead><tr id="head"></tr></thead><tbody id="body"></tbody></table></div>
+  </div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const stu = location.origin + '/options-puzzle';
+$('stuLink').textContent = stu;
+$('copyBtn').onclick = () => navigator.clipboard && navigator.clipboard.writeText(stu);
+
+const COLS = [
+  ['dept','系級'],['sid','學號'],['name','姓名'],['lang','語言'],
+  ['score','總分',1],['solved','過關數',1],['plays','遊玩次數',1],['updated_at','最後更新'],
+];
+let rows = [], sortKey = 'sid', sortDir = 1, timer = null;
+try { $('tok').value = sessionStorage.getItem('optpuzzle-admin') || ''; } catch(e){}
+
+function fmt(iso){ try{ return new Date(iso).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});}catch(e){return iso;} }
+
+function render(){
+  $('head').innerHTML = COLS.map(([k,l])=>`<th data-k="${k}">${l}${sortKey===k?(sortDir>0?' ▲':' ▼'):''}</th>`).join('');
+  $('head').querySelectorAll('th').forEach(th=>th.onclick=()=>{ const k=th.dataset.k; sortDir = sortKey===k ? -sortDir : 1; sortKey=k; render(); });
+  const q = $('q').value.trim().toLowerCase();
+  const list = rows.filter(r=>!q || [r.dept,r.sid,r.name].join(' ').toLowerCase().includes(q))
+    .sort((a,b)=>{ const x=a[sortKey], y=b[sortKey]; return (typeof x==='number' ? x-y : String(x??'').localeCompare(String(y??''),'zh-Hant'))*sortDir; });
+  $('body').innerHTML = list.map(r=>`<tr>${COLS.map(([k,,n])=>{
+    let v = r[k];
+    if (k==='score') v = `${r.score} / ${r.max_score}`;
+    if (k==='lang') v = r.lang==='en' ? 'English' : '中文';
+    if (k==='updated_at') v = fmt(v);
+    return `<td class="${n?'n':''}">${esc(v)}</td>`; }).join('')}</tr>`).join('')
+    || `<tr><td colspan="${COLS.length}" class="muted">尚無資料</td></tr>`;
+  const n = rows.length, avg = n ? rows.reduce((a,r)=>a+r.score,0)/n : 0, mx = rows.reduce((a,r)=>Math.max(a,r.max_score||0),0);
+  $('stats').innerHTML = `<div class="stat"><div class="k">登記人數</div><div class="v">${n}</div></div>
+    <div class="stat"><div class="k">平均分數</div><div class="v">${avg.toFixed(1)}${mx?` <small style="font-size:13px;color:var(--muted)">/ ${mx}</small>`:''}</div></div>
+    <div class="stat"><div class="k">滿分人數</div><div class="v">${rows.filter(r=>mx && r.score>=mx).length}</div></div>`;
+}
+
+async function load(){
+  const tok = $('tok').value.trim();
+  $('csvBtn').href = '/api/optpuzzle/export.csv?token=' + encodeURIComponent(tok);
+  try {
+    const res = await fetch('/api/optpuzzle/records?token=' + encodeURIComponent(tok));
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || res.status);
+    rows = d.records; $('err').textContent = ''; $('out').style.display = '';
+    try { sessionStorage.setItem('optpuzzle-admin', tok); } catch(e){}
+    render();
+  } catch(e){ $('err').textContent = '讀取失敗：' + e.message; }
+}
+function schedule(){ clearInterval(timer); if ($('auto').checked) timer = setInterval(()=>{ if (rows.length || $('out').style.display==='') load(); }, 10000); }
+$('tokForm').onsubmit = e => { e.preventDefault(); load(); schedule(); };
+$('auto').onchange = schedule;
+$('q').oninput = render;
+if ($('tok').value) { load(); schedule(); }
+</script>
+</body>
+</html>

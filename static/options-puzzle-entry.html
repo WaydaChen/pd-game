@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>選擇權拼圖 Options Puzzle</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#f6f1e7;--paper:#fffdf8;--ink:#1f2430;--muted:#6b6f7a;--line:#e3dccd;--call:#2f6fd6;--put:#d2542f;--ok:#2e9a63}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC",system-ui,sans-serif;line-height:1.55;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:28px 24px;max-width:440px;width:100%;box-shadow:0 10px 30px rgba(31,36,48,.06)}
+  h1{font-size:28px;font-weight:900;margin:0 0 2px}
+  h1 span{color:var(--call)}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 22px}
+  .lab{font-size:13px;font-weight:700;color:var(--muted);margin:0 0 8px;letter-spacing:.04em}
+  .langs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:22px}
+  .langs button{font:inherit;border:2px solid var(--line);background:#fff;border-radius:12px;padding:12px 8px;cursor:pointer;font-size:16px;font-weight:700;color:var(--muted)}
+  .langs button small{display:block;font-size:12px;font-weight:400}
+  .langs button.on{border-color:var(--ink);color:var(--ink);background:#fff}
+  label{display:block;font-size:13px;font-weight:700;margin:0 0 4px}
+  input{width:100%;font:inherit;font-size:16px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff;margin-bottom:14px;color:var(--ink)}
+  input:focus{outline:none;border-color:var(--call)}
+  .go{width:100%;font:inherit;font-size:16px;font-weight:700;border:0;border-radius:12px;padding:12px;background:var(--ink);color:#fff;cursor:pointer}
+  .go:disabled{opacity:.5;cursor:default}
+  .alt{width:100%;font:inherit;font-size:15px;border:1.5px solid var(--line);border-radius:12px;padding:11px;background:#fff;color:var(--ink);cursor:pointer;margin-top:10px}
+  .err{color:var(--put);font-size:13px;min-height:1.2em;margin:8px 0 0}
+  .rec{border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:0 0 18px;background:#fff}
+  .rec .big{font-size:30px;font-weight:900}
+  .rec .big small{font-size:15px;color:var(--muted);font-weight:500}
+  .rec .meta{color:var(--muted);font-size:13px}
+  .who{font-size:15px;margin:0 0 14px}
+  .note{color:var(--muted);font-size:12.5px;margin:6px 0 0}
+  .link{background:none;border:0;color:var(--muted);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;margin-top:14px;padding:0}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1 id="tTitle">選擇權<span>拼圖</span></h1>
+  <p class="sub" id="tSub">把選擇權零件拼成目標損益形狀</p>
+
+  <!-- 步驟 1：語言 + 登記 -->
+  <div id="step1">
+    <p class="lab" id="tLang">選擇語言 Language</p>
+    <div class="langs">
+      <button data-lang="zh" class="on">中文版<small>Chinese</small></button>
+      <button data-lang="en">English<small>英文版</small></button>
+    </div>
+    <form id="form" autocomplete="on">
+      <label for="dept" id="tDept">系級</label>
+      <input id="dept" name="dept" maxlength="40" placeholder="例：財金三">
+      <label for="sid" id="tSid">學號</label>
+      <input id="sid" name="sid" maxlength="20" placeholder="例：B11012345" autocapitalize="characters">
+      <label for="name" id="tName">姓名</label>
+      <input id="name" name="name" maxlength="40">
+      <button class="go" id="goBtn" type="submit">開始</button>
+      <p class="err" id="err"></p>
+    </form>
+  </div>
+
+  <!-- 步驟 2：已有成績 -->
+  <div id="step2" class="hidden">
+    <p class="who" id="who"></p>
+    <div class="rec">
+      <div class="meta" id="tHave">你已有成績</div>
+      <div class="big" id="recScore"></div>
+      <div class="meta" id="recMeta"></div>
+    </div>
+    <button class="go" id="contBtn">繼續上次進度</button>
+    <p class="note" id="tContNote">從已過的關卡接著玩，新過關的分數會自動存入。</p>
+    <button class="alt" id="replayBtn">重新挑戰（從零開始）</button>
+    <p class="note" id="tReplayNote">所有關卡重來；結束時可選擇是否覆蓋原有成績。</p>
+    <button class="link" id="backBtn">不是我 / 換人</button>
+  </div>
+</div>
+
+<script>
+const T = {
+  zh: {
+    title:'選擇權<span>拼圖</span>', sub:'把選擇權零件拼成目標損益形狀', lang:'選擇語言 Language',
+    dept:'系級', sid:'學號', name:'姓名', deptPh:'例：財金三', sidPh:'例：B11012345', go:'開始',
+    need:'請填寫系級、學號、姓名', net:'連線失敗，請再試一次',
+    have:'你已有成績', meta:(r)=>`過關 ${r.solved} 關 · 已玩 ${r.plays} 次 · 最後更新 ${fmt(r.updated_at)}`,
+    cont:'繼續上次進度', contNote:'從已過的關卡接著玩，新過關的分數會自動存入。',
+    replay:'重新挑戰（從零開始）', replayNote:'所有關卡重來；結束時可選擇是否覆蓋原有成績。',
+    back:'不是我 / 換人', pts:'分',
+    mismatch:(r)=>`⚠ 這個學號已登記為「${r.dept} ${r.name}」`,
+  },
+  en: {
+    title:'Options <span>Puzzle</span>', sub:'Build target payoff shapes from option pieces', lang:'Language 選擇語言',
+    dept:'Department / Year', sid:'Student ID', name:'Name', deptPh:'e.g. Finance, Year 3', sidPh:'e.g. B11012345', go:'Start',
+    need:'Please fill in department, student ID and name', net:'Connection failed, please try again',
+    have:'Your saved score', meta:(r)=>`${r.solved} levels solved · played ${r.plays}× · updated ${fmt(r.updated_at)}`,
+    cont:'Continue my progress', contNote:'Pick up where you left off; new solves are saved automatically.',
+    replay:'Replay from scratch', replayNote:'All levels reset. When you finish, you choose whether to overwrite your saved score.',
+    back:'Not me / switch user', pts:'pts',
+    mismatch:(r)=>`⚠ This ID is registered as "${r.dept} ${r.name}"`,
+  },
+};
+const $ = id => document.getElementById(id);
+const KEY = 'optpuzzle-session';
+let lang = 'zh', who = null, record = null;
+
+function fmt(iso){ try{ const d=new Date(iso); return d.toLocaleString(lang==='en'?'en-US':'zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});}catch(e){return iso||'';} }
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function applyLang(){
+  const t = T[lang];
+  document.documentElement.lang = lang==='en' ? 'en' : 'zh-Hant';
+  document.querySelectorAll('.langs button').forEach(b=>b.classList.toggle('on', b.dataset.lang===lang));
+  $('tTitle').innerHTML = t.title; $('tSub').textContent = t.sub; $('tLang').textContent = t.lang;
+  $('tDept').textContent = t.dept; $('tSid').textContent = t.sid; $('tName').textContent = t.name;
+  $('dept').placeholder = t.deptPh; $('sid').placeholder = t.sidPh; $('goBtn').textContent = t.go;
+  $('tHave').textContent = t.have; $('contBtn').textContent = t.cont; $('tContNote').textContent = t.contNote;
+  $('replayBtn').textContent = t.replay; $('tReplayNote').textContent = t.replayNote; $('backBtn').textContent = t.back;
+  if (record) showRecord();
+}
+document.querySelectorAll('.langs button').forEach(b=>b.addEventListener('click',()=>{ lang=b.dataset.lang; applyLang(); try{localStorage.setItem('optpuzzle-lang',lang);}catch(e){} }));
+
+function start(mode){
+  const s = Object.assign({}, who, {lang, mode, record});
+  try { sessionStorage.setItem(KEY, JSON.stringify(s)); } catch(e){}
+  location.href = '/options-puzzle/' + lang;
+}
+
+function showRecord(){
+  const t = T[lang], r = record;
+  let w = `👤 ${esc(who.dept)}　<b>${esc(who.sid)}</b>　${esc(who.name)}`;
+  if (r.name !== who.name || r.dept !== who.dept) w += `<br><span style="color:var(--put);font-size:13px">${esc(t.mismatch(r))}</span>`;
+  $('who').innerHTML = w;
+  $('recScore').innerHTML = `${r.score} <small>/ ${r.max_score} ${t.pts}</small>`;
+  $('recMeta').textContent = t.meta(r);
+  $('step1').classList.add('hidden'); $('step2').classList.remove('hidden');
+}
+
+async function login(dept, sid, name){
+  const res = await fetch('/api/optpuzzle/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({dept, sid, name})});
+  if (!res.ok){ let m = T[lang].net; try{ m = (await res.json()).detail || m; }catch(e){} throw new Error(m); }
+  return res.json();
+}
+
+$('form').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const dept=$('dept').value.trim(), sid=$('sid').value.trim(), name=$('name').value.trim();
+  $('err').textContent = '';
+  if (!dept||!sid||!name){ $('err').textContent = T[lang].need; return; }
+  $('goBtn').disabled = true;
+  try {
+    const d = await login(dept, sid, name);
+    who = {dept, sid:d.sid, name}; record = d.record;
+    try{ localStorage.setItem('optpuzzle-who', JSON.stringify({dept, sid:d.sid, name})); }catch(e){}
+    if (!record) start('continue'); else showRecord();
+  } catch(err){ $('err').textContent = err.message || T[lang].net; }
+  finally { $('goBtn').disabled = false; }
+});
+$('contBtn').addEventListener('click', ()=>start('continue'));
+$('replayBtn').addEventListener('click', ()=>start('replay'));
+$('backBtn').addEventListener('click', ()=>{
+  try{ sessionStorage.removeItem(KEY); localStorage.removeItem('optpuzzle-who'); }catch(e){}
+  who = null; record = null; $('dept').value=''; $('sid').value=''; $('name').value='';
+  $('step2').classList.add('hidden'); $('step1').classList.remove('hidden');
+});
+
+// 初始化：語言偏好、上次填過的資料；從遊戲頁回來時直接顯示最新成績
+(async function init(){
+  try{ lang = localStorage.getItem('optpuzzle-lang') || 'zh'; }catch(e){}
+  if (location.hash === '#en') lang = 'en'; if (location.hash === '#zh') lang = 'zh';
+  let s = null; try{ s = JSON.parse(sessionStorage.getItem(KEY)||'null'); }catch(e){}
+  let saved = null; try{ saved = JSON.parse(localStorage.getItem('optpuzzle-who')||'null'); }catch(e){}
+  const pre = s || saved;
+  if (s && s.lang) lang = s.lang;
+  applyLang();
+  if (pre){ $('dept').value = pre.dept||''; $('sid').value = pre.sid||''; $('name').value = pre.name||''; }
+  if (s && s.sid){
+    try { const d = await login(s.dept, s.sid, s.name); who = {dept:s.dept, sid:d.sid, name:s.name}; record = d.record; if (record) showRecord(); } catch(e){}
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Options Puzzle</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f1e7; --paper:#fffdf8; --ink:#1f2430; --muted:#6b6f7a; --line:#e3dccd;
+    --call:#2f6fd6; --put:#d2542f; --stock:#2e9a63; --target:#9aa0ab; --sum:#1f2430;
+    --ok:#2e9a63; --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;line-height:1.5}
+  header{padding:22px 24px 6px;max-width:1180px;margin:0 auto;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  h1{font-size:26px;font-weight:900;margin:0;letter-spacing:.02em}
+  h1 span{color:var(--call)}
+  .sub{color:var(--muted);font-size:14px;margin:2px 0 0}
+  .levels{display:flex;gap:6px;flex-wrap:wrap}
+  .lvbtn{border:1.5px solid var(--line);background:var(--paper);border-radius:999px;padding:4px 11px;font:inherit;font-size:13px;cursor:pointer;color:var(--muted)}
+  .lvbtn.cur{border-color:var(--ink);color:var(--ink);font-weight:700}
+  .lvbtn.done{background:#e3f3ea;border-color:#b9dfc8;color:#1f6b44}
+  main{max-width:1180px;margin:0 auto;padding:12px 24px 40px;display:grid;grid-template-columns:270px 1fr;gap:18px}
+  @media (max-width:860px){main{grid-template-columns:1fr}}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+  .tray h2,.board h2{font-size:14px;margin:0 0 10px;color:var(--muted);font-weight:700;letter-spacing:.06em}
+  .pieces{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .piece{position:relative;border:2px solid currentColor;border-radius:10px;padding:8px 8px 6px;cursor:grab;background:#fff;user-select:none;transition:transform .12s, box-shadow .12s}
+  .piece:hover{transform:translateY(-2px);box-shadow:0 4px 10px rgba(0,0,0,.08)}
+  .piece:active{cursor:grabbing}
+  .piece.banned{opacity:.3;cursor:not-allowed;filter:grayscale(1)}
+  .piece.banned::after{content:"Locked";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#000}
+  /* puzzle tab */
+  .piece::before{content:"";position:absolute;right:-9px;top:50%;width:14px;height:14px;margin-top:-7px;border-radius:50%;background:#fff;border:2px solid currentColor;border-left-color:transparent;border-bottom-color:transparent;transform:rotate(45deg)}
+  .piece .nm{font-weight:700;font-size:14px;color:var(--ink)}
+  .piece .en{font-size:11px;color:var(--muted)}
+  .piece svg{display:block;width:100%;height:38px;margin-top:4px}
+  .c-digital{color:#8a4fd6} .c-call{color:var(--call)} .c-put{color:var(--put)} .c-stock{color:var(--stock)}
+  .tip{font-size:12px;color:var(--muted);margin-top:12px}
+  .right{display:flex;flex-direction:column;gap:18px;min-width:0}
+  .mission{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+  .mission .lv{font-size:12px;font-weight:700;color:var(--call);letter-spacing:.08em}
+  .mission h3{margin:2px 0 4px;font-size:20px}
+  .mission p{margin:0;color:var(--muted);font-size:14px;max-width:640px}
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+  button.b{font:inherit;font-size:13px;border-radius:8px;padding:6px 12px;border:1.5px solid var(--ink);background:#fff;cursor:pointer}
+  button.b.pri{background:var(--ink);color:#fff}
+  button.b:disabled{opacity:.35;cursor:default}
+  .chartwrap{position:relative}
+  #chart{width:100%;height:auto;display:block}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
+  .legend i{display:inline-block;width:22px;height:0;border-top:3px solid;vertical-align:middle;margin-right:5px}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+  .stat{background:var(--bg);border-radius:10px;padding:8px 10px}
+  .stat .k{font-size:11px;color:var(--muted)} .stat .v{font-weight:700;font-size:15px}
+  .board{min-height:140px}
+  .drop{border:2px dashed var(--line);border-radius:12px;min-height:96px;padding:10px;display:flex;flex-wrap:wrap;gap:10px;align-content:flex-start;transition:background .15s,border-color .15s}
+  .drop.over{background:#eef4ff;border-color:var(--call)}
+  .drop .empty{color:var(--muted);font-size:13px;margin:auto}
+  .placed{display:flex;align-items:center;gap:8px;border:2px solid currentColor;border-radius:10px;padding:6px 8px;background:#fff;animation:pop .2s ease}
+  @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
+  .placed .nm{font-weight:700;font-size:13px;color:var(--ink)}
+  .placed select{font:inherit;font-size:13px;border:1px solid var(--line);border-radius:6px;padding:1px 4px;background:#fff}
+  .qty{display:flex;align-items:center;gap:2px;color:var(--ink);font-size:13px}
+  .qty button,.x{width:22px;height:22px;border-radius:6px;border:1px solid var(--line);background:#fff;cursor:pointer;font:inherit;font-size:13px;line-height:1;padding:0;color:var(--ink)}
+  .x{border:none;color:var(--muted)}
+  .prem{font-size:11px;color:var(--muted)}
+  .win{display:none;margin-top:12px;border-radius:12px;padding:12px 14px;background:#e3f3ea;border:1px solid #b9dfc8}
+  .win.show{display:block;animation:pop .25s ease}
+  .win b{color:#1f6b44}
+  .win p{margin:4px 0 0;font-size:14px}
+  .hint{display:none;margin-top:10px;font-size:13px;background:#fff6dd;border:1px solid #f0dfa6;border-radius:10px;padding:8px 12px}
+  .hint.show{display:block}
+  .hint div+div{margin-top:4px}
+  main.drawmode{grid-template-columns:1fr}
+  main.drawmode .tray{display:none}
+  #chart.drawable{cursor:crosshair;touch-action:none}
+  .presets{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .presets .lab{font-size:13px;color:var(--muted);margin-right:4px}
+  .seg{display:inline-flex;border:1.5px solid var(--ink);border-radius:8px;overflow:hidden}
+  .seg button{font:inherit;font-size:13px;border:none;background:#fff;padding:5px 10px;cursor:pointer}
+  .seg button.on{background:var(--ink);color:#fff}
+  .recipe{margin-top:12px;font-size:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px}
+  .recipe div{background:var(--bg);border-radius:8px;padding:5px 9px}
+  .recipe .buy{color:#1f6b44} .recipe .sell{color:#a33d1f}
+  #qchart{width:100%;height:auto;display:block;margin-top:10px}
+  .note{font-size:13px;color:var(--muted);margin-top:8px}
+  .foot{max-width:1180px;margin:0 auto;padding:0 24px 30px;font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Options <span>Puzzle</span></h1>
+    <p class="sub">Drag pieces onto the board (or just click them) until the bold black line matches the dashed gray target. The chart shows profit/loss at expiry, net of premium.</p>
+  </div>
+  <div class="levels" id="levels"></div>
+</header>
+
+<main id="main">
+  <section class="card tray">
+    <h2>PIECES</h2>
+    <div class="pieces" id="tray"></div>
+    <div class="tip">Spot S₀ = 100 · Volatility 25% · 3 months to expiry · Rate 0<br>Premiums come from Black-Scholes, so parity relationships hold exactly.</div>
+  </section>
+
+  <div class="right">
+    <section class="card">
+      <div class="mission">
+        <div>
+          <div class="lv" id="lvTag"></div>
+          <h3 id="lvTitle"></h3>
+          <p id="lvStory"></p>
+        </div>
+        <div class="btns">
+          <button class="b" id="hintBtn">Hint</button>
+          <button class="b" id="clearBtn">Clear</button>
+          <button class="b pri" id="nextBtn" disabled>Next level →</button>
+        </div>
+      </div>
+      <div class="hint" id="hint"></div>
+      <div class="chartwrap" style="margin-top:12px">
+        <svg id="chart" viewBox="0 0 720 360"></svg>
+      </div>
+      <div class="legend" id="legend">
+        <span><i style="border-color:var(--target);border-top-style:dashed"></i>Target shape</span>
+        <span><i style="border-color:var(--sum)"></i>Your combined position</span>
+        <span><i style="border-color:#c9ccd3;border-top-width:2px"></i>Individual pieces</span>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="k" id="k1">Max profit</div><div class="v" id="stMax">—</div></div>
+        <div class="stat"><div class="k" id="k2">Max loss</div><div class="v" id="stMin">—</div></div>
+        <div class="stat"><div class="k" id="k3">Breakeven(s)</div><div class="v" id="stBe">—</div></div>
+      </div>
+      <div class="win" id="win"></div>
+    </section>
+
+    <section class="card" id="drawSec" style="display:none">
+      <h2 style="font-size:14px;margin:0 0 10px;color:var(--muted);letter-spacing:.06em">DRAWING &amp; RECIPE</h2>
+      <div class="presets">
+        <span class="lab">Example shapes:</span>
+        <button class="b" data-pre="semi">Semicircle</button>
+        <button class="b" data-pre="smile">Smile</button>
+        <button class="b" data-pre="step">Step</button>
+        <button class="b" data-pre="saw">Sawtooth</button>
+        <button class="b" data-pre="sine">Wave</button>
+        <button class="b" data-pre="cake">🎂 Cake</button>
+        <button class="b" data-pre="zero">Clear</button>
+      </div>
+      <div class="presets" style="margin-top:10px">
+        <span class="lab">Strike spacing:</span>
+        <span class="seg" id="gapSeg"><button data-gap="10">10</button><button data-gap="5">5</button><button data-gap="2.5">2.5</button><button data-gap="1">1</button></span>
+        <span class="lab" style="margin-left:6px">Finer spacing tracks your drawing more closely but needs more options.</span>
+      </div>
+      <div style="margin-top:14px;font-size:13px;font-weight:700">Contracts at each strike (up = buy, down = sell)</div>
+      <svg id="qchart" viewBox="0 0 720 200"></svg>
+      <div class="recipe" id="recipe"></div>
+      <div class="note" id="drawNote"></div>
+    </section>
+
+    <section class="card board" id="boardSec">
+      <h2>BOARD</h2>
+      <div class="drop" id="drop"></div>
+    </section>
+  </div>
+</main>
+<div class="foot">Teaching prototype: shows P&amp;L at expiry only, without time value or Greeks. Not investment advice.</div>
+
+<script src="/static/optpuzzle-session.js"></script>
+<script>
+const S0 = 100, SIG = 0.25, T = 0.25;
+const STRIKES = [80, 85, 90, 95, 100, 105, 110, 115, 120];
+const XMIN = 60, XMAX = 140;
+
+function erf(x){ // Abramowitz-Stegun
+  const s = Math.sign(x); x = Math.abs(x);
+  const t = 1/(1+0.3275911*x);
+  const y = 1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x);
+  return s*y;
+}
+const N = x => 0.5*(1+erf(x/Math.SQRT2));
+function callPx(K, t=T){
+  const d1 = (Math.log(S0/K)+0.5*SIG*SIG*t)/(SIG*Math.sqrt(t));
+  const d2 = d1 - SIG*Math.sqrt(t);
+  return S0*N(d1) - K*N(d2);
+}
+const putPx = (K, t=T) => callPx(K, t) - S0 + K; // put-call parity, r = 0
+const DPAY = 10; // digital (cash-or-nothing) call pays 10 if S > K at expiry
+function digitalPx(K, t=T){ const d2 = (Math.log(S0/K)-0.5*SIG*SIG*t)/(SIG*Math.sqrt(t)); return DPAY*N(d2); }
+const priceOf = p => TYPES[p.t].kind==='call' ? callPx(p.K) : TYPES[p.t].kind==='put' ? putPx(p.K) : digitalPx(p.K);
+
+const TYPES = {
+  LC:{nm:'Long Call', en:'buy a call',  kind:'call', sign:+1, cls:'c-call'},
+  SC:{nm:'Short Call', en:'sell a call', kind:'call', sign:-1, cls:'c-call'},
+  LP:{nm:'Long Put', en:'buy a put',   kind:'put',  sign:+1, cls:'c-put'},
+  SP:{nm:'Short Put', en:'sell a put',  kind:'put',  sign:-1, cls:'c-put'},
+  LS:{nm:'Long Stock', en:'buy the stock', kind:'stock',sign:+1, cls:'c-stock'},
+  LD:{nm:'Long Digital Call', en:'pays 10 if above strike', kind:'digital', sign:+1, cls:'c-digital'},
+  SD:{nm:'Short Digital Call', en:'owes 10 if above strike', kind:'digital', sign:-1, cls:'c-digital'},
+  SS:{nm:'Short Stock', en:'short the stock',kind:'stock',sign:-1, cls:'c-stock'},
+};
+const ORDER = ['LC','SC','LP','SP','LS','SS','LD','SD'];
+
+function pnl(p, S){
+  const t = TYPES[p.t], q = p.q || 1;
+  if (t.kind==='stock') return t.sign*(S-S0)*q;
+  if (t.kind==='digital') return t.sign*((S>p.K?DPAY:0)-digitalPx(p.K))*q;
+  if (t.kind==='call')  return t.sign*(Math.max(S-p.K,0)-callPx(p.K))*q;
+  return t.sign*(Math.max(p.K-S,0)-putPx(p.K))*q;
+}
+const total = (ps, S) => ps.reduce((a,p)=>a+pnl(p,S),0);
+
+const LEVELS = [
+  {title:'Bullish, but cap the downside', story:'You think the stock will rise, but you do not want unlimited downside risk. Build it with a single piece.',
+   target:[{t:'LC',K:100}], h1:'Think: you want to profit on a rise with limited loss on a fall. Is that buying or selling?', hint:'Just 1 piece. Which one profits on the way up but has a limited loss on the way down?',
+   lesson:'Long call: the most you can lose is the premium you paid, and the upside is unlimited.'},
+  {title:'Bearish, still limited risk', story:'This time you are bearish. Again one piece, and the most you can lose is the premium.',
+   target:[{t:'LP',K:100}], h1:'The opposite direction of the previous level.', hint:'1 piece, red family.',
+   lesson:'Long put: the lower the stock goes, the more you make. Maximum loss is the premium.'},
+  {title:'Mildly bullish, but cheaper', story:'You only expect a move up to around 110. Can you give up gains above 110 in exchange for a cheaper position?',
+   target:[{t:'LC',K:90},{t:'SC',K:110}], h1:'Start from the piece in level 1, then find a way to flatten the upside.', hint:'2 pieces, both calls: buy one, sell one, at a lower and a higher strike (90 / 110).',
+   lesson:'Bull call spread: selling the higher-strike call claws back premium, at the cost of capping the upside.'},
+  {title:'Big move, unknown direction', story:'Earnings are coming. You are sure the stock will move a lot, you just do not know which way.',
+   target:[{t:'LC',K:100},{t:'LP',K:100}], h1:'You need one piece that profits on a rise and one that profits on a fall.', hint:'2 pieces at the same strike: one call and one put, both bought.',
+   lesson:'Straddle: profits either way. Its enemy is a stock that does not move, which burns both premiums.'},
+  {title:'Synthetic stock (stock locked)', story:'The target is the P&L of owning the stock, but stock pieces are locked. Build it from options only.',
+   target:[{t:'LS'}], answer:[{t:'LC',K:100},{t:'SP',K:100}], banned:['LS','SS'], h1:'Which combination behaves like a call on the way up, and like being forced to buy the stock on the way down?', hint:'2 pieces, same strike: buy a call, then add a sold... what?',
+   lesson:'Call − Put = Stock − Strike (put-call parity). Two completely different sets of pieces make exactly the same shape.'},
+  {title:'Covered call without the stock', story:'The target is "own the stock + sell the 110 call". No stock allowed, and only 1 piece.',
+   target:[{t:'LS'},{t:'SC',K:110}], answer:[{t:'SP',K:110}], banned:['LS','SS'], h1:'The target is sloped on the left and flat on the right. Is there a piece that already looks like that?', hint:'One piece is enough. Sloped on the left, flat on the right. Which piece looks like that? Watch the strike.',
+   lesson:'Covered call ≡ short put at the same strike. Many people think the covered call is "more conservative", but the risk shape is identical.'},
+  {title:'Betting on no move: butterfly', story:'You think the stock will finish near 100 and want to bet on that cheaply.',
+   target:[{t:'LC',K:90},{t:'SC',K:100,q:2},{t:'LC',K:110}], h1:'High in the middle, low on both sides. Which strike is the peak, and do you buy or sell there?', hint:'3 pieces, 4 contracts: buy 90, sell 100 ×2, buy 110, all calls.',
+   lesson:'Butterfly: low cost, peak profit at the middle strike, limited loss on both sides.'},
+  {title:'Collect rent in a range: iron condor', story:'You expect the stock to stay between 90 and 110. Collect premium, but protect both sides.',
+   target:[{t:'LP',K:80},{t:'SP',K:90},{t:'SC',K:110},{t:'LC',K:120}], h1:'Split it into left and right halves. What spread is each half?', hint:'4 pieces: sell the 90 put and the 110 call for premium, then buy protection further out on each side (80 and 120).',
+   lesson:'Iron condor: a bull put spread plus a bear call spread. You collect premium while both wings cap the risk.'},
+  {adv:true, title:'Strangle: the U shape', story:'Like a straddle, a bet on a big move, but cheaper: you accept a wider dead zone in the middle.',
+   target:[{t:'LP',K:90},{t:'LC',K:110}], h1:'Very like level 4, except the bottom of the V has been widened.', hint:'2 pieces, both bought: a lower-strike put and a higher-strike call.',
+   lesson:'Strangle: cheaper than a straddle, but the stock has to travel further before it pays.'},
+  {adv:true, title:'Twin peaks: the M shape', story:'You think the stock will finish at either 90 or 110, you just do not know which.',
+   target:[{t:'LC',K:80},{t:'SC',K:90,q:2},{t:'LC',K:100,q:2},{t:'SC',K:110,q:2},{t:'LC',K:120}], h1:'This shape is two familiar shapes added together.', hint:'Place two butterflies side by side, one centered on 90 and one on 110. The 100 strike is shared, so buy 2 there.',
+   lesson:'Shapes simply add. Two butterflies stacked make twin peaks; this is what "every butterfly is a pixel" means.'},
+  {adv:true, title:'Broken-wing butterfly', story:'A butterfly, but you fear a drop more: you want almost no loss on the downside and accept extra risk if the stock rallies too far.',
+   target:[{t:'LC',K:90},{t:'SC',K:100,q:2},{t:'LC',K:120}], h1:'Start from the butterfly in level 7 and change just one thing.', hint:'Same as a regular butterfly (buy 90, sell 100 ×2), but the upper wing is "broken" and moved out to 120.',
+   lesson:'Broken-wing butterfly: the wings are lopsided. One side is nearly risk-free, the other gains an extra stretch of loss.'},
+  {adv:true, title:'Ratio spread: the dangerous roof', story:'Mildly bullish and you want it nearly free. The trick is selling one extra contract. Watch the max loss box.',
+   target:[{t:'LC',K:100},{t:'SC',K:110,q:2}], h1:'Start from a bull call spread, then do a bit more at the higher strike.', hint:'2 kinds of piece: buy 1 × 100 call, sell 2 × 110 calls.',
+   lesson:'Ratio spread: cheap, but the extra short contract is naked. A big rally means unlimited loss ⚠'},
+  {adv:true, title:'Christmas tree (call ladder)', story:'Bullish up to around 100–110, but you do not believe in more. Buy one, sell two, strikes stepping up.',
+   target:[{t:'LC',K:90},{t:'SC',K:100},{t:'SC',K:110}], h1:'Count how many times the line bends, and whether each bend goes up or down.', hint:'3 calls: buy the 90, then sell one each at 100 and 110.',
+   lesson:'Ladder / Christmas tree: collects one more premium than a bull spread, but losses become unlimited above the top strike.'},
+  {adv:true, title:'Seagull', story:'You want a bull call spread but do not want to pay any premium, and you will take on downside risk to fund it.',
+   target:[{t:'SP',K:90},{t:'LC',K:100},{t:'SC',K:120}], h1:'Flat on the right, rising in the middle, falling on the left. What kind of piece makes the left slope?', hint:'Build a bull call spread first (buy 100, sell 120 calls), then sell the 90 put to pay for it.',
+   lesson:'Seagull: three pieces make "slope, slope, flat". Common in corporate hedging.'},
+  {adv:true, title:'Jade lizard', story:'Neutral to bullish: sell a put, plus a short bear call spread, hoping not to lose much if the stock rallies.',
+   target:[{t:'SP',K:90},{t:'SC',K:110},{t:'LC',K:120}], h1:'The left side looks like a short put. The right side looks like a capped... what?', hint:'3 pieces: sell the 90 put, sell the 110 call, buy the 120 call.',
+   lesson:'Jade lizard: ideally the total premium exceeds the width of the call spread (10), leaving no upside risk. Here it only collects about 2.56, so the right side still loses. Check the max loss box.'},
+  {adv:true, title:'Steeper and steeper: the accelerator', story:'You are very bullish and want gains to speed up the higher it goes. Make the line steeper at every strike.',
+   target:[{t:'LC',K:90},{t:'LC',K:100},{t:'LC',K:110}], h1:'The slope goes up by 1 at every strike. Which kind of piece adds slope upward?', hint:'3 calls: buy one each at 90, 100 and 110. The slope goes up by 1 at every strike.',
+   lesson:'Each extra call adds 1 to the slope: how much the line bends at a strike is how many contracts sit there. The last segment has slope 3.'},
+  {adv:true, title:'It hurts more the further it falls', story:'The flip side of collecting premium: sell one put at each of three strikes. Watch how fast losses grow on the way down.',
+   target:[{t:'SP',K:90},{t:'SP',K:100},{t:'SP',K:110}], h1:'The mirror image of the previous level: the further left, the steeper.', hint:'Sell 3 puts: one each at 90, 100 and 110.',
+   lesson:'Stacked short puts lose faster the further the stock falls, with the slope reaching 3. This is "picking up pennies in front of a steamroller".'},
+  {adv:true, title:'Backspread 1×3', story:'You believe in a huge rally. Sell one 100 call for cash, then use it to buy several 110 calls.',
+   target:[{t:'SC',K:100},{t:'LC',K:110,q:3}], h1:'The low point is at 110 and the slope is +2 after it. First think about what happens at 100.', hint:'2 kinds of piece: sell 1 × 100 call, buy 3 × 110 calls.',
+   lesson:'Backspread: a small rally is the worst case (the low point is at 110); after that the slope is +2, so gains accelerate.'},
+  {adv:true, title:'The arch: a semicircle in straight lines', story:'Build an arch from line segments with slopes 0, +2, +1, −1, −2, 0 in turn.',
+   target:[{t:'LC',K:80,q:2},{t:'SC',K:90},{t:'SC',K:100,q:2},{t:'SC',K:110},{t:'LC',K:120,q:2}], h1:'The difference between neighbouring slopes is the contract count at that strike.', hint:'The bend at each strike is the contract count, all calls: buy 2 at 80, sell 1 at 90, sell 2 at 100, sell 1 at 110, buy 2 at 120.',
+   lesson:'The bends get sharper toward the edges, so the counts grow there. Shrink the strike spacing and it looks more and more like a semicircle (try it in Draw mode).'},
+  {adv:true, title:'Half covered: slope ½', story:'You own 1 share and want to sell the 100 call on only half of it. Above 100 you keep half of the upside. (The + / − buttons move in steps of 0.5)',
+   target:[{t:'LS'},{t:'SC',K:100,q:0.5}], h1:'To go from slope 1 down to ½, what do you need to do at 100?', hint:'2 pieces: long stock ×1, short 100 call ×0.5.',
+   lesson:'Contract counts need not be whole numbers. Selling half a call drops the slope from 1 to ½. That is a partial covered call: trading half your upside for premium.'},
+  {adv:true, title:'🎂 Two-tier cake', story:'Build the side view of a two-tier cake: a wide bottom tier, a narrow top tier, flat tops and sides as steep as you can. (This level adds the 85, 95, 105 and 115 strikes)',
+   target:[{t:'LC',K:80,q:2},{t:'SC',K:85,q:2},{t:'LC',K:90,q:2},{t:'SC',K:95,q:2},{t:'SC',K:105,q:2},{t:'LC',K:110,q:2},{t:'SC',K:115,q:2},{t:'LC',K:120,q:2}], h1:'A cake is two steps stacked up. Every corner of a step is a place where the line bends.', hint:'All calls, 2 contracts each. The corners are at 80, 85, 90, 95, 105, 110, 115 and 120: buy where it bends up, sell where it bends down.',
+   lesson:'A truly vertical wall cannot be built, only approximated with steeper slopes: the straighter the wall, the more contracts you need. It is the same reason a step payoff needs lots of digital options.'},
+  {adv:true, title:'🎂 A real cake: digital options', story:'The walls in the last level were sloped. This time use the new piece, the digital call: at expiry it pays 10 if the stock is above the strike, otherwise 0. Build a two-tier cake with perfectly vertical sides.',
+   target:[{t:'LD',K:80},{t:'LD',K:90},{t:'SD',K:110},{t:'SD',K:120}], h1:'A digital call is itself a step. You need one step per wall of the cake.', hint:'4 digital calls: the two left walls jump up (buy), the two right walls jump down (sell). The walls are at 80, 90, 110 and 120.',
+   lesson:'Digital options are "step pieces": they make vertical walls that straight-line pieces cannot. Seen the other way, approximating a step with ordinary calls means a very narrow spread in very large size, which is why digitals are so hard to hedge near expiry when the stock is close to the strike.'},
+  {adv:true, title:'⚠️ TRF: the trap that looks free', story:'The sales pitch: "Gain 1× when you are right, exit automatically once you hit your target, and pay no premium." What it leaves out: you lose 2× when you are wrong. Build the shape of one TRF settlement.',
+   target:[{t:'LC',K:100},{t:'SP',K:100,q:2},{t:'SC',K:110}], h1:'The two sides have different slopes: slope 1 when you are right, slope 2 when you are wrong, and the line goes flat once the gain reaches a certain level.', hint:'3 kinds of piece, strikes 100 and 110 only: a call for the upside, a doubled put sale to pay for it, then sell a 110 call to cap the gain.',
+   lesson:'TRF (Target Redemption Forward): gains are capped, losses are doubled and unlimited. Compare the max profit and max loss boxes to see how lopsided it is. A real TRF has many settlements and knocks out early once the target is hit, but keeps losing all the way to maturity when wrong, so the true risk is worse than this picture. When the renminbi weakened in 2015–2016, many companies and individuals in Taiwan suffered heavy losses on these products.'},
+  {title:'Draw it: any shape', draw:true,
+   story:'Press and drag on the chart to draw the payoff at expiry you want. The page works out which options you need. Try the semicircle: watch what happens to the contract counts at the edges.',
+   target:null, hint:'There is just one rule: however much the line bends at a strike is how many contracts you buy (bends up) or sell (bends down) there. A semicircle gets steeper toward its edges, so the counts explode.'},
+  {title:'Free play', story:'No target. Combine anything and see what shapes you can make.', target:null, hint:'Try this: can you build a bull spread using only puts?', lesson:''},
+];
+
+let lv = 0, board = [], solved = new Set(), uid = 0, hintsUsed = 0, scored = false;
+let best = {};
+// 成績由伺服器提供（見 /static/optpuzzle-session.js）
+best = Object.assign({}, window.OPT_INIT_BEST || {}); Object.keys(best).forEach(k=>solved.add(+k));
+
+const $ = id => document.getElementById(id);
+
+function miniSVG(t){
+  const p = {t, K:100}, pts=[];
+  const vals=[]; for(let S=70;S<=130;S+=2) vals.push(pnl(p,S));
+  const m = Math.max(...vals.map(Math.abs));
+  vals.forEach((v,i)=>pts.push(`${(i/(vals.length-1))*100},${19 - v/m*15}`));
+  return `<svg viewBox="0 0 100 38" preserveAspectRatio="none"><line x1="0" y1="19" x2="100" y2="19" stroke="#ddd" stroke-width="1"/><polyline points="${pts.join(' ')}" fill="none" stroke="currentColor" stroke-width="3" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>`;
+}
+
+function renderTray(){
+  const banned = LEVELS[lv].banned || [];
+  $('tray').innerHTML = ORDER.map(t=>{
+    const d = TYPES[t], b = banned.includes(t);
+    return `<div class="piece ${d.cls} ${b?'banned':''}" draggable="${!b}" data-t="${t}"><div class="nm">${d.nm}</div><div class="en">${d.en}</div>${miniSVG(t)}</div>`;
+  }).join('');
+  $('tray').querySelectorAll('.piece').forEach(el=>{
+    const t = el.dataset.t;
+    if (el.classList.contains('banned')) return;
+    el.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain', t); });
+    el.addEventListener('click', ()=>addPiece(t));
+  });
+}
+
+function addPiece(t){
+  if ((LEVELS[lv].banned||[]).includes(t)) return;
+  board.push({id:++uid, t, K:100, q:1});
+  update();
+}
+
+function renderBoard(){
+  const d = $('drop');
+  if (!board.length){ d.innerHTML = '<div class="empty">Drag pieces here, or click one on the left</div>'; return; }
+  d.innerHTML = board.map(p=>{
+    const ty = TYPES[p.t];
+    const strike = ty.kind==='stock' ? '' :
+      `<select data-id="${p.id}">${STRIKES.map(k=>`<option ${k===p.K?'selected':''}>${k}</option>`).join('')}</select>`;
+    const prem = ty.kind==='stock' ? `cost ${S0}` :
+      `${ty.sign>0?'pay':'receive'} ${priceOf(p).toFixed(2)}`;
+    return `<div class="placed ${ty.cls}"><div><div class="nm">${ty.nm} ${strike}</div><div class="prem">${prem}</div></div>
+      <div class="qty"><button data-dq="-1" data-id="${p.id}">−</button><span>×${p.q}</span><button data-dq="1" data-id="${p.id}">+</button></div>
+      <button class="x" data-rm="${p.id}" title="Remove">✕</button></div>`;
+  }).join('');
+  d.querySelectorAll('select').forEach(s=>s.addEventListener('change',e=>{
+    board.find(p=>p.id==s.dataset.id).K = +s.value; update();
+  }));
+  d.querySelectorAll('[data-dq]').forEach(b=>b.addEventListener('click',()=>{
+    const p = board.find(p=>p.id==b.dataset.id); p.q = Math.max(0.5, Math.min(5, p.q + 0.5 * +b.dataset.dq)); update();
+  }));
+  d.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click',()=>{
+    board = board.filter(p=>p.id!=b.dataset.rm); update();
+  }));
+}
+
+function grid(){ const a=[]; for(let S=XMIN;S<=XMAX;S+=0.5) a.push(S); return a; }
+
+function renderChart(){
+  const tgt = LEVELS[lv].target;
+  const xs = grid();
+  const sumV = xs.map(S=>total(board,S));
+  const tgtV = tgt ? xs.map(S=>total(tgt,S)) : null;
+  const pieceV = board.map(p=>xs.map(S=>pnl(p,S)));
+  let all = [...sumV, ...(tgtV||[]), ...pieceV.flat()];
+  let ymax = Math.max(10, ...all), ymin = Math.min(-10, ...all);
+  const pad = (ymax-ymin)*0.08; ymax+=pad; ymin-=pad;
+  const W=720,H=360,L=48,R=14,Tp=14,B=34;
+  const X = S => L + (S-XMIN)/(XMAX-XMIN)*(W-L-R);
+  const Y = v => Tp + (ymax-v)/(ymax-ymin)*(H-Tp-B);
+  const path = arr => arr.map((v,i)=>`${i?'L':'M'}${X(xs[i]).toFixed(1)},${Y(v).toFixed(1)}`).join('');
+  let g = '';
+  // y ticks
+  const step = niceStep((ymax-ymin)/6);
+  for (let v=Math.ceil(ymin/step)*step; v<=ymax; v+=step){
+    g += `<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="${Math.abs(v)<1e-9?'#8a8f99':'#efe9dc'}" stroke-width="${Math.abs(v)<1e-9?1.2:1}"/>`;
+    g += `<text x="${L-6}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="#8a8f99">${+v.toFixed(1)}</text>`;
+  }
+  STRIKES.forEach(k=>{
+    g += `<line x1="${X(k)}" x2="${X(k)}" y1="${Tp}" y2="${H-B}" stroke="#efe9dc"/>`;
+    if (k%10===0) g += `<text x="${X(k)}" y="${H-B+16}" text-anchor="middle" font-size="11" fill="#8a8f99">${k}</text>`;
+  });
+  g += `<text x="${W-R}" y="${H-4}" text-anchor="end" font-size="11" fill="#8a8f99">Stock price at expiry →</text>`;
+  g += `<text x="${L}" y="${H-4}" font-size="11" fill="#8a8f99">${XMIN}</text>`;
+  const colors = {call:'#9db8e8', put:'#e8a993', stock:'#94cfae', digital:'#c3a6ec'};
+  pieceV.forEach((arr,i)=>{ g += `<path d="${path(arr)}" fill="none" stroke="${colors[TYPES[board[i].t].kind]}" stroke-width="2" opacity=".75"/>`; });
+  if (tgtV) g += `<path d="${path(tgtV)}" fill="none" stroke="var(--target)" stroke-width="7" stroke-dasharray="10 8" stroke-linecap="round" opacity=".55"/>`;
+  if (board.length) g += `<path d="${path(sumV)}" fill="none" stroke="${isSolved()?'var(--ok)':'var(--sum)'}" stroke-width="3.2" stroke-linejoin="round"/>`;
+  $('chart').innerHTML = g;
+}
+function niceStep(x){ const p = Math.pow(10,Math.floor(Math.log10(x))); const f=x/p; return (f<1.5?1:f<3?2:f<7?5:10)*p; }
+
+function isSolved(){
+  const tgt = LEVELS[lv].target;
+  if (!tgt || !board.length) return false;
+  if ((LEVELS[lv].banned||[]).some(b=>board.some(p=>p.t===b))) return false;
+  return grid().every(S=>Math.abs(total(board,S)-total(tgt,S))<0.02);
+}
+
+function renderStats(){
+  if (!board.length){ ['stMax','stMin','stBe'].forEach(i=>$(i).textContent='—'); return; }
+  const xs = []; for(let S=0;S<=400;S+=0.25) xs.push(S);
+  const v = xs.map(S=>total(board,S));
+  const slopeR = total(board,1001)-total(board,1000);
+  const fmt = n => (n>=0?'+':'')+n.toFixed(2);
+  $('stMax').textContent = slopeR>1e-6 ? 'Unlimited' : fmt(Math.max(...v));
+  $('stMin').textContent = slopeR<-1e-6 ? 'Unlimited ⚠' : fmt(Math.min(...v));
+  const be=[];
+  for(let i=1;i<xs.length;i++){
+    if ((v[i-1]<0&&v[i]>=0)||(v[i-1]>0&&v[i]<=0)){
+      const r = xs[i-1] + (0-v[i-1])/(v[i]-v[i-1])*(xs[i]-xs[i-1]);
+      if (!be.length || Math.abs(be[be.length-1]-r)>0.3) be.push(r);
+    }
+  }
+  $('stBe').textContent = be.length ? be.map(x=>x.toFixed(1)).join(', ') : (v.every(a=>Math.abs(a)<1e-6)?'Always 0':'None');
+}
+
+
+const MAXPTS = 3;
+const stars = n => '★'.repeat(n) + '☆'.repeat(MAXPTS-n);
+function answerText(L){
+  return (L.answer||L.target).map(p=>{ const t=TYPES[p.t]; return `${t.nm}${t.kind==='stock'?'':' '+p.K} ×${p.q||1}`; }).join(', ');
+}
+function renderHints(){
+  const L = LEVELS[lv], btn = $('hintBtn');
+  if (!L.target){ $('hint').textContent = '💡 ' + L.hint; btn.textContent = 'Hint'; btn.disabled = false; return; }
+  const tiers = [L.h1, L.hint, answerText(L)];
+  $('hint').innerHTML = tiers.slice(0,hintsUsed).map((h,i)=> `<div>${i===2 ? '🔑 Answer: ' : `💡 Hint ${i+1}: `}${h}</div>`).join('');
+  $('hint').classList.toggle('show', hintsUsed>0);
+  btn.disabled = hintsUsed>=3;
+  btn.textContent = hintsUsed>=3 ? 'No more hints' : (hintsUsed===2 ? 'Answer' : 'Hint ' + (hintsUsed+1)) + (scored ? '' : ' (−1 pt)');
+}
+function totalScore(){ return Object.values(best).reduce((a,b)=>a+b,0); }
+
+function renderLevelHead(){
+  const L = LEVELS[lv];
+  $('lvTag').textContent = L.draw ? 'NEW MODE' : L.target ? (L.adv?'ADVANCED · ':'')+`LEVEL ${lv+1}` : 'SANDBOX';
+  $('lvTitle').textContent = L.title;
+  $('lvStory').textContent = L.story;
+  renderHints();
+  $('levels').innerHTML = LEVELS.map((x,i)=>`<button class="lvbtn ${i===lv?'cur':''} ${solved.has(i)?'done':''}" data-lv="${i}">${x.draw?'✏️ Draw':x.target? (i+1)+(solved.has(i)?' '+stars(best[i]||0):'') : 'Free'}</button>`).join('');
+  const puz = LEVELS.filter(x=>x.target).length;
+  $('levels').insertAdjacentHTML('beforeend', `<span class="lvbtn" style="cursor:default;border-color:transparent;font-weight:700;color:var(--ink)">Score ${totalScore()} / ${puz*MAXPTS}</span>`);
+  $('levels').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>goLevel(+b.dataset.lv)));
+}
+
+function update(){
+  if (LEVELS[lv].draw){ renderDraw(); $('win').classList.remove('show'); $('nextBtn').disabled = lv>=LEVELS.length-1; return; }
+  renderBoard(); renderChart(); renderStats();
+  const ok = isSolved(), L = LEVELS[lv];
+  if (ok){
+    if (!scored){
+      scored = true;
+      const pts = Math.max(0, MAXPTS - hintsUsed);
+      best[lv] = Math.max(best[lv]||0, pts); solved.add(lv);
+      if (window.optOnScore) window.optOnScore(best, totalScore(), LEVELS.filter(x=>x.target).length*MAXPTS);
+      renderLevelHead();
+    }
+    $('win').innerHTML = `<b>Solved!</b> &nbsp;Points this level: <b>${stars(Math.max(0,MAXPTS-hintsUsed))}</b><p>${L.lesson}</p>`;
+    $('win').classList.add('show');
+  } else $('win').classList.remove('show');
+  $('nextBtn').disabled = !(ok || solved.has(lv)) || lv>=LEVELS.length-1;
+}
+
+function goLevel(i){
+  lv = i; board = []; hintsUsed = 0; scored = false; $('hint').classList.remove('show');
+  const dm = !!LEVELS[lv].draw;
+  $('main').classList.toggle('drawmode', dm);
+  $('drawSec').style.display = dm ? '' : 'none';
+  $('boardSec').style.display = dm ? 'none' : '';
+  $('chart').classList.toggle('drawable', dm);
+  $('k1').textContent = dm ? 'Cost today' : 'Max profit';
+  $('k2').textContent = dm ? 'Total option contracts' : 'Max loss';
+  $('k3').textContent = dm ? 'Largest count (one strike)' : 'Breakeven(s)';
+  $('legend').innerHTML = dm
+    ? '<span><i style="border-color:var(--target);border-top-style:dashed"></i>Your drawing</span><span><i style="border-color:var(--sum)"></i>Payoff of the option position</span><span><i style="border-color:#c9ccd3;border-top-width:2px"></i>Strikes</span>'
+    : '<span><i style="border-color:var(--target);border-top-style:dashed"></i>Target shape</span><span><i style="border-color:var(--sum)"></i>Your combined position</span><span><i style="border-color:#c9ccd3;border-top-width:2px"></i>Individual pieces</span>';
+  renderLevelHead(); renderTray(); update();
+}
+
+const drop = $('drop');
+drop.addEventListener('dragover', e=>{ e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', ()=>drop.classList.remove('over'));
+drop.addEventListener('drop', e=>{ e.preventDefault(); drop.classList.remove('over'); const t=e.dataTransfer.getData('text/plain'); if (TYPES[t]) addPiece(t); });
+$('hintBtn').addEventListener('click', ()=>{
+  if (!LEVELS[lv].target){ $('hint').classList.toggle('show'); return; }
+  if (hintsUsed<3){ hintsUsed++; renderHints(); }
+});
+$('clearBtn').addEventListener('click', ()=>{ board=[]; update(); });
+$('nextBtn').addEventListener('click', ()=>goLevel(Math.min(lv+1, LEVELS.length-1)));
+
+/* ---------- Draw mode ---------- */
+const DY = [-20, 40];               // fixed y range in draw mode
+let drawVals = new Array(XMAX-XMIN+1).fill(0); // value at S = 60..140 step 1
+let gap = 5, lastPt = null;
+const CH = {W:720,H:360,L:48,R:14,Tp:14,B:34};
+const dX = S => CH.L + (S-XMIN)/(XMAX-XMIN)*(CH.W-CH.L-CH.R);
+const dY = v => CH.Tp + (DY[1]-v)/(DY[1]-DY[0])*(CH.H-CH.Tp-CH.B);
+const invX = x => XMIN + (x-CH.L)/(CH.W-CH.L-CH.R)*(XMAX-XMIN);
+const invY = y => DY[1] - (y-CH.Tp)/(CH.H-CH.Tp-CH.B)*(DY[1]-DY[0]);
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+function drawAt(S){ // linear interp of drawn curve
+  S = clamp(S, XMIN, XMAX); const i = Math.floor(S-XMIN), f = S-XMIN-i;
+  return i>=drawVals.length-1 ? drawVals[drawVals.length-1] : drawVals[i]*(1-f)+drawVals[i+1]*f;
+}
+function strikesGrid(){ const a=[]; for(let k=XMIN;k<=XMAX+1e-9;k+=gap) a.push(+k.toFixed(4)); return a; }
+
+// Carr-Madan style static replication on a discrete grid:
+// f(S) = f(S0) + f'(S0)(S-S0) + Σ_{K<S0} Δslope_K · Put(K) + Σ_{K≥S0} Δslope_K · Call(K)
+// flat outside the drawing range.
+function recipe(){
+  const Ks = strikesGrid(), f = Ks.map(drawAt);
+  const seg = []; for(let i=0;i<Ks.length-1;i++) seg.push((f[i+1]-f[i])/(Ks[i+1]-Ks[i]));
+  const legs = Ks.map((K,i)=>{
+    const sl = i===0 ? 0 : seg[i-1], sr = i===Ks.length-1 ? 0 : seg[i];
+    return {K, q: sr - sl, kind: K < S0 ? 'put' : 'call'};
+  }).filter(l=>Math.abs(l.q)>1e-9);
+  const i0 = Ks.findIndex(k=>Math.abs(k-S0)<1e-9);
+  const stock = i0>0 ? seg[i0-1] : 0;
+  const cash = drawAt(S0);
+  const cost = cash + legs.reduce((a,l)=>a + l.q*(l.kind==='call'?callPx(l.K):putPx(l.K)), 0);
+  const payoff = S => cash + stock*(S-S0) + legs.reduce((a,l)=>a + l.q*(l.kind==='call'?Math.max(S-l.K,0):Math.max(l.K-S,0)), 0);
+  return {Ks, legs, stock, cash, cost, payoff};
+}
+
+function renderDraw(){
+  const r = recipe();
+  let g = '';
+  for (let v=DY[0]; v<=DY[1]; v+=10){
+    g += `<line x1="${CH.L}" x2="${CH.W-CH.R}" y1="${dY(v)}" y2="${dY(v)}" stroke="${v===0?'#8a8f99':'#efe9dc'}" stroke-width="${v===0?1.2:1}"/>`;
+    g += `<text x="${CH.L-6}" y="${dY(v)+4}" text-anchor="end" font-size="11" fill="#8a8f99">${v}</text>`;
+  }
+  r.Ks.forEach(k=>{ g += `<line x1="${dX(k)}" x2="${dX(k)}" y1="${CH.Tp}" y2="${CH.H-CH.B}" stroke="#e6e1d6" stroke-width="${gap>=5?1:.6}"/>`; });
+  for (let k=XMIN;k<=XMAX;k+=10) g += `<text x="${dX(k)}" y="${CH.H-CH.B+16}" text-anchor="middle" font-size="11" fill="#8a8f99">${k}</text>`;
+  g += `<text x="${CH.W-CH.R}" y="${CH.H-4}" text-anchor="end" font-size="11" fill="#8a8f99">Stock price at expiry →</text>`;
+  g += `<text x="${CH.L+4}" y="${CH.Tp+12}" font-size="11" fill="#8a8f99">Payoff at expiry (before cost)</text>`;
+  const dp = drawVals.map((v,i)=>`${i?'L':'M'}${dX(XMIN+i).toFixed(1)},${dY(v).toFixed(1)}`).join('');
+  g += `<path d="${dp}" fill="none" stroke="var(--target)" stroke-width="7" stroke-dasharray="10 8" stroke-linecap="round" opacity=".55"/>`;
+  const ap = r.Ks.map((k,i)=>`${i?'L':'M'}${dX(k).toFixed(1)},${dY(r.payoff(k)).toFixed(1)}`).join('');
+  g += `<path d="${ap}" fill="none" stroke="var(--sum)" stroke-width="3.2" stroke-linejoin="round"/>`;
+  r.Ks.forEach(k=>{ g += `<circle cx="${dX(k)}" cy="${dY(r.payoff(k))}" r="${gap>=5?3:1.8}" fill="var(--sum)"/>`; });
+  g += `<rect x="${CH.L}" y="${CH.Tp}" width="${CH.W-CH.L-CH.R}" height="${CH.H-CH.Tp-CH.B}" fill="transparent"/>`;
+  $('chart').innerHTML = g;
+
+  // quantity bars
+  const W=720,H=200,L=48,R=14,mid=100;
+  const qmax = Math.max(1, ...r.legs.map(l=>Math.abs(l.q)));
+  const bw = Math.max(2, (W-L-R)/((XMAX-XMIN)/gap+1)*0.6);
+  let q = `<line x1="${L}" x2="${W-R}" y1="${mid}" y2="${mid}" stroke="#8a8f99"/>`;
+  q += `<text x="${L-6}" y="${18}" text-anchor="end" font-size="11" fill="#8a8f99">+${+qmax.toFixed(2)}</text>`;
+  q += `<text x="${L-6}" y="${H-10}" text-anchor="end" font-size="11" fill="#8a8f99">−${+qmax.toFixed(2)}</text>`;
+  q += `<text x="${L+4}" y="${H-6}" font-size="11" fill="#d2542f">← Puts</text><text x="${W-R}" y="${H-6}" text-anchor="end" font-size="11" fill="#2f6fd6">Calls →</text>`;
+  r.legs.forEach(l=>{
+    const x = L + (l.K-XMIN)/(XMAX-XMIN)*(W-L-R), h = l.q/qmax*85;
+    q += `<rect x="${x-bw/2}" y="${h>0?mid-h:mid}" width="${bw}" height="${Math.abs(h)}" rx="2" fill="${l.kind==='call'?'#2f6fd6':'#d2542f'}" opacity="${l.q>0?1:.55}"/>`;
+  });
+  $('qchart').innerHTML = q;
+
+  // recipe list
+  const fq = n => (+Math.abs(n).toFixed(2)).toString();
+  let items = [];
+  if (Math.abs(r.cash)>1e-6) items.push(`<div>${r.cash>0?'Hold':'Borrow'} cash <b>${fq(r.cash)}</b></div>`);
+  if (Math.abs(r.stock)>1e-6) items.push(`<div class="${r.stock>0?'buy':'sell'}">${r.stock>0?'Buy':'Short'} stock <b>${fq(r.stock)}</b> sh</div>`);
+  r.legs.forEach(l=>items.push(`<div class="${l.q>0?'buy':'sell'}">${l.q>0?'Buy':'Sell'} ${l.K} ${l.kind==='call'?'call':'put'} <b>×${fq(l.q)}</b></div>`));
+  $('recipe').innerHTML = items.length ? items.join('') : '<div>The line is flat: nothing to buy.</div>';
+
+  const totalQ = r.legs.reduce((a,l)=>a+Math.abs(l.q),0);
+  const big = r.legs.reduce((m,l)=>Math.abs(l.q)>Math.abs(m.q)?l:m, {q:0});
+  $('stMax').textContent = (r.cost>=0?'Pay ':'Receive ') + Math.abs(r.cost).toFixed(2);
+  $('stMin').textContent = totalQ.toFixed(2) + ' contracts';
+  $('stBe').textContent = big.K ? `${big.K}: ${fq(big.q)} contracts` : '—';
+  $('drawNote').textContent = r.legs.length
+    ? `Contract counts can be fractional; think of them as a scaling factor. The stock is bought with borrowed money, so its net cost is 0. Cost today = cash + option premiums.`
+    : '';
+}
+
+function svgPt(e){
+  const pt = $('chart').createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+  const p = pt.matrixTransform($('chart').getScreenCTM().inverse());
+  return {S: clamp(invX(p.x), XMIN, XMAX), v: clamp(invY(p.y), DY[0], DY[1])};
+}
+function paint(a, b){
+  const s0 = Math.round(Math.min(a.S,b.S)), s1 = Math.round(Math.max(a.S,b.S));
+  for (let S=s0; S<=s1; S++){
+    const t = a.S===b.S ? 1 : (S-a.S)/(b.S-a.S);
+    drawVals[S-XMIN] = a.v + (b.v-a.v)*clamp(t,0,1);
+  }
+}
+$('chart').addEventListener('pointerdown', e=>{
+  if (!LEVELS[lv].draw) return;
+  $('chart').setPointerCapture(e.pointerId);
+  lastPt = svgPt(e); paint(lastPt,lastPt); renderDraw();
+});
+$('chart').addEventListener('pointermove', e=>{
+  if (!LEVELS[lv].draw || !lastPt) return;
+  const p = svgPt(e); paint(lastPt,p); lastPt = p; renderDraw();
+});
+['pointerup','pointercancel'].forEach(ev=>$('chart').addEventListener(ev, ()=>{ lastPt = null; }));
+
+const PRESETS = {
+  semi: S => Math.abs(S-100)<=40 ? Math.sqrt(1600-(S-100)**2)*0.75 : 0,
+  smile: S => 0.02*(S-100)**2 - 10,
+  step: S => S<100 ? 0 : 20,
+  saw: S => ((S-60)%20)*1.25 - 5,
+  sine: S => 15*Math.sin((S-60)/80*4*Math.PI) + 10,
+  cake: S => (Math.abs(S-100)<=28?12:0) + (Math.abs(S-100)<=16?12:0) + (Math.abs(S-100)<=1?10:0),
+  zero: S => 0,
+};
+document.querySelectorAll('[data-pre]').forEach(b=>b.addEventListener('click',()=>{
+  const fn = PRESETS[b.dataset.pre];
+  drawVals = drawVals.map((_,i)=>clamp(fn(XMIN+i), DY[0], DY[1])); renderDraw();
+}));
+function setGap(g){ gap = g; document.querySelectorAll('#gapSeg button').forEach(b=>b.classList.toggle('on', +b.dataset.gap===g)); if (LEVELS[lv].draw) renderDraw(); }
+document.querySelectorAll('#gapSeg button').forEach(b=>b.addEventListener('click',()=>setGap(+b.dataset.gap)));
+setGap(5);
+drawVals = drawVals.map((_,i)=>PRESETS.semi(XMIN+i));
+
+
+goLevel(0);
+</script>
+</body>
+</html>

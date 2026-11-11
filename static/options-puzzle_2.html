@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>選擇權拼圖</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f1e7; --paper:#fffdf8; --ink:#1f2430; --muted:#6b6f7a; --line:#e3dccd;
+    --call:#2f6fd6; --put:#d2542f; --stock:#2e9a63; --target:#9aa0ab; --sum:#1f2430;
+    --ok:#2e9a63; --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC",system-ui,sans-serif;line-height:1.5}
+  header{padding:22px 24px 6px;max-width:1180px;margin:0 auto;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  h1{font-size:26px;font-weight:900;margin:0;letter-spacing:.02em}
+  h1 span{color:var(--call)}
+  .sub{color:var(--muted);font-size:14px;margin:2px 0 0}
+  .levels{display:flex;gap:6px;flex-wrap:wrap}
+  .lvbtn{border:1.5px solid var(--line);background:var(--paper);border-radius:999px;padding:4px 11px;font:inherit;font-size:13px;cursor:pointer;color:var(--muted)}
+  .lvbtn.cur{border-color:var(--ink);color:var(--ink);font-weight:700}
+  .lvbtn.done{background:#e3f3ea;border-color:#b9dfc8;color:#1f6b44}
+  main{max-width:1180px;margin:0 auto;padding:12px 24px 40px;display:grid;grid-template-columns:270px 1fr;gap:18px}
+  @media (max-width:860px){main{grid-template-columns:1fr}}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+  .tray h2,.board h2{font-size:14px;margin:0 0 10px;color:var(--muted);font-weight:700;letter-spacing:.06em}
+  .pieces{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .piece{position:relative;border:2px solid currentColor;border-radius:10px;padding:8px 8px 6px;cursor:grab;background:#fff;user-select:none;transition:transform .12s, box-shadow .12s}
+  .piece:hover{transform:translateY(-2px);box-shadow:0 4px 10px rgba(0,0,0,.08)}
+  .piece:active{cursor:grabbing}
+  .piece.banned{opacity:.3;cursor:not-allowed;filter:grayscale(1)}
+  .piece.banned::after{content:"本關禁用";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#000}
+  /* puzzle tab */
+  .piece::before{content:"";position:absolute;right:-9px;top:50%;width:14px;height:14px;margin-top:-7px;border-radius:50%;background:#fff;border:2px solid currentColor;border-left-color:transparent;border-bottom-color:transparent;transform:rotate(45deg)}
+  .piece .nm{font-weight:700;font-size:14px;color:var(--ink)}
+  .piece .en{font-size:11px;color:var(--muted)}
+  .piece svg{display:block;width:100%;height:38px;margin-top:4px}
+  .c-digital{color:#8a4fd6} .c-call{color:var(--call)} .c-put{color:var(--put)} .c-stock{color:var(--stock)}
+  .tip{font-size:12px;color:var(--muted);margin-top:12px}
+  .right{display:flex;flex-direction:column;gap:18px;min-width:0}
+  .mission{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+  .mission .lv{font-size:12px;font-weight:700;color:var(--call);letter-spacing:.08em}
+  .mission h3{margin:2px 0 4px;font-size:20px}
+  .mission p{margin:0;color:var(--muted);font-size:14px;max-width:640px}
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+  button.b{font:inherit;font-size:13px;border-radius:8px;padding:6px 12px;border:1.5px solid var(--ink);background:#fff;cursor:pointer}
+  button.b.pri{background:var(--ink);color:#fff}
+  button.b:disabled{opacity:.35;cursor:default}
+  .chartwrap{position:relative}
+  #chart{width:100%;height:auto;display:block}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
+  .legend i{display:inline-block;width:22px;height:0;border-top:3px solid;vertical-align:middle;margin-right:5px}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+  .stat{background:var(--bg);border-radius:10px;padding:8px 10px}
+  .stat .k{font-size:11px;color:var(--muted)} .stat .v{font-weight:700;font-size:15px}
+  .board{min-height:140px}
+  .drop{border:2px dashed var(--line);border-radius:12px;min-height:96px;padding:10px;display:flex;flex-wrap:wrap;gap:10px;align-content:flex-start;transition:background .15s,border-color .15s}
+  .drop.over{background:#eef4ff;border-color:var(--call)}
+  .drop .empty{color:var(--muted);font-size:13px;margin:auto}
+  .placed{display:flex;align-items:center;gap:8px;border:2px solid currentColor;border-radius:10px;padding:6px 8px;background:#fff;animation:pop .2s ease}
+  @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
+  .placed .nm{font-weight:700;font-size:13px;color:var(--ink)}
+  .placed select{font:inherit;font-size:13px;border:1px solid var(--line);border-radius:6px;padding:1px 4px;background:#fff}
+  .qty{display:flex;align-items:center;gap:2px;color:var(--ink);font-size:13px}
+  .qty button,.x{width:22px;height:22px;border-radius:6px;border:1px solid var(--line);background:#fff;cursor:pointer;font:inherit;font-size:13px;line-height:1;padding:0;color:var(--ink)}
+  .x{border:none;color:var(--muted)}
+  .prem{font-size:11px;color:var(--muted)}
+  .win{display:none;margin-top:12px;border-radius:12px;padding:12px 14px;background:#e3f3ea;border:1px solid #b9dfc8}
+  .win.show{display:block;animation:pop .25s ease}
+  .win b{color:#1f6b44}
+  .win p{margin:4px 0 0;font-size:14px}
+  .hint{display:none;margin-top:10px;font-size:13px;background:#fff6dd;border:1px solid #f0dfa6;border-radius:10px;padding:8px 12px}
+  .hint.show{display:block}
+  .hint div+div{margin-top:4px}
+  main.drawmode{grid-template-columns:1fr}
+  main.drawmode .tray{display:none}
+  #chart.drawable{cursor:crosshair;touch-action:none}
+  .presets{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .presets .lab{font-size:13px;color:var(--muted);margin-right:4px}
+  .seg{display:inline-flex;border:1.5px solid var(--ink);border-radius:8px;overflow:hidden}
+  .seg button{font:inherit;font-size:13px;border:none;background:#fff;padding:5px 10px;cursor:pointer}
+  .seg button.on{background:var(--ink);color:#fff}
+  .recipe{margin-top:12px;font-size:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px}
+  .recipe div{background:var(--bg);border-radius:8px;padding:5px 9px}
+  .recipe .buy{color:#1f6b44} .recipe .sell{color:#a33d1f}
+  #qchart{width:100%;height:auto;display:block;margin-top:10px}
+  .note{font-size:13px;color:var(--muted);margin-top:8px}
+  .foot{max-width:1180px;margin:0 auto;padding:0 24px 30px;font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>選擇權<span>拼圖</span></h1>
+    <p class="sub">把零件拖進拼盤（或直接點一下），讓粗黑線疊成灰色虛線的形狀。圖上是到期日損益（已扣權利金）。</p>
+  </div>
+  <div class="levels" id="levels"></div>
+</header>
+
+<main id="main">
+  <section class="card tray">
+    <h2>零件盒</h2>
+    <div class="pieces" id="tray"></div>
+    <div class="tip">現價 S₀ = 100　波動率 25%　距到期 3 個月　利率 0<br>權利金由 Black-Scholes 計算，所以等價關係會剛好成立。</div>
+  </section>
+
+  <div class="right">
+    <section class="card">
+      <div class="mission">
+        <div>
+          <div class="lv" id="lvTag"></div>
+          <h3 id="lvTitle"></h3>
+          <p id="lvStory"></p>
+        </div>
+        <div class="btns">
+          <button class="b" id="hintBtn">提示</button>
+          <button class="b" id="clearBtn">清空</button>
+          <button class="b pri" id="nextBtn" disabled>下一關 →</button>
+        </div>
+      </div>
+      <div class="hint" id="hint"></div>
+      <div class="chartwrap" style="margin-top:12px">
+        <svg id="chart" viewBox="0 0 720 360"></svg>
+      </div>
+      <div class="legend" id="legend">
+        <span><i style="border-color:var(--target);border-top-style:dashed"></i>目標形狀</span>
+        <span><i style="border-color:var(--sum)"></i>你拼出來的合計</span>
+        <span><i style="border-color:#c9ccd3;border-top-width:2px"></i>各零件（疊加前）</span>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="k" id="k1">最大獲利</div><div class="v" id="stMax">—</div></div>
+        <div class="stat"><div class="k" id="k2">最大虧損</div><div class="v" id="stMin">—</div></div>
+        <div class="stat"><div class="k" id="k3">損益兩平點</div><div class="v" id="stBe">—</div></div>
+      </div>
+      <div class="win" id="win"></div>
+    </section>
+
+    <section class="card" id="drawSec" style="display:none">
+      <h2 style="font-size:14px;margin:0 0 10px;color:var(--muted);letter-spacing:.06em">畫筆與配方</h2>
+      <div class="presets">
+        <span class="lab">範例形狀：</span>
+        <button class="b" data-pre="semi">半圓</button>
+        <button class="b" data-pre="smile">微笑</button>
+        <button class="b" data-pre="step">階梯</button>
+        <button class="b" data-pre="saw">鋸齒</button>
+        <button class="b" data-pre="sine">波浪</button>
+        <button class="b" data-pre="cake">🎂 蛋糕</button>
+        <button class="b" data-pre="zero">清空</button>
+      </div>
+      <div class="presets" style="margin-top:10px">
+        <span class="lab">履約價間距：</span>
+        <span class="seg" id="gapSeg"><button data-gap="10">10</button><button data-gap="5">5</button><button data-gap="2.5">2.5</button><button data-gap="1">1</button></span>
+        <span class="lab" style="margin-left:6px">間距越小，折線越像你畫的線，但需要的選擇權也越多。</span>
+      </div>
+      <div style="margin-top:14px;font-size:13px;font-weight:700">每個履約價的口數（向上 = 買進，向下 = 賣出）</div>
+      <svg id="qchart" viewBox="0 0 720 200"></svg>
+      <div class="recipe" id="recipe"></div>
+      <div class="note" id="drawNote"></div>
+    </section>
+
+    <section class="card board" id="boardSec">
+      <h2>拼盤</h2>
+      <div class="drop" id="drop"></div>
+    </section>
+  </div>
+</main>
+<div class="foot">教學原型：只呈現到期日損益，不含時間價值與 Greeks 的變化。不構成投資建議。</div>
+
+<script src="/static/optpuzzle-session.js"></script>
+<script>
+const S0 = 100, SIG = 0.25, T = 0.25;
+const STRIKES = [80, 85, 90, 95, 100, 105, 110, 115, 120];
+const XMIN = 60, XMAX = 140;
+
+function erf(x){ // Abramowitz-Stegun
+  const s = Math.sign(x); x = Math.abs(x);
+  const t = 1/(1+0.3275911*x);
+  const y = 1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x);
+  return s*y;
+}
+const N = x => 0.5*(1+erf(x/Math.SQRT2));
+function callPx(K, t=T){
+  const d1 = (Math.log(S0/K)+0.5*SIG*SIG*t)/(SIG*Math.sqrt(t));
+  const d2 = d1 - SIG*Math.sqrt(t);
+  return S0*N(d1) - K*N(d2);
+}
+const putPx = (K, t=T) => callPx(K, t) - S0 + K; // put-call parity, r = 0
+const DPAY = 10; // digital (cash-or-nothing) call pays 10 if S > K at expiry
+function digitalPx(K, t=T){ const d2 = (Math.log(S0/K)-0.5*SIG*SIG*t)/(SIG*Math.sqrt(t)); return DPAY*N(d2); }
+const priceOf = p => TYPES[p.t].kind==='call' ? callPx(p.K) : TYPES[p.t].kind==='put' ? putPx(p.K) : digitalPx(p.K);
+
+const TYPES = {
+  LC:{nm:'買進買權', en:'Long Call',  kind:'call', sign:+1, cls:'c-call'},
+  SC:{nm:'賣出買權', en:'Short Call', kind:'call', sign:-1, cls:'c-call'},
+  LP:{nm:'買進賣權', en:'Long Put',   kind:'put',  sign:+1, cls:'c-put'},
+  SP:{nm:'賣出賣權', en:'Short Put',  kind:'put',  sign:-1, cls:'c-put'},
+  LS:{nm:'買進現貨', en:'Long Stock', kind:'stock',sign:+1, cls:'c-stock'},
+  LD:{nm:'買進數位買權', en:'Digital Call：漲過履約價就拿 10', kind:'digital', sign:+1, cls:'c-digital'},
+  SD:{nm:'賣出數位買權', en:'Short Digital：漲過就付 10', kind:'digital', sign:-1, cls:'c-digital'},
+  SS:{nm:'放空現貨', en:'Short Stock',kind:'stock',sign:-1, cls:'c-stock'},
+};
+const ORDER = ['LC','SC','LP','SP','LS','SS','LD','SD'];
+
+function pnl(p, S){
+  const t = TYPES[p.t], q = p.q || 1;
+  if (t.kind==='stock') return t.sign*(S-S0)*q;
+  if (t.kind==='digital') return t.sign*((S>p.K?DPAY:0)-digitalPx(p.K))*q;
+  if (t.kind==='call')  return t.sign*(Math.max(S-p.K,0)-callPx(p.K))*q;
+  return t.sign*(Math.max(p.K-S,0)-putPx(p.K))*q;
+}
+const total = (ps, S) => ps.reduce((a,p)=>a+pnl(p,S),0);
+
+const LEVELS = [
+  {title:'看漲，但最多只想賠一點', story:'你覺得股價會漲，但不想承擔下跌的無限風險。用一片零件拼出來。',
+   target:[{t:'LC',K:100}], h1:'想想看：你要的是上漲時賺錢、下跌時損失有限。這要用「買」還是「賣」？', hint:'只需要 1 片。上漲有利、下跌損失有上限的是哪一片？',
+   lesson:'買進買權：最大損失就是付出的權利金，上檔無上限。'},
+  {title:'看跌，也是風險有限', story:'這次你看空。同樣只用一片，最多只賠權利金。',
+   target:[{t:'LP',K:100}], h1:'跟上一關的方向相反。', hint:'1 片，紅色系。',
+   lesson:'買進賣權：股價越低越賺，最大損失也是權利金。'},
+  {title:'溫和看漲，想省一點成本', story:'你只覺得會漲到 110 附近。能不能放棄 110 以上的獲利，換一筆較便宜的部位？',
+   target:[{t:'LC',K:90},{t:'SC',K:110}], h1:'從第 1 關的零件出發，再想辦法把上漲那段「切平」。', hint:'2 片，都是買權：一買一賣，履約價一低一高（90 / 110）。',
+   lesson:'多頭價差：賣出較高履約價的買權收回權利金，代價是上檔被封頂。'},
+  {title:'會有大行情，但不知道方向', story:'財報要公布了，你確定會大漲或大跌，只是不知道哪一邊。',
+   target:[{t:'LC',K:100},{t:'LP',K:100}], h1:'你需要一片上漲時賺錢的零件，也需要一片下跌時賺錢的零件。', hint:'2 片：同一個履約價，一片買權、一片賣權，都買進。',
+   lesson:'跨式（Straddle）：兩邊都能賺，最怕價格不動，雙重權利金會全部流失。'},
+  {title:'合成現貨（禁用現貨）', story:'目標是「買進現貨」的損益，但這關不准用現貨，只能用選擇權拼出來。',
+   target:[{t:'LS'}], answer:[{t:'LC',K:100},{t:'SP',K:100}], banned:['LS','SS'], h1:'哪個組合在上漲時像買權，下跌時又像被迫接下股票？', hint:'2 片、同一履約價：買進一片買權，再加上一片……賣出的什麼？',
+   lesson:'買權 − 賣權 = 現貨 − 履約價（Put-Call Parity）。兩組完全不同的零件，拼出一模一樣的形狀。'},
+  {title:'掩護性買權，但手上沒有股票', story:'目標是「持有現貨 + 賣出 110 買權」的形狀。不准用現貨，而且只能用 1 片。',
+   target:[{t:'LS'},{t:'SC',K:110}], answer:[{t:'SP',K:110}], banned:['LS','SS'], h1:'目標是左邊斜、右邊平。零件盒裡有沒有哪一片本來就長這樣？', hint:'1 片就夠。觀察形狀：左邊斜線、右邊平的。哪一片長這樣？注意履約價。',
+   lesson:'掩護性買權 ≡ 賣出同履約價的賣權。很多人以為前者「比較保守」，其實風險形狀完全相同。'},
+  {title:'押注價格不動：蝶式', story:'你認為到期時股價會停在 100 附近，想用很小的成本押注這件事。',
+   target:[{t:'LC',K:90},{t:'SC',K:100,q:2},{t:'LC',K:110}], h1:'中間高、兩邊低。最高點在哪個履約價？在那裡應該買還是賣？', hint:'3 種零件、4 份數量：買 90、賣 100 ×2、買 110，全部是買權。',
+   lesson:'蝶式：成本低、最大獲利在中間履約價，兩側損失都有限。'},
+  {title:'區間盤整收租：鐵兀鷹', story:'你認為股價會待在 90～110 之間。收權利金，但兩邊都要有保護。',
+   target:[{t:'LP',K:80},{t:'SP',K:90},{t:'SC',K:110},{t:'LC',K:120}], h1:'把它拆成左右兩半，各自是什麼價差？', hint:'4 片：賣出 90 賣權、賣出 110 買權收權利金，再各自往外買一片保護（80、120）。',
+   lesson:'鐵兀鷹：等於一個多頭賣權價差加上一個空頭買權價差，收租但風險被兩翼封住。'},
+  {adv:true, title:'寬跨式：U 形', story:'跟跨式一樣押大行情，但想便宜一點：願意讓中間那段「不賺不賠區」變寬。',
+   target:[{t:'LP',K:90},{t:'LC',K:110}], h1:'跟第 4 關很像，只是 V 的底部被拉寬了。', hint:'2 片，都買進：一片低履約價的賣權、一片高履約價的買權。',
+   lesson:'寬跨式（Strangle）：比跨式便宜，但股價要跑得更遠才開始賺。'},
+  {adv:true, title:'雙峰：M 字', story:'你覺得股價會停在 90 或 110 其中之一，只是不知道是哪一個。',
+   target:[{t:'LC',K:80},{t:'SC',K:90,q:2},{t:'LC',K:100,q:2},{t:'SC',K:110,q:2},{t:'LC',K:120}], h1:'這個形狀是兩個熟悉的形狀加起來的。', hint:'把兩個蝶式並排：一個以 90 為中心、一個以 110 為中心。中間 100 那片會被兩個蝶式共用，所以要買 2 口。',
+   lesson:'形狀可以直接相加。兩個蝶式疊起來就是雙峰，這就是「每個蝶式是一個像素」的意思。'},
+  {adv:true, title:'斷翅蝶式', story:'蝶式，但你更怕下跌：想讓下跌那一側幾乎不賠錢，願意承擔上漲過頭的風險。',
+   target:[{t:'LC',K:90},{t:'SC',K:100,q:2},{t:'LC',K:120}], h1:'從第 7 關的蝶式出發，只改一個地方。', hint:'跟普通蝶式一樣是買 90、賣 100 ×2，但上方那隻翅膀「折斷」往外移到 120。',
+   lesson:'斷翅蝶式（Broken-wing）：兩翼不對稱，一邊幾乎沒有風險，另一邊多了一段虧損。'},
+  {adv:true, title:'比率價差：危險的屋頂', story:'溫和看漲，而且想要幾乎零成本。辦法是多賣一口。看看最大虧損欄會出現什麼。',
+   target:[{t:'LC',K:100},{t:'SC',K:110,q:2}], h1:'從多頭價差出發，然後在高履約價那裡多做一點。', hint:'2 種零件：買 1 口 100 買權、賣 2 口 110 買權。',
+   lesson:'比率價差：成本低，但多賣的那一口沒有保護。股價大漲時虧損無上限 ⚠'},
+  {adv:true, title:'聖誕樹（買權階梯）', story:'看漲到 100～110 一帶，但不相信會漲更多。用一買兩賣、履約價依序排開。',
+   target:[{t:'LC',K:90},{t:'SC',K:100},{t:'SC',K:110}], h1:'數數看損益線轉了幾個彎，每個彎是往上還是往下？', hint:'3 片買權：買 90，然後在 100 和 110 各賣一口。',
+   lesson:'階梯（Ladder / 聖誕樹）：比多頭價差多收一份權利金，但超過最高履約價後虧損又無上限。'},
+  {adv:true, title:'海鷗', story:'你想買多頭價差，但連權利金都不想付，願意承擔下跌的風險來換。',
+   target:[{t:'SP',K:90},{t:'LC',K:100},{t:'SC',K:120}], h1:'右邊平、中間往上、左邊往下。左邊那段斜線是哪一種零件造成的？', hint:'先拼一個多頭價差（買 100、賣 120 買權），再賣一片 90 賣權來付錢。',
+   lesson:'海鷗（Seagull）：三片拼出「左邊斜、中間斜、右邊平」，常見於企業避險。'},
+  {adv:true, title:'翡翠蜥蜴', story:'中性偏多：賣一片賣權，再加一個賣出的空頭買權價差，希望上漲時也不太會賠。',
+   target:[{t:'SP',K:90},{t:'SC',K:110},{t:'LC',K:120}], h1:'左邊看起來像賣出賣權，右邊像一個被封頂的什麼？', hint:'3 片：賣 90 賣權、賣 110 買權、買 120 買權。',
+   lesson:'翡翠蜥蜴（Jade Lizard）：理想上收到的權利金要大於上方價差的寬度（10），才完全沒有上漲風險。這組參數只收到約 2.56，所以右邊還是會賠。看看最大虧損欄。'},
+  {adv:true, title:'越漲越陡：加速器', story:'你非常看好，希望漲得越多、賺得越快。讓損益線每過一個履約價就更陡一點。',
+   target:[{t:'LC',K:90},{t:'LC',K:100},{t:'LC',K:110}], h1:'每過一個履約價，斜率就多 1。哪一種零件會讓斜率往上加？', hint:'3 片買權，90、100、110 各買一口。每經過一個履約價，斜率就 +1。',
+   lesson:'每多一口買權，斜率就多 1：在某個履約價轉彎多少，就等於那裡有幾口。最後一段斜率是 3。'},
+  {adv:true, title:'越跌越痛', story:'賺權利金的另一面：在三個履約價各賣一口賣權。看看下跌時虧損的速度。',
+   target:[{t:'SP',K:90},{t:'SP',K:100},{t:'SP',K:110}], h1:'跟上一關左右相反：越往左，斜率越陡。', hint:'3 片賣權全部賣出：90、100、110 各一口。',
+   lesson:'連續賣出賣權，跌得越深虧得越快，斜率一路變成 3。這就是「在推土機前撿硬幣」。'},
+  {adv:true, title:'逆比率價差 1×3', story:'你相信會暴漲。先賣一口 100 買權收錢，再拿去買很多口 110 買權。',
+   target:[{t:'SC',K:100},{t:'LC',K:110,q:3}], h1:'谷底在 110，之後斜率是 +2。先想想 100 那裡發生了什麼。', hint:'2 種零件：賣 1 口 100 買權、買 3 口 110 買權。',
+   lesson:'逆比率價差（Backspread）：小漲最慘，谷底在 110；大漲後斜率是 +2，越漲賺得越快。'},
+  {adv:true, title:'拱橋：折線版半圓', story:'用折線拼一個拱形，斜率依序是 0、+2、+1、−1、−2、0。',
+   target:[{t:'LC',K:80,q:2},{t:'SC',K:90},{t:'SC',K:100,q:2},{t:'SC',K:110},{t:'LC',K:120,q:2}], h1:'相鄰兩段的斜率差，就是那個履約價的口數。', hint:'每個履約價的轉彎量就是口數，全用買權：80 買 2、90 賣 1、100 賣 2、110 賣 1、120 買 2。',
+   lesson:'越靠近兩端轉彎越急，口數也越多。把履約價間距縮小，就會越來越像半圓（到「畫畫看」驗證）。'},
+  {adv:true, title:'只掩護一半：斜率 ½', story:'你持有 1 股，只想對一半的部位賣出 100 買權。漲過 100 之後，還保留一半的上漲參與。（＋／− 按鈕每次調整 0.5 口）',
+   target:[{t:'LS'},{t:'SC',K:100,q:0.5}], h1:'從斜率 1 降到 ½，在 100 那裡需要做什麼？', hint:'2 片：買進現貨 ×1，賣出 100 買權 ×0.5。',
+   lesson:'口數不必是整數。賣出半口買權，斜率就從 1 降成 ½，這就是「部分掩護」：用一半的上漲換權利金。'},
+  {adv:true, title:'🎂 兩層蛋糕', story:'拼一個兩層的蛋糕側面：下層寬、上層窄，每層的頂都是平的，側邊盡量陡。（這關多了 85、95、105、115 這幾個履約價）',
+   target:[{t:'LC',K:80,q:2},{t:'SC',K:85,q:2},{t:'LC',K:90,q:2},{t:'SC',K:95,q:2},{t:'SC',K:105,q:2},{t:'LC',K:110,q:2},{t:'SC',K:115,q:2},{t:'LC',K:120,q:2}], h1:'蛋糕是兩層台階疊起來的。每個台階的邊角，都是損益線轉彎的地方。', hint:'全部用買權，每片 2 口。轉角在 80、85、90、95、105、110、115、120：往上彎就買，往下彎就賣。',
+   lesson:'真正垂直的牆拼不出來，只能用更陡的斜率逼近：牆越直，需要的口數越多。這跟「階梯」需要大量數位選擇權是同一個道理。'},
+  {adv:true, title:'🎂 真正的蛋糕：數位選擇權', story:'上一關的牆是斜的。這次用新零件「數位買權」：到期時只要股價高於履約價，就一次拿到 10，否則是 0。拼出側邊完全垂直的兩層蛋糕。',
+   target:[{t:'LD',K:80},{t:'LD',K:90},{t:'SD',K:110},{t:'SD',K:120}], h1:'數位買權的形狀本身就是一個台階。蛋糕有幾面牆，就需要幾個台階。', hint:'4 片數位買權：左邊兩面牆往上跳（買進），右邊兩面牆往下跳（賣出）。牆在 80、90、110、120。',
+   lesson:'數位選擇權就是「台階零件」，用它可以做出折線做不到的垂直牆。反過來看，一個台階用普通買權去逼近時，就是把價差夾得極窄、口數放得極大：所以數位選擇權在到期前、股價貼近履約價時非常難避險。'},
+  {adv:true, title:'⚠️ TRF：看起來不用錢的陷阱', story:'銀行的推銷話術：「看對就賺 1 倍，賺到目標自動出場，而且不用付權利金。」沒說的是：看錯時要賠 2 倍。拼出 TRF 單一結算期的形狀。',
+   target:[{t:'LC',K:100},{t:'SP',K:100,q:2},{t:'SC',K:110}], h1:'左右兩邊的斜率不一樣：看對時斜率 1，看錯時斜率 2，而且賺到一定程度後線就平了。', hint:'3 種零件，履約價只有 100 和 110：用買權拿上漲、用「加倍」的賣權換掉權利金，再賣一片 110 買權把獲利封頂。',
+   lesson:'TRF（目標可贖回遠期）：獲利被封頂、虧損加倍而且沒有下限，看最大獲利和最大虧損欄就知道多不對稱。真實的 TRF 有很多個結算期，賺到目標就提早出場，賠錢時卻要一路賠到到期，所以實際風險比這張圖還大。2015～2016 年人民幣走貶時，台灣有許多企業和個人因此鉅額虧損。'},
+  {title:'畫畫看：任意形狀', draw:true,
+   story:'在圖上按住拖曳，畫出你想要的「到期報酬」形狀，程式會反推需要哪些選擇權。試試半圓：看看兩端的口數會發生什麼事。',
+   target:null, hint:'規則只有一條：線在某個履約價轉彎多少，就要在那裡買（往上彎）或賣（往下彎）多少口。半圓越靠近邊緣越陡，所以口數會暴增。'},
+  {title:'自由模式', story:'沒有目標，隨意組合，看看你能拼出什麼形狀。', target:null, hint:'試試看：只用賣權能不能拼出多頭價差？', lesson:''},
+];
+
+let lv = 0, board = [], solved = new Set(), uid = 0, hintsUsed = 0, scored = false;
+let best = {};
+// 成績由伺服器提供（見 /static/optpuzzle-session.js）
+best = Object.assign({}, window.OPT_INIT_BEST || {}); Object.keys(best).forEach(k=>solved.add(+k));
+
+const $ = id => document.getElementById(id);
+
+function miniSVG(t){
+  const p = {t, K:100}, pts=[];
+  const vals=[]; for(let S=70;S<=130;S+=2) vals.push(pnl(p,S));
+  const m = Math.max(...vals.map(Math.abs));
+  vals.forEach((v,i)=>pts.push(`${(i/(vals.length-1))*100},${19 - v/m*15}`));
+  return `<svg viewBox="0 0 100 38" preserveAspectRatio="none"><line x1="0" y1="19" x2="100" y2="19" stroke="#ddd" stroke-width="1"/><polyline points="${pts.join(' ')}" fill="none" stroke="currentColor" stroke-width="3" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>`;
+}
+
+function renderTray(){
+  const banned = LEVELS[lv].banned || [];
+  $('tray').innerHTML = ORDER.map(t=>{
+    const d = TYPES[t], b = banned.includes(t);
+    return `<div class="piece ${d.cls} ${b?'banned':''}" draggable="${!b}" data-t="${t}"><div class="nm">${d.nm}</div><div class="en">${d.en}</div>${miniSVG(t)}</div>`;
+  }).join('');
+  $('tray').querySelectorAll('.piece').forEach(el=>{
+    const t = el.dataset.t;
+    if (el.classList.contains('banned')) return;
+    el.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain', t); });
+    el.addEventListener('click', ()=>addPiece(t));
+  });
+}
+
+function addPiece(t){
+  if ((LEVELS[lv].banned||[]).includes(t)) return;
+  board.push({id:++uid, t, K:100, q:1});
+  update();
+}
+
+function renderBoard(){
+  const d = $('drop');
+  if (!board.length){ d.innerHTML = '<div class="empty">把零件拖到這裡，或在左邊點一下</div>'; return; }
+  d.innerHTML = board.map(p=>{
+    const ty = TYPES[p.t];
+    const strike = ty.kind==='stock' ? '' :
+      `<select data-id="${p.id}">${STRIKES.map(k=>`<option ${k===p.K?'selected':''}>${k}</option>`).join('')}</select>`;
+    const prem = ty.kind==='stock' ? `成本 ${S0}` :
+      `${ty.sign>0?'付':'收'} ${priceOf(p).toFixed(2)}`;
+    return `<div class="placed ${ty.cls}"><div><div class="nm">${ty.nm} ${strike}</div><div class="prem">${prem}</div></div>
+      <div class="qty"><button data-dq="-1" data-id="${p.id}">−</button><span>×${p.q}</span><button data-dq="1" data-id="${p.id}">+</button></div>
+      <button class="x" data-rm="${p.id}" title="移除">✕</button></div>`;
+  }).join('');
+  d.querySelectorAll('select').forEach(s=>s.addEventListener('change',e=>{
+    board.find(p=>p.id==s.dataset.id).K = +s.value; update();
+  }));
+  d.querySelectorAll('[data-dq]').forEach(b=>b.addEventListener('click',()=>{
+    const p = board.find(p=>p.id==b.dataset.id); p.q = Math.max(0.5, Math.min(5, p.q + 0.5 * +b.dataset.dq)); update();
+  }));
+  d.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click',()=>{
+    board = board.filter(p=>p.id!=b.dataset.rm); update();
+  }));
+}
+
+function grid(){ const a=[]; for(let S=XMIN;S<=XMAX;S+=0.5) a.push(S); return a; }
+
+function renderChart(){
+  const tgt = LEVELS[lv].target;
+  const xs = grid();
+  const sumV = xs.map(S=>total(board,S));
+  const tgtV = tgt ? xs.map(S=>total(tgt,S)) : null;
+  const pieceV = board.map(p=>xs.map(S=>pnl(p,S)));
+  let all = [...sumV, ...(tgtV||[]), ...pieceV.flat()];
+  let ymax = Math.max(10, ...all), ymin = Math.min(-10, ...all);
+  const pad = (ymax-ymin)*0.08; ymax+=pad; ymin-=pad;
+  const W=720,H=360,L=48,R=14,Tp=14,B=34;
+  const X = S => L + (S-XMIN)/(XMAX-XMIN)*(W-L-R);
+  const Y = v => Tp + (ymax-v)/(ymax-ymin)*(H-Tp-B);
+  const path = arr => arr.map((v,i)=>`${i?'L':'M'}${X(xs[i]).toFixed(1)},${Y(v).toFixed(1)}`).join('');
+  let g = '';
+  // y ticks
+  const step = niceStep((ymax-ymin)/6);
+  for (let v=Math.ceil(ymin/step)*step; v<=ymax; v+=step){
+    g += `<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="${Math.abs(v)<1e-9?'#8a8f99':'#efe9dc'}" stroke-width="${Math.abs(v)<1e-9?1.2:1}"/>`;
+    g += `<text x="${L-6}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="#8a8f99">${+v.toFixed(1)}</text>`;
+  }
+  STRIKES.forEach(k=>{
+    g += `<line x1="${X(k)}" x2="${X(k)}" y1="${Tp}" y2="${H-B}" stroke="#efe9dc"/>`;
+    if (k%10===0) g += `<text x="${X(k)}" y="${H-B+16}" text-anchor="middle" font-size="11" fill="#8a8f99">${k}</text>`;
+  });
+  g += `<text x="${W-R}" y="${H-4}" text-anchor="end" font-size="11" fill="#8a8f99">到期股價 →</text>`;
+  g += `<text x="${L}" y="${H-4}" font-size="11" fill="#8a8f99">${XMIN}</text>`;
+  const colors = {call:'#9db8e8', put:'#e8a993', stock:'#94cfae', digital:'#c3a6ec'};
+  pieceV.forEach((arr,i)=>{ g += `<path d="${path(arr)}" fill="none" stroke="${colors[TYPES[board[i].t].kind]}" stroke-width="2" opacity=".75"/>`; });
+  if (tgtV) g += `<path d="${path(tgtV)}" fill="none" stroke="var(--target)" stroke-width="7" stroke-dasharray="10 8" stroke-linecap="round" opacity=".55"/>`;
+  if (board.length) g += `<path d="${path(sumV)}" fill="none" stroke="${isSolved()?'var(--ok)':'var(--sum)'}" stroke-width="3.2" stroke-linejoin="round"/>`;
+  $('chart').innerHTML = g;
+}
+function niceStep(x){ const p = Math.pow(10,Math.floor(Math.log10(x))); const f=x/p; return (f<1.5?1:f<3?2:f<7?5:10)*p; }
+
+function isSolved(){
+  const tgt = LEVELS[lv].target;
+  if (!tgt || !board.length) return false;
+  if ((LEVELS[lv].banned||[]).some(b=>board.some(p=>p.t===b))) return false;
+  return grid().every(S=>Math.abs(total(board,S)-total(tgt,S))<0.02);
+}
+
+function renderStats(){
+  if (!board.length){ ['stMax','stMin','stBe'].forEach(i=>$(i).textContent='—'); return; }
+  const xs = []; for(let S=0;S<=400;S+=0.25) xs.push(S);
+  const v = xs.map(S=>total(board,S));
+  const slopeR = total(board,1001)-total(board,1000);
+  const fmt = n => (n>=0?'+':'')+n.toFixed(2);
+  $('stMax').textContent = slopeR>1e-6 ? '無上限' : fmt(Math.max(...v));
+  $('stMin').textContent = slopeR<-1e-6 ? '無下限 ⚠' : fmt(Math.min(...v));
+  const be=[];
+  for(let i=1;i<xs.length;i++){
+    if ((v[i-1]<0&&v[i]>=0)||(v[i-1]>0&&v[i]<=0)){
+      const r = xs[i-1] + (0-v[i-1])/(v[i]-v[i-1])*(xs[i]-xs[i-1]);
+      if (!be.length || Math.abs(be[be.length-1]-r)>0.3) be.push(r);
+    }
+  }
+  $('stBe').textContent = be.length ? be.map(x=>x.toFixed(1)).join('、') : (v.every(a=>Math.abs(a)<1e-6)?'恆為 0':'無');
+}
+
+
+const MAXPTS = 3;
+const stars = n => '★'.repeat(n) + '☆'.repeat(MAXPTS-n);
+function answerText(L){
+  return (L.answer||L.target).map(p=>{ const t=TYPES[p.t]; return `${t.nm}${t.kind==='stock'?'':' '+p.K} ×${p.q||1}`; }).join('、');
+}
+function renderHints(){
+  const L = LEVELS[lv], btn = $('hintBtn');
+  if (!L.target){ $('hint').textContent = '💡 ' + L.hint; btn.textContent = '提示'; btn.disabled = false; return; }
+  const tiers = [L.h1, L.hint, answerText(L)];
+  $('hint').innerHTML = tiers.slice(0,hintsUsed).map((h,i)=> `<div>${i===2 ? '🔑 答案：' : `💡 提示 ${i+1}：`}${h}</div>`).join('');
+  $('hint').classList.toggle('show', hintsUsed>0);
+  btn.disabled = hintsUsed>=3;
+  btn.textContent = hintsUsed>=3 ? '已看完提示' : (hintsUsed===2 ? '答案' : '提示 ' + (hintsUsed+1)) + (scored ? '' : '（−1 分）');
+}
+function totalScore(){ return Object.values(best).reduce((a,b)=>a+b,0); }
+
+function renderLevelHead(){
+  const L = LEVELS[lv];
+  $('lvTag').textContent = L.draw ? '新模式' : L.target ? (L.adv?'進階・':'')+`第 ${lv+1} 關` : '沙盒';
+  $('lvTitle').textContent = L.title;
+  $('lvStory').textContent = L.story;
+  renderHints();
+  $('levels').innerHTML = LEVELS.map((x,i)=>`<button class="lvbtn ${i===lv?'cur':''} ${solved.has(i)?'done':''}" data-lv="${i}">${x.draw?'✏️ 畫畫':x.target? (i+1)+(solved.has(i)?' '+stars(best[i]||0):'') : '自由'}</button>`).join('');
+  const puz = LEVELS.filter(x=>x.target).length;
+  $('levels').insertAdjacentHTML('beforeend', `<span class="lvbtn" style="cursor:default;border-color:transparent;font-weight:700;color:var(--ink)">總分 ${totalScore()} / ${puz*MAXPTS}</span>`);
+  $('levels').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>goLevel(+b.dataset.lv)));
+}
+
+function update(){
+  if (LEVELS[lv].draw){ renderDraw(); $('win').classList.remove('show'); $('nextBtn').disabled = lv>=LEVELS.length-1; return; }
+  renderBoard(); renderChart(); renderStats();
+  const ok = isSolved(), L = LEVELS[lv];
+  if (ok){
+    if (!scored){
+      scored = true;
+      const pts = Math.max(0, MAXPTS - hintsUsed);
+      best[lv] = Math.max(best[lv]||0, pts); solved.add(lv);
+      if (window.optOnScore) window.optOnScore(best, totalScore(), LEVELS.filter(x=>x.target).length*MAXPTS);
+      renderLevelHead();
+    }
+    $('win').innerHTML = `<b>拼對了！</b>　本關得分：<b>${stars(Math.max(0,MAXPTS-hintsUsed))}</b><p>${L.lesson}</p>`;
+    $('win').classList.add('show');
+  } else $('win').classList.remove('show');
+  $('nextBtn').disabled = !(ok || solved.has(lv)) || lv>=LEVELS.length-1;
+}
+
+function goLevel(i){
+  lv = i; board = []; hintsUsed = 0; scored = false; $('hint').classList.remove('show');
+  const dm = !!LEVELS[lv].draw;
+  $('main').classList.toggle('drawmode', dm);
+  $('drawSec').style.display = dm ? '' : 'none';
+  $('boardSec').style.display = dm ? 'none' : '';
+  $('chart').classList.toggle('drawable', dm);
+  $('k1').textContent = dm ? '今天的成本' : '最大獲利';
+  $('k2').textContent = dm ? '選擇權總口數' : '最大虧損';
+  $('k3').textContent = dm ? '最大口數（單一履約價）' : '損益兩平點';
+  $('legend').innerHTML = dm
+    ? '<span><i style="border-color:var(--target);border-top-style:dashed"></i>你畫的線</span><span><i style="border-color:var(--sum)"></i>選擇權組合的到期報酬</span><span><i style="border-color:#c9ccd3;border-top-width:2px"></i>履約價</span>'
+    : '<span><i style="border-color:var(--target);border-top-style:dashed"></i>目標形狀</span><span><i style="border-color:var(--sum)"></i>你拼出來的合計</span><span><i style="border-color:#c9ccd3;border-top-width:2px"></i>各零件（疊加前）</span>';
+  renderLevelHead(); renderTray(); update();
+}
+
+const drop = $('drop');
+drop.addEventListener('dragover', e=>{ e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', ()=>drop.classList.remove('over'));
+drop.addEventListener('drop', e=>{ e.preventDefault(); drop.classList.remove('over'); const t=e.dataTransfer.getData('text/plain'); if (TYPES[t]) addPiece(t); });
+$('hintBtn').addEventListener('click', ()=>{
+  if (!LEVELS[lv].target){ $('hint').classList.toggle('show'); return; }
+  if (hintsUsed<3){ hintsUsed++; renderHints(); }
+});
+$('clearBtn').addEventListener('click', ()=>{ board=[]; update(); });
+$('nextBtn').addEventListener('click', ()=>goLevel(Math.min(lv+1, LEVELS.length-1)));
+
+/* ---------- 畫畫看 ---------- */
+const DY = [-20, 40];               // fixed y range in draw mode
+let drawVals = new Array(XMAX-XMIN+1).fill(0); // value at S = 60..140 step 1
+let gap = 5, lastPt = null;
+const CH = {W:720,H:360,L:48,R:14,Tp:14,B:34};
+const dX = S => CH.L + (S-XMIN)/(XMAX-XMIN)*(CH.W-CH.L-CH.R);
+const dY = v => CH.Tp + (DY[1]-v)/(DY[1]-DY[0])*(CH.H-CH.Tp-CH.B);
+const invX = x => XMIN + (x-CH.L)/(CH.W-CH.L-CH.R)*(XMAX-XMIN);
+const invY = y => DY[1] - (y-CH.Tp)/(CH.H-CH.Tp-CH.B)*(DY[1]-DY[0]);
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+function drawAt(S){ // linear interp of drawn curve
+  S = clamp(S, XMIN, XMAX); const i = Math.floor(S-XMIN), f = S-XMIN-i;
+  return i>=drawVals.length-1 ? drawVals[drawVals.length-1] : drawVals[i]*(1-f)+drawVals[i+1]*f;
+}
+function strikesGrid(){ const a=[]; for(let k=XMIN;k<=XMAX+1e-9;k+=gap) a.push(+k.toFixed(4)); return a; }
+
+// Carr-Madan style static replication on a discrete grid:
+// f(S) = f(S0) + f'(S0)(S-S0) + Σ_{K<S0} Δslope_K · Put(K) + Σ_{K≥S0} Δslope_K · Call(K)
+// flat outside the drawing range.
+function recipe(){
+  const Ks = strikesGrid(), f = Ks.map(drawAt);
+  const seg = []; for(let i=0;i<Ks.length-1;i++) seg.push((f[i+1]-f[i])/(Ks[i+1]-Ks[i]));
+  const legs = Ks.map((K,i)=>{
+    const sl = i===0 ? 0 : seg[i-1], sr = i===Ks.length-1 ? 0 : seg[i];
+    return {K, q: sr - sl, kind: K < S0 ? 'put' : 'call'};
+  }).filter(l=>Math.abs(l.q)>1e-9);
+  const i0 = Ks.findIndex(k=>Math.abs(k-S0)<1e-9);
+  const stock = i0>0 ? seg[i0-1] : 0;
+  const cash = drawAt(S0);
+  const cost = cash + legs.reduce((a,l)=>a + l.q*(l.kind==='call'?callPx(l.K):putPx(l.K)), 0);
+  const payoff = S => cash + stock*(S-S0) + legs.reduce((a,l)=>a + l.q*(l.kind==='call'?Math.max(S-l.K,0):Math.max(l.K-S,0)), 0);
+  return {Ks, legs, stock, cash, cost, payoff};
+}
+
+function renderDraw(){
+  const r = recipe();
+  let g = '';
+  for (let v=DY[0]; v<=DY[1]; v+=10){
+    g += `<line x1="${CH.L}" x2="${CH.W-CH.R}" y1="${dY(v)}" y2="${dY(v)}" stroke="${v===0?'#8a8f99':'#efe9dc'}" stroke-width="${v===0?1.2:1}"/>`;
+    g += `<text x="${CH.L-6}" y="${dY(v)+4}" text-anchor="end" font-size="11" fill="#8a8f99">${v}</text>`;
+  }
+  r.Ks.forEach(k=>{ g += `<line x1="${dX(k)}" x2="${dX(k)}" y1="${CH.Tp}" y2="${CH.H-CH.B}" stroke="#e6e1d6" stroke-width="${gap>=5?1:.6}"/>`; });
+  for (let k=XMIN;k<=XMAX;k+=10) g += `<text x="${dX(k)}" y="${CH.H-CH.B+16}" text-anchor="middle" font-size="11" fill="#8a8f99">${k}</text>`;
+  g += `<text x="${CH.W-CH.R}" y="${CH.H-4}" text-anchor="end" font-size="11" fill="#8a8f99">到期股價 →</text>`;
+  g += `<text x="${CH.L+4}" y="${CH.Tp+12}" font-size="11" fill="#8a8f99">到期報酬（未扣成本）</text>`;
+  const dp = drawVals.map((v,i)=>`${i?'L':'M'}${dX(XMIN+i).toFixed(1)},${dY(v).toFixed(1)}`).join('');
+  g += `<path d="${dp}" fill="none" stroke="var(--target)" stroke-width="7" stroke-dasharray="10 8" stroke-linecap="round" opacity=".55"/>`;
+  const ap = r.Ks.map((k,i)=>`${i?'L':'M'}${dX(k).toFixed(1)},${dY(r.payoff(k)).toFixed(1)}`).join('');
+  g += `<path d="${ap}" fill="none" stroke="var(--sum)" stroke-width="3.2" stroke-linejoin="round"/>`;
+  r.Ks.forEach(k=>{ g += `<circle cx="${dX(k)}" cy="${dY(r.payoff(k))}" r="${gap>=5?3:1.8}" fill="var(--sum)"/>`; });
+  g += `<rect x="${CH.L}" y="${CH.Tp}" width="${CH.W-CH.L-CH.R}" height="${CH.H-CH.Tp-CH.B}" fill="transparent"/>`;
+  $('chart').innerHTML = g;
+
+  // quantity bars
+  const W=720,H=200,L=48,R=14,mid=100;
+  const qmax = Math.max(1, ...r.legs.map(l=>Math.abs(l.q)));
+  const bw = Math.max(2, (W-L-R)/((XMAX-XMIN)/gap+1)*0.6);
+  let q = `<line x1="${L}" x2="${W-R}" y1="${mid}" y2="${mid}" stroke="#8a8f99"/>`;
+  q += `<text x="${L-6}" y="${18}" text-anchor="end" font-size="11" fill="#8a8f99">+${+qmax.toFixed(2)}</text>`;
+  q += `<text x="${L-6}" y="${H-10}" text-anchor="end" font-size="11" fill="#8a8f99">−${+qmax.toFixed(2)}</text>`;
+  q += `<text x="${L+4}" y="${H-6}" font-size="11" fill="#d2542f">← 賣權（Put）</text><text x="${W-R}" y="${H-6}" text-anchor="end" font-size="11" fill="#2f6fd6">買權（Call）→</text>`;
+  r.legs.forEach(l=>{
+    const x = L + (l.K-XMIN)/(XMAX-XMIN)*(W-L-R), h = l.q/qmax*85;
+    q += `<rect x="${x-bw/2}" y="${h>0?mid-h:mid}" width="${bw}" height="${Math.abs(h)}" rx="2" fill="${l.kind==='call'?'#2f6fd6':'#d2542f'}" opacity="${l.q>0?1:.55}"/>`;
+  });
+  $('qchart').innerHTML = q;
+
+  // recipe list
+  const fq = n => (+Math.abs(n).toFixed(2)).toString();
+  let items = [];
+  if (Math.abs(r.cash)>1e-6) items.push(`<div>${r.cash>0?'存入':'借入'}現金 <b>${fq(r.cash)}</b></div>`);
+  if (Math.abs(r.stock)>1e-6) items.push(`<div class="${r.stock>0?'buy':'sell'}">${r.stock>0?'買進':'放空'}現貨 <b>${fq(r.stock)}</b> 股</div>`);
+  r.legs.forEach(l=>items.push(`<div class="${l.q>0?'buy':'sell'}">${l.q>0?'買進':'賣出'} ${l.K} ${l.kind==='call'?'買權':'賣權'} <b>×${fq(l.q)}</b></div>`));
+  $('recipe').innerHTML = items.length ? items.join('') : '<div>線是平的，什麼都不用買。</div>';
+
+  const totalQ = r.legs.reduce((a,l)=>a+Math.abs(l.q),0);
+  const big = r.legs.reduce((m,l)=>Math.abs(l.q)>Math.abs(m.q)?l:m, {q:0});
+  $('stMax').textContent = (r.cost>=0?'付 ':'收 ') + Math.abs(r.cost).toFixed(2);
+  $('stMin').textContent = totalQ.toFixed(2) + ' 口';
+  $('stBe').textContent = big.K ? `${big.K}：${fq(big.q)} 口` : '—';
+  $('drawNote').textContent = r.legs.length
+    ? `口數可以是小數，把它想成放大倍數。現貨部位以借款買進，所以淨成本是 0。今天總成本 = 現金 + 各選擇權權利金。`
+    : '';
+}
+
+function svgPt(e){
+  const pt = $('chart').createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+  const p = pt.matrixTransform($('chart').getScreenCTM().inverse());
+  return {S: clamp(invX(p.x), XMIN, XMAX), v: clamp(invY(p.y), DY[0], DY[1])};
+}
+function paint(a, b){
+  const s0 = Math.round(Math.min(a.S,b.S)), s1 = Math.round(Math.max(a.S,b.S));
+  for (let S=s0; S<=s1; S++){
+    const t = a.S===b.S ? 1 : (S-a.S)/(b.S-a.S);
+    drawVals[S-XMIN] = a.v + (b.v-a.v)*clamp(t,0,1);
+  }
+}
+$('chart').addEventListener('pointerdown', e=>{
+  if (!LEVELS[lv].draw) return;
+  $('chart').setPointerCapture(e.pointerId);
+  lastPt = svgPt(e); paint(lastPt,lastPt); renderDraw();
+});
+$('chart').addEventListener('pointermove', e=>{
+  if (!LEVELS[lv].draw || !lastPt) return;
+  const p = svgPt(e); paint(lastPt,p); lastPt = p; renderDraw();
+});
+['pointerup','pointercancel'].forEach(ev=>$('chart').addEventListener(ev, ()=>{ lastPt = null; }));
+
+const PRESETS = {
+  semi: S => Math.abs(S-100)<=40 ? Math.sqrt(1600-(S-100)**2)*0.75 : 0,
+  smile: S => 0.02*(S-100)**2 - 10,
+  step: S => S<100 ? 0 : 20,
+  saw: S => ((S-60)%20)*1.25 - 5,
+  sine: S => 15*Math.sin((S-60)/80*4*Math.PI) + 10,
+  cake: S => (Math.abs(S-100)<=28?12:0) + (Math.abs(S-100)<=16?12:0) + (Math.abs(S-100)<=1?10:0),
+  zero: S => 0,
+};
+document.querySelectorAll('[data-pre]').forEach(b=>b.addEventListener('click',()=>{
+  const fn = PRESETS[b.dataset.pre];
+  drawVals = drawVals.map((_,i)=>clamp(fn(XMIN+i), DY[0], DY[1])); renderDraw();
+}));
+function setGap(g){ gap = g; document.querySelectorAll('#gapSeg button').forEach(b=>b.classList.toggle('on', +b.dataset.gap===g)); if (LEVELS[lv].draw) renderDraw(); }
+document.querySelectorAll('#gapSeg button').forEach(b=>b.addEventListener('click',()=>setGap(+b.dataset.gap)));
+setGap(5);
+drawVals = drawVals.map((_,i)=>PRESETS.semi(XMIN+i));
+
+
+goLevel(0);
+</script>
+</body>
+</html>
