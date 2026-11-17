@@ -58,6 +58,7 @@
     <div class="row">
       <a class="btn" href="/api/bankceo/export.csv">下載成績 CSV（每人最高分）</a>
       <a class="btn ghost" href="/api/bankceo/attempts.csv">下載每次送出紀錄 CSV</a>
+      <a class="btn ghost" href="/api/bankceo/attendance.csv">下載點名紀錄 CSV</a>
       <label class="muted"><input type="checkbox" id="auto" checked> 每 10 秒自動更新</label>
     </div>
     <p class="err" id="err"></p>
@@ -86,19 +87,21 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') showBig(fals
 
 // 每列攤平：最高分那一次的欄位
 const COLS = [
-  ['dept','系級'],['sid','學號'],['name','姓名'],
+  ['dept','系級'],['sid','學號'],['name','姓名'],['last_login','最後登入'],
   ['score','最高分',1],['end','結局'],['camels','CAMELS'],['wrong','答錯',1],
   ['plays','次數',1],['last_score','最近一次',1],['updated_at','最後送出'],['question','學生的問題（最高分那次）'],
 ];
 let rows = [], sortKey = 'sid', sortDir = 1, timer = null;
 
 function fmt(iso){ try{ return new Date(iso).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});}catch(e){return iso;} }
+function isToday(iso){ if(!iso) return false; const d=new Date(iso), t=new Date(); return d.toDateString()===t.toDateString(); }
 function flat(r){
   const b = r.best || {}, cm = b.camels || {};
-  return {dept:r.dept, sid:r.sid, name:r.name, plays:r.plays, updated_at:r.updated_at,
+  return {dept:r.dept, sid:r.sid, name:r.name, plays:r.plays||0, updated_at:r.best ? r.updated_at : '',
     score:b.score ?? -1, end:b.end_key ? `${b.end_key} ${b.end}` : '', wrong:b.wrong ?? 0,
     camels: 'CAMELS'.split('').map(k=>cm[k] ?? '-').join('') + (b.comp ? `（${b.comp}）` : ''),
-    last_score:(r.last||{}).score ?? '', question:b.question || ''};
+    last_score:(r.last||{}).score ?? '', question:b.question || '',
+    last_login:r.last_login || '', today: isToday(r.last_login), submitted: !!r.best};
 }
 
 function render(){
@@ -109,12 +112,16 @@ function render(){
     .sort((a,b)=>{ const x=a[sortKey], y=b[sortKey]; return (typeof x==='number' ? x-y : String(x??'').localeCompare(String(y??''),'zh-Hant'))*sortDir; });
   $('body').innerHTML = list.map(r=>`<tr>${COLS.map(([k,,n])=>{
     let v = r[k];
-    if (k==='updated_at') v = fmt(v);
+    if ((k==='updated_at' || k==='last_login') && v) v = fmt(v);
+    if (k==='score' && !r.submitted) v = '尚未送出';
     return `<td class="${n?'n':''}${k==='question'?' q':''}">${esc(v)}</td>`; }).join('')}</tr>`).join('')
     || `<tr><td colspan="${COLS.length}" class="muted">尚無資料</td></tr>`;
-  const n = rows.length, avg = n ? rows.reduce((a,r)=>a+Math.max(0,r.score),0)/n : 0;
-  const ends = {}; rows.forEach(r=>{ const e=(r.end||'').split(' ')[0]; if(e) ends[e]=(ends[e]||0)+1; });
-  $('stats').innerHTML = `<div class="stat"><div class="k">送出人數</div><div class="v">${n}</div></div>
+  const sub = rows.filter(r=>r.submitted), n = sub.length, avg = n ? sub.reduce((a,r)=>a+Math.max(0,r.score),0)/n : 0;
+  const todayN = rows.filter(r=>r.today).length, todaySub = rows.filter(r=>r.today && r.submitted).length;
+  const ends = {}; sub.forEach(r=>{ const e=(r.end||'').split(' ')[0]; if(e) ends[e]=(ends[e]||0)+1; });
+  $('stats').innerHTML = `<div class="stat"><div class="k">今天已登入（點名）</div><div class="v">${todayN}</div></div>
+    <div class="stat"><div class="k">今天登入且已送出</div><div class="v">${todaySub}</div></div>
+    <div class="stat"><div class="k">累計送出人數</div><div class="v">${n}</div></div>
     <div class="stat"><div class="k">最高分平均</div><div class="v">${avg.toFixed(1)}</div></div>
     <div class="stat"><div class="k">結局分布（最高分那次）</div><div class="v" style="font-size:15px">${Object.entries(ends).sort().map(([k,c])=>`${k}×${c}`).join('　')||'—'}</div></div>`;
 }

@@ -258,7 +258,7 @@ async function start(){
   if(!dept||!sid||!name){ $("sidFb").textContent="請填寫系級、學號、姓名"; return; }
   $("goBtn").disabled=true; $("sidFb").textContent="";
   try{
-    const res=await fetch("/api/bankceo/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dept,sid,name})});
+    const res=await fetch("/api/bankceo/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dept,sid,name,confirm:window._nameOK===sid+"|"+name})});
     const d=await res.json();
     if(!res.ok){
       $("sidFb").textContent = typeof d.detail==="string"?d.detail:"登記失敗，請再試一次";
