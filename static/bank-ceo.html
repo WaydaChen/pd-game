@@ -261,10 +261,12 @@ async function start(){
     const res=await fetch("/api/bankceo/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dept,sid,name})});
     const d=await res.json();
     if(!res.ok){
-      const det=d.detail;
-      $("sidFb").textContent = det&&det.code==="name_mismatch"
-        ? `這個學號已經由「${det.masked}」登記過。請確認學號有沒有打錯；如果真的是你的學號，請找老師處理。`
-        : (typeof det==="string"?det:"登記失敗，請再試一次");
+      $("sidFb").textContent = typeof d.detail==="string"?d.detail:"登記失敗，請再試一次";
+      $("goBtn").disabled=false; return;
+    }
+    if(d.name_hint && window._nameOK!==sid+"|"+name){
+      $("sidFb").innerHTML=`⚠️ 這個學號之前登記的姓名是「${esc(d.name_hint)}」，跟你輸入的不一樣。請確認學號沒有打錯：成績只認學號，繼續的話會記在這個學號下。
+        <p><button class="btn ghost" onclick="window._nameOK=$('rSid').value.trim()+'|'+$('rName').value.trim();start()">學號沒錯，是我，繼續 →</button></p>`;
       $("goBtn").disabled=false; return;
     }
     ME={dept, sid:d.sid, name};

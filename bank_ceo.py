@@ -4,7 +4,8 @@
 學生在 /bank-ceo 開場登記系級、學號、姓名後開始；結算時寫下問題、按「送出成績」。
   - data/bankceo.json：以學號為鍵，保留最高分那一次（同分取較新）與最近一次。
   - data/bankceo-attempts.jsonl：每一次送出都留下完整紀錄（含學生寫的問題）。
-同一學號只能用第一次登記的姓名送出，避免打錯學號蓋掉他人成績。
+成績只認學號；姓名不符時開場會提示（顯示遮蔽後的舊姓名），學生確認後仍可繼續，
+紀錄改用最新姓名，舊姓名留在 names。
 教師頁 /teacher-bank-ceo；成績與 CSV 不需密碼即可讀取（依老師要求）。
 """
 
@@ -19,7 +20,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
-from options_puzzle import (DATA_DIR, _check_identity, _check_owner,
+from options_puzzle import (DATA_DIR, _check_identity, _mask, _name_key,
                             _now_iso)
 
 router = APIRouter()
@@ -88,7 +89,7 @@ class LoginReq(BaseModel):
 def _public(rec):
     if not rec:
         return None
-    return {k: rec.get(k) for k in ("dept", "sid", "name", "plays", "best", "last",
+    return {k: rec.get(k) for k in ("dept", "sid", "name", "names", "plays", "best", "last",
                                     "created_at", "updated_at")}
 
 
@@ -97,8 +98,9 @@ def login(req: LoginReq):
     dept, sid, name = _check_identity(req.dept, req.sid, req.name)
     with _lock:
         rec = _load().get(sid)
-    _check_owner(rec, name)
-    return {"sid": sid, "record": _public(rec)}
+    mismatch = bool(rec) and _name_key(rec.get("name")) != _name_key(name)
+    return {"sid": sid, "record": _public(rec),
+            "name_hint": _mask(rec.get("name")) if mismatch else None}
 
 
 class SubmitReq(BaseModel):
@@ -145,9 +147,11 @@ def submit(req: SubmitReq):
     with _lock:
         records = _load()
         rec = records.get(sid)
-        _check_owner(rec, name)
         new = dict(rec or {"created_at": now, "plays": 0})
-        new.update({"dept": dept, "sid": sid, "name": name, "updated_at": now,
+        names = list(new.get("names") or ([new["name"]] if new.get("name") else []))
+        if all(_name_key(n) != _name_key(name) for n in names):
+            names.append(name)
+        new.update({"dept": dept, "sid": sid, "name": name, "names": names, "updated_at": now,
                     "plays": (new.get("plays") or 0) + 1, "last": run})
         if not new.get("best") or run["score"] >= new["best"]["score"]:
             new["best"] = run
@@ -193,10 +197,11 @@ def export_csv():
     """每位學生一列：最高分那一次的完整內容。"""
     with _lock:
         recs = sorted(_load().values(), key=lambda r: (r.get("dept", ""), r.get("sid", "")))
-    rows = [["系級", "學號", "姓名", "遊玩次數", "最後送出"] + RUN_HEAD]
+    rows = [["系級", "學號", "姓名", "曾用姓名", "遊玩次數", "第一次送出", "最後送出"] + RUN_HEAD]
     for r in recs:
-        rows.append([r.get("dept"), r.get("sid"), r.get("name"), r.get("plays"),
-                     r.get("updated_at")] + _run_cols(r.get("best") or {}))
+        others = [n for n in (r.get("names") or []) if n != r.get("name")]
+        rows.append([r.get("dept"), r.get("sid"), r.get("name"), "、".join(others),
+                     r.get("plays"), r.get("created_at"), r.get("updated_at")] + _run_cols(r.get("best") or {}))
     return _csv_response(rows, "bank-ceo-scores.csv")
 
 
