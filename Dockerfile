@@ -9,6 +9,7 @@ COPY main.py .
 COPY experiments.py .
 COPY zip_game.py .
 COPY options_puzzle.py .
+COPY bank_ceo.py .
 COPY static/ static/
 
 RUN mkdir -p data
