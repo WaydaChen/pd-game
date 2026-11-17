@@ -5,7 +5,7 @@
   - data/bankceo.json：以學號為鍵，保留最高分那一次（同分取較新）與最近一次。
   - data/bankceo-attempts.jsonl：每一次送出都留下完整紀錄（含學生寫的問題）。
 同一學號只能用第一次登記的姓名送出，避免打錯學號蓋掉他人成績。
-教師頁 /teacher-bank-ceo；CSV 匯出以 ADMIN_TOKEN 保護。
+教師頁 /teacher-bank-ceo；成績與 CSV 不需密碼即可讀取（依老師要求）。
 """
 
 import csv
@@ -20,7 +20,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
 from options_puzzle import (DATA_DIR, _check_identity, _check_owner,
-                            _now_iso, _require_admin)
+                            _now_iso)
 
 router = APIRouter()
 
@@ -163,8 +163,7 @@ def submit(req: SubmitReq):
 # ── 教師 API ─────────────────────────────────────────────────────────
 
 @router.get("/api/bankceo/records")
-def records(token: str = ""):
-    _require_admin(token)
+def records():
     with _lock:
         recs = sorted(_load().values(), key=lambda r: (r.get("dept", ""), r.get("sid", "")))
     return {"records": [_public(r) for r in recs]}
@@ -190,9 +189,8 @@ RUN_HEAD = (["分數", "結局", "CAMELS綜合"] + [f"CAMELS-{k}" for k in CAMEL
 
 
 @router.get("/api/bankceo/export.csv")
-def export_csv(token: str = ""):
+def export_csv():
     """每位學生一列：最高分那一次的完整內容。"""
-    _require_admin(token)
     with _lock:
         recs = sorted(_load().values(), key=lambda r: (r.get("dept", ""), r.get("sid", "")))
     rows = [["系級", "學號", "姓名", "遊玩次數", "最後送出"] + RUN_HEAD]
@@ -203,9 +201,8 @@ def export_csv(token: str = ""):
 
 
 @router.get("/api/bankceo/attempts.csv")
-def export_attempts(token: str = ""):
+def export_attempts():
     """每次送出一列（含每一次寫的問題）。"""
-    _require_admin(token)
     with _lock:
         atts = _load_attempts()
     rows = [["送出時間", "系級", "學號", "姓名"] + RUN_HEAD]
