@@ -37,8 +37,21 @@
   <p class="sub">學生登記系級、學號、姓名後開始；結算時寫下問題並送出。每位學生保留最高分那一次（含當次的問題），每次送出都另有完整紀錄。</p>
 
   <div class="card">
-    <div class="muted" style="margin-bottom:6px">學生入口（貼給學生或投影）</div>
-    <div class="row"><span class="link" id="stuLink"></span><button class="ghost" id="copyBtn">複製</button><a class="btn ghost" href="/bank-ceo" target="_blank">開啟</a></div>
+    <div class="row" style="align-items:flex-start;gap:18px">
+      <img id="qrImg" alt="學生入口 QR code" width="180" height="180" style="display:block;border:1px solid var(--line);border-radius:10px;cursor:zoom-in;background:#fff">
+      <div style="flex:1;min-width:220px">
+        <div class="muted" style="margin-bottom:6px">學生入口：請同學掃 QR code，或輸入網址</div>
+        <div class="row"><span class="link" id="stuLink"></span><button class="ghost" id="copyBtn">複製</button><a class="btn ghost" href="/bank-ceo" target="_blank">開啟</a></div>
+        <p style="margin-top:10px"><button id="bigBtn">🔍 全螢幕投影 QR code</button></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="qrBig" style="display:none;position:fixed;inset:0;z-index:100;background:#fff;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:zoom-out;padding:16px">
+    <div style="font-size:clamp(22px,4vw,40px);font-weight:700">🏦 一日商銀行長｜掃描開始</div>
+    <img id="qrBigImg" alt="學生入口 QR code" style="width:min(70vh,90vw);height:min(70vh,90vw)">
+    <div class="link" id="qrBigUrl" style="font-size:clamp(16px,2.4vw,26px)"></div>
+    <div class="muted">點一下或按 Esc 關閉</div>
   </div>
 
   <div class="card">
@@ -62,6 +75,14 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const stu = location.origin + '/bank-ceo';
 $('stuLink').textContent = stu;
 $('copyBtn').onclick = () => navigator.clipboard && navigator.clipboard.writeText(stu);
+const qr = size => `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&margin=10&data=${encodeURIComponent(stu)}`;
+$('qrImg').src = qr(360);
+$('qrBigImg').src = qr(800);
+$('qrBigUrl').textContent = stu;
+const showBig = on => { $('qrBig').style.display = on ? 'flex' : 'none'; };
+$('qrImg').onclick = $('bigBtn').onclick = () => showBig(true);
+$('qrBig').onclick = () => showBig(false);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') showBig(false); });
 
 // 每列攤平：最高分那一次的欄位
 const COLS = [
