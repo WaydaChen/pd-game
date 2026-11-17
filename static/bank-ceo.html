@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>一日商銀行長｜貨幣銀行學闖關遊戲 Part I</title>
+<title>商銀行長的第一年｜貨幣銀行學闖關遊戲 Part I</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -87,7 +87,7 @@ td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 <body>
 <div class="wrap">
   <header>
-    <h1>🏦 一日商銀行長</h1>
+    <h1>🏦 商銀行長的第一年</h1>
     <span class="sub">貨幣銀行學闖關遊戲 Part I｜對應第 9、10 章 <span id="who" class="who"></span></span>
   </header>
   <div id="dash" class="dash" style="display:none"></div>
@@ -113,6 +113,26 @@ const P = {
   genLoss:0.03,                    // 景氣下滑時，其他企業放款損失率
   wrongPen:2                       // 觀念題每答錯一次扣 2 分
 };
+/* 每次開始（含重玩）抽一組情境，數字不同、答案也不同；不會連續抽到同一組。 */
+const SCENARIOS=[
+  {id:1, dep0:100, eq0:8,  reqRatio:0.10, hike:0.0100, genLoss:0.030},
+  {id:2, dep0:120, eq0:10, reqRatio:0.08, hike:0.0075, genLoss:0.035},
+  {id:3, dep0:90,  eq0:8,  reqRatio:0.12, hike:0.0125, genLoss:0.025},
+  {id:4, dep0:110, eq0:9,  reqRatio:0.10, hike:0.0150, genLoss:0.030}
+];
+const SHOCK=0.01;   // CAMELS 的 S 一律用 1 個百分點的標準衝擊，各情境公平比較
+let lastScen=0;
+function pickScenario(){
+  const pool=SCENARIOS.filter(x=>x.id!==lastScen), sc=pool[Math.floor(Math.random()*pool.length)];
+  lastScen=sc.id; Object.assign(P,sc); return sc;
+}
+const pp=x=>+(x*100).toFixed(2)+"%";                 // 0.0075 → "0.75%"
+const hikeTxt=()=>+(P.hike*100).toFixed(2)+" 個百分點";
+const reqAmt=()=>Math.round(P.dep0*P.reqRatio*100)/100;
+function defaultAlloc(){
+  const d=P.dep0, T=d+P.eq0, res=Math.ceil(reqAmt())+2, cd=Math.round(d*0.18), gov=Math.round(d*0.10), mort=Math.round(d*0.38);
+  return {res,cd,gov,mort,corp:T-res-cd-gov-mort};
+}
 
 /* ===================== 登記資料 ===================== */
 let ME=null;   // {dept, sid, name}
@@ -125,8 +145,9 @@ function newState(id){
   return {id, step:0, dep:P.dep0, eq:P.eq0, res:0, cd:0, gov:0, bill:0, mort:0, corp:0,
     dx:0, dxRate:0, dxRecov:0, ib:0, cb:0, dr:0, govMV:1, depAdj:0,
     conf:70, reg:70, runMult:1, W:0, need:0, loss:0, creditBase:0,
-    flags:{}, notes:[], wrong:0, wrongLog:{}};
+    flags:{}, notes:[], wrong:0, wrongLog:{}, eqLog:[]};
 }
+function eqAdd(a,label){ S.eq+=a; if(Math.abs(a)>0.001) S.eqLog.push({t:label,a}); }
 const assets = () => S.res+S.cd+S.gov+S.bill+S.mort+S.corp+S.dx;
 const rwa = () => S.mort*0.5 + S.corp + S.dx;
 const car = () => rwa()>0 ? S.eq/rwa() : 9.99;
@@ -178,7 +199,7 @@ let calcCfg=null, calcTries=0;
 function calcBox(q, ans, tol, hints, onPass, unit, label){
   calcCfg={ans,tol,hints,onPass,label}; calcTries=0;
   return `<div class="calc"><div class="lock">🔒 解鎖計算題</div><p>${q}</p>
-    <div class="row"><input type="number" step="any" id="cIn" placeholder="輸入答案">
+    <div class="row"><input type="text" inputmode="decimal" id="cIn" placeholder="輸入答案" style="width:130px"><button class="btn ghost" type="button" onclick="flipSign()" title="切換正負號">±</button>
     <span class="muted">${unit||"億元"}</span><button class="btn" onclick="checkCalc()">確認</button></div>
     <div id="cFb" class="fb"></div></div>`;
 }
@@ -188,8 +209,9 @@ function penalize(label){
   t.textContent=`❌ 答錯，扣 ${P.wrongPen} 分（觀念題累計 −${S.wrong*P.wrongPen}）`;
   t.style.opacity=1; clearTimeout(window._tt); window._tt=setTimeout(()=>t.style.opacity=0,2200);
 }
+function flipSign(){ const e=$("cIn"); if(e.disabled) return; const v=e.value.trim(); e.value=/^[-−－]/.test(v)?v.slice(1):"-"+v; e.focus(); }
 function checkCalc(){
-  const v=parseFloat($("cIn").value);
+  const v=parseFloat($("cIn").value.trim().replace(/[−－]/g,"-").replace(/,/g,""));
   if(isNaN(v)){ $("cFb").className="fb no"; $("cFb").textContent="請輸入數字"; return; }
   if(Math.abs(v-calcCfg.ans)<=calcCfg.tol){
     $("cFb").className="fb ok"; $("cFb").textContent="✅ 正確！決策已解鎖。";
@@ -235,12 +257,13 @@ function intro(){
   let saved={}; try{ saved=JSON.parse(localStorage.getItem(LS_KEY)||"{}"); }catch(e){}
   $("main").innerHTML=`<div class="card">
     <h2>歡迎上任，行長！</h2>
-    <p>今天是你接掌「學府商業銀行」的第一天。你有 <b>100 億元存款</b>（資金來源）和 <b>8 億元銀行資本</b>，要決定這些錢怎麼用（資金用途）。從早上 8 點開門到下午 5 點結算，你會遇到一連串事件。</p>
+    <p>你剛接掌「學府商業銀行」。你有大約 <b>100 億元存款</b>（資金來源）和大約 <b>8 億元銀行資本</b>，要決定這些錢怎麼用（資金用途）。從上任第一天開門到年底結算，時間會快轉，你會遇到一連串事件。</p>
     <p>每一關的流程：<b>📰 情境 → 🔒 解鎖題 → 🎯 決策 → 📋 老師講評</b></p>
     <ul class="muted">
       <li>解鎖題答對才能做決策。<b>每答錯一次扣 2 分</b>，答錯會給提示；計算題答錯 3 次會顯示答案，讓你繼續往下玩。</li>
-      <li>決策沒有標準答案，但會影響後面的關卡。<b>早上的決定，會決定你下午撐不撐得住。</b></li>
+      <li>決策沒有標準答案，但會影響後面的關卡。<b>前面的決定，會決定你後面撐不撐得住。</b></li>
       <li>結算時，金管會會用 <b>CAMELS</b> 為你的銀行評等。</li>
+      <li><b>每次開始（包括重玩），存款、資本、法定準備率、升息幅度等數字都會換一組</b>，計算題的答案也會不同。</li>
       <li>結算後寫下一個問題，按「送出成績」，成績會直接送到老師那裡。<b>可以重玩，老師以你的最高分為準。</b></li>
     </ul>
     <h3>請登記</h3>
@@ -290,12 +313,12 @@ const assetInfo=[
   {k:"corp", name:"企業放款", note:"浮動利率｜收益 3.5%"}
 ];
 function L1(){
-  S=newState(S.id); dash(); window.scrollTo(0,0);
-  $("main").innerHTML=`<div class="card">${head(1,"08:00","開門營業","9.1–9.3、10 二")}
+  pickScenario(); S=newState(S.id); A=defaultAlloc(); dash(); window.scrollTo(0,0);
+  $("main").innerHTML=`<div class="card">${head(1,"第 1 天","開門營業","9.1–9.3、10 二")}
     <h2>資金來源有了，資金用途怎麼安排？</h2>
-    <p>總資產 ＝ 總負債 ＋ 銀行資本。你要把 <b>108 億元</b>（存款 100 億＋資本 8 億）分配到五種資產。</p>
-    ${calcBox(`存款 ${P.dep0} 億元，法定準備率為 ${P.reqRatio*100}%。法定準備至少要多少？`,
-      P.dep0*P.reqRatio, 0.01, ["法定準備 = 存款 × 法定準備率","法定準備 = 100 × 10%"], L1alloc, null, "法定準備")}
+    <p>總資產 ＝ 總負債 ＋ 銀行資本。你要把 <b>${P.dep0+P.eq0} 億元</b>（存款 ${P.dep0} 億＋資本 ${P.eq0} 億）分配到五種資產。這次的法定準備率是 <b>${pp(P.reqRatio)}</b>。</p>
+    ${calcBox(`存款 ${P.dep0} 億元，法定準備率為 ${pp(P.reqRatio)}。法定準備至少要多少？（四捨五入到小數第 1 位）`,
+      reqAmt(), 0.05, ["法定準備 = 存款 × 法定準備率",`法定準備 = ${P.dep0} × ${pp(P.reqRatio)}`], L1alloc, null, "法定準備")}
     <div id="allocArea"></div></div>`;
 }
 function L1alloc(){
@@ -310,7 +333,7 @@ function L1alloc(){
     ① 準備金 ≥ 法定準備；② 資本適足率 = 資本 ÷ 風險性資產 ≥ 10.5%；③ 流動性覆蓋比率 LCR = 高品質流動資產（準備金＋央行定存單＋公債）÷ 未來 30 天淨現金流出（假設為存款的 15%）≥ 100%。</p>
     <div class="alloc">${assetInfo.map(a=>`<div class="item">
       <div class="name">${a.name}<small>${a.note}</small></div>
-      <input type="range" min="0" max="108" step="1" value="${A[a.k]}" oninput="A.${a.k}=+this.value;updAlloc()">
+      <input type="range" min="0" max="${P.dep0+P.eq0}" step="1" value="${A[a.k]}" oninput="A.${a.k}=+this.value;updAlloc()">
       <div class="num" id="n_${a.k}">${A[a.k]}</div></div>`).join("")}</div>
     <div class="status" id="allocStatus"></div>
     <p style="margin-top:14px"><button class="btn" id="allocGo" onclick="L1done()">確定配置，開門營業 →</button></p>`;
@@ -321,7 +344,7 @@ function updAlloc(){
   const tot=A.res+A.cd+A.gov+A.mort+A.corp, r=A.mort*0.5+A.corp, c=r>0?P.eq0/r:9.99;
   const l=(A.res+A.cd+A.gov)/(P.lcrOut*P.dep0);
   const pr=A.cd*P.yCd+A.gov*P.yGov+A.mort*P.yMort+A.corp*P.yCorp-P.dep0*P.depRate;
-  const T=P.dep0+P.eq0, okT=tot===T, okR=A.res>=P.dep0*P.reqRatio, okC=c>=P.carMin, okL=l>=1;
+  const T=P.dep0+P.eq0, okT=tot===T, okR=A.res>=reqAmt(), okC=c>=P.carMin, okL=l>=1;
   $("allocStatus").innerHTML=
     `<div>已分配：<span class="${okT?"ok":"bad"}">${tot} / ${T} 億</span></div>
      <div>① 準備金：<span class="${okR?"ok":"bad"}">${A.res} 億 ${okR?"✓":"✗"}</span></div>
@@ -335,21 +358,22 @@ function L1done(){
   Object.assign(S,{res:A.res,cd:A.cd,gov:A.gov,mort:A.mort,corp:A.corp}); S.step=1; dash();
   const liqR=(S.res+S.cd+S.gov)/(P.dep0+P.eq0);
   const style = liqR>=0.35?"保守型：流動性充足，但獲利較低":liqR>=0.2?"平衡型：兼顧流動性與獲利":"積極型：獲利高，但流動性偏低";
-  S.notes.push("08:00 資產配置："+style+`（準備金 ${S.res}、央行定存單 ${S.cd}、公債 ${S.gov}、房貸 ${S.mort}、企業放款 ${S.corp}）`);
+  S.notes.push(`情境 ${lastScen}：存款 ${P.dep0}、資本 ${P.eq0}、法定準備率 ${pp(P.reqRatio)}、升息 ${pp(P.hike)}、景氣損失率 ${pp(P.genLoss)}`);
+  S.notes.push("第1天 資產配置："+style+`（準備金 ${S.res}、央行定存單 ${S.cd}、公債 ${S.gov}、房貸 ${S.mort}、企業放款 ${S.corp}）`);
   const T=P.dep0+P.eq0;
-  $("main").innerHTML=`<div class="card">${head(1,"08:30","開門營業","9.1–9.3")}
+  $("main").innerHTML=`<div class="card">${head(1,"第 1 天","開門營業","9.1–9.3")}
     <div class="review"><h3>📋 老師講評：流動性、獲利與資本的取捨</h3>
     <p>你的配置屬於<b>${style}</b>（流動資產占 ${pct(liqR)}）。</p>
     <p><b>超額準備就像保險</b>：可以應付存款外流，代價是放棄放款與證券的較高報酬（機會成本）。公債是「次級準備」，流動性高，但它有自己的風險，等一下就會看到。</p>
     <p><b>ROE ＝ ROA × 權益乘數</b>。你的 ROA 是 ${pct(profit()/T)}，權益乘數 EM ＝ 資產 ÷ 資本 ＝ ${f1(T/S.eq)}，所以 ROE ＝ ${pct(roe())}。資本越少，EM 越大、ROE 越高，但能吸收的損失也越少。這就是資本適足管理的核心取捨。</p>
     <p><b>真實的銀行把流動性放在哪裡？</b>不是零利息的超額準備，而是有利息、又能隨時變現的資產。台灣銀行體系持有的高品質流動資產中，占比最高的就是<b>央行定存單</b>。這也是央行沖銷外匯干預的工具，到了 Part II 你會從央行那一邊看到它。</p>
-    <p class="muted">記住你的配置，下午會用到。</p></div>
+    <p class="muted">記住你的配置，幾個月後會用到。</p></div>
     ${nextBtn("L2")}</div>`;
 }
 
 /* ===================== 第 2 關：授信審核（5P） ===================== */
 function L2(){
-  $("main").innerHTML=`<div class="card">${head(2,"09:30","授信審核","9.4")}
+  $("main").innerHTML=`<div class="card">${head(2,"第 1 週","授信審核","9.4")}
     <h2>大興建設來申請 8 億元土建融</h2>
     <p>大興建設是你們的老客戶，想申請 8 億元的土地與建築融資，願意付 <b>5% 的高利率</b>。業務部很想做這筆生意。授信審查報告如下：</p>
     <div class="info"><table>
@@ -386,32 +410,32 @@ function L2dec(){
 function L2do(ch){
   let t="";
   if(ch==="A"){ fundLoan(8); S.dx=8; S.dxRate=0.05; S.dxRecov=0.40;
-    t="你全額核貸 8 億元。業務部很開心，今年的利息收入會很漂亮。"; S.notes.push("09:30 授信：全額核貸大興建設 8 億"); }
+    t="你全額核貸 8 億元。業務部很開心，今年的利息收入會很漂亮。"; S.notes.push("第1週 授信：全額核貸大興建設 8 億"); }
   if(ch==="B"){ fundLoan(5); S.dx=5; S.dxRate=0.04; S.dxRecov=0.90; S.dep+=1; S.res+=1;
-    t="你核貸 5 億元，取得土地擔保，並要求大興在本行維持 1 億元存款。大興不太高興，但還是接受了。"; S.notes.push("09:30 授信：附擔保與補償性存款核貸 5 億"); }
-  if(ch==="C"){ t="你婉拒了這筆貸款。業務部有點失望，大興轉向其他銀行。"; S.notes.push("09:30 授信：婉拒（信用分配）"); }
+    t="你核貸 5 億元，取得土地擔保，並要求大興在本行維持 1 億元存款。大興不太高興，但還是接受了。"; S.notes.push("第1週 授信：附擔保與補償性存款核貸 5 億"); }
+  if(ch==="C"){ t="你婉拒了這筆貸款。業務部有點失望，大興轉向其他銀行。"; S.notes.push("第1週 授信：婉拒（信用分配）"); }
   dash();
-  $("main").innerHTML=`<div class="card">${head(2,"10:00","授信審核","9.4")}<p>${t}</p>
+  $("main").innerHTML=`<div class="card">${head(2,"第 1 週","授信審核","9.4")}<p>${t}</p>
     <div class="review"><h3>📋 老師講評：用 5P 篩選，用擔保與監督管理</h3>
     <p>這份審查報告中最關鍵的一項是 <b>Payment（還款來源）</b>：預售率只有 35%，而還款幾乎完全依賴賣房。加上 Perspective 指出房市可能降溫，這筆貸款的風險不低。</p>
     <p>信用風險管理的工具：<b>擔保品</b>在違約時可以處分抵償，也能降低逆選擇與道德風險；<b>補償性存款</b>讓銀行可以從帳戶往來監督借款戶，帳戶異常就是警訊；<b>信用分配</b>則是承認「調高利率只會吸引更差的借款人」，所以乾脆不借，或只借一部分。</p>
-    <p class="muted">這筆貸款會不會出問題？下午就知道了。</p></div>
+    <p class="muted">這筆貸款會不會出問題？幾個月後就知道了。</p></div>
     ${nextBtn("L3")}</div>`;
 }
 
 /* ===================== 第 3 關：利率風險（升息） ===================== */
 function L3(){
   const rsa=S.corp+S.dx+S.cd, rsl=P.rsDep*S.dep, ans=Math.round((rsa-rsl)*P.hike*100)/100;
-  $("main").innerHTML=`<div class="card">${head(3,"10:30","央行升息","9.5")}
-    <div class="event">📢 <b>快訊：</b>為了抑制通膨，央行宣布升息 <b>1 個百分點</b>（遊戲簡化）。市場利率全面上升。</div>
+  $("main").innerHTML=`<div class="card">${head(3,"第 2 個月","央行升息","9.5")}
+    <div class="event">📢 <b>快訊：</b>為了抑制通膨，央行宣布升息 <b>${hikeTxt()}</b>（遊戲簡化）。市場利率全面上升。</div>
     <p>你的銀行有兩種利率風險要算：</p>
     <div class="info"><b>缺口分析（看盈餘）</b><br>
     利率敏感性資產 RSA：企業放款（浮動利率）${f1(S.corp+S.dx)} 億＋央行定存單（短期，到期依新利率續作）${f1(S.cd)} 億 ＝ <b>${f1(rsa)} 億</b><br>
     利率敏感性負債 RSL：定期存款 ＝ 存款 × 60% ＝ <b>${f1(rsl)} 億</b><br>
     <span class="muted">準備金不計息；公債與房貸是固定利率，一年內不會重新定價。</span></div>
-    ${calcBox(`升息 1 個百分點，淨利息收入（NII）每年會變動多少？（減少請填負數）`, ans, 0.02,
+    ${calcBox(`升息 ${hikeTxt()}，淨利息收入（NII）每年會變動多少？（減少請填負數，四捨五入到小數第 2 位）`, ans, 0.02,
       ["缺口 GAP = RSA − RSL；ΔNII = GAP × Δr",
-       `GAP = ${f1(rsa)} − ${f1(rsl)} = ${f1(rsa-rsl)}；ΔNII = GAP × 1%`], L3dur, null, "缺口分析")}
+       `GAP = ${f1(rsa)} − ${f1(rsl)} = ${f1(rsa-rsl)}；ΔNII = GAP × ${pp(P.hike)}`], L3dur, null, "缺口分析")}
     <div id="d3"></div></div>`;
 }
 function L3dur(){
@@ -419,7 +443,7 @@ function L3dur(){
   const loss=S.gov*P.durGov*P.hike;
   $("d3").innerHTML=`<p>${gap()<0?"你的銀行是<b>負缺口</b>：負債重新定價比資產快，升息會讓利差縮小。":"你的銀行是<b>正缺口</b>：資產重新定價比負債快，升息反而增加淨利息收入。"}</p>
     <div class="info"><b>存續期間分析（看淨值市值）</b><br>
-    公債的存續期間是 5 年，升息 1 個百分點，市值約下跌 5 × 1% = <b>5%</b>。<br>
+    公債的存續期間是 ${P.durGov} 年，升息 ${hikeTxt()}，市值約下跌 ${P.durGov} × ${pp(P.hike)} = <b>${pp(P.durGov*P.hike)}</b>。<br>
     你持有 ${f1(S.gov)} 億元公債 → 未實現損失約 <b>${f2(loss)} 億元</b>。<br>
     帳面淨值：${f1(S.eq)} 億｜<b>市值淨值：${f1(S.eq-loss)} 億</b></div>
     <h3>🎯 決策：這批公債怎麼處理？</h3><div class="opts">
@@ -428,25 +452,25 @@ function L3dur(){
 }
 function L3do(ch){
   const loss=S.gov*P.durGov*P.hike;
-  if(ch==="A"){ S.govMV=1-P.durGov*P.hike; S.notes.push(`10:30 升息：公債續抱（未實現損失 ${f2(loss)} 億）`); }
-  else { S.eq-=loss; S.bill=S.gov-loss; S.gov=0; S.govMV=1; S.notes.push(`10:30 升息：賣出公債、認列損失 ${f2(loss)} 億，改買短票`); }
+  if(ch==="A"){ S.govMV=1-P.durGov*P.hike; S.notes.push(`第2個月 升息：公債續抱（未實現損失 ${f2(loss)} 億）`); }
+  else { eqAdd(-loss,"第2個月 賣出跌價公債，認列損失"); S.bill=S.gov-loss; S.gov=0; S.govMV=1; S.notes.push(`第2個月 升息：賣出公債、認列損失 ${f2(loss)} 億，改買短票`); }
   dash();
-  $("main").innerHTML=`<div class="card">${head(3,"11:00","央行升息","9.5")}
+  $("main").innerHTML=`<div class="card">${head(3,"第 2 個月","央行升息","9.5")}
     <div class="review"><h3>📋 老師講評：缺口看盈餘，存續期間看淨值</h3>
     <p><b>缺口分析</b>只看淨利息收入的變化；<b>存續期間分析</b>看的是資產與負債市值的變化。負缺口的銀行怕升息，正缺口的銀行怕降息。</p>
     <p><b>矽谷銀行（SVB）</b>就是這樣出事的：疫情期間存款大增，買進大量長天期債券，列為持有至到期。升息後未實現損失約 151 億美元，2023 年 3 月被迫賣債認列損失、宣布增資，消息一出，一天內被提領 420 億美元。</p>
-    <p>${ch==="A"?"你選擇續抱。帳面上沒事，但如果下午需要現金，賣出時就得認列損失。這就是「帳面價值」與「市值」的差別：應該用哪一種來監理銀行？":"你選擇立刻認列損失。資本少了，但流動性和收益都改善了。這就像監理機關的觀點：淨值應該用市值來看。"}</p></div>
+    <p>${ch==="A"?"你選擇續抱。帳面上沒事，但如果之後需要現金，賣出時就得認列損失。這就是「帳面價值」與「市值」的差別：應該用哪一種來監理銀行？":"你選擇立刻認列損失。資本少了，但流動性和收益都改善了。這就像監理機關的觀點：淨值應該用市值來看。"}</p></div>
     ${nextBtn("L4")}</div>`;
 }
 
 /* ===================== 第 4 關：駭客入侵（作業風險） ===================== */
 function L4(){
-  $("main").innerHTML=`<div class="card">${head(4,"11:30","駭客入侵","10 二")}
+  $("main").innerHTML=`<div class="card">${head(4,"第 3 個月","駭客入侵","10 二")}
     <div class="event">🚨 <b>資訊長衝進辦公室：</b>「核心系統被勒索軟體鎖住了！ATM 和網路銀行全部停擺。駭客要求 0.5 億元比特幣贖金，24 小時內不付就公開客戶資料。」<br>
     同時，有人在 Dcard 上發文：「學府銀行 ATM 全掛，是不是要倒了？」</div>
-    ${mcBox("系統遭駭導致停擺。Basel II 支柱一要求銀行為哪一種風險計提資本？",
+    ${mcBox("系統遭駭、ATM 停擺。這次的損失屬於哪一種風險？",
       ["信用風險","市場風險","作業風險","利率風險"], 2,
-      "正確！作業風險是內部流程、人員、系統或外部事件造成的損失。Basel II 起，作業風險也要計提資本。",
+      "正確！作業風險是內部流程、人員、系統或外部事件造成的損失。Basel II 起，作業風險和信用風險、市場風險一樣，都要在支柱一計提資本。",
       "這個損失不是來自借款人違約，也不是來自市場價格，而是來自「系統」出問題。", L4dec, "作業風險")}
     <div id="d4"></div></div>`;
 }
@@ -458,27 +482,29 @@ function L4dec(){
 }
 function L4do(ch){
   let t="";
-  if(ch==="A"){ S.eq-=0.3; S.res-=0.3; S.conf-=10; S.reg+=10; S.runMult=0.8;
-    t="你立即通報並公開說明，備援系統 4 小時後上線，修復與通報花費 0.3 億元。客戶有些不安，但看到銀行坦白處理，謠言沒有擴散太多。"; S.notes.push("11:30 駭客：主動通報"); }
-  else if(ch==="B"){ S.eq-=0.5; S.res-=0.5; S.reg-=25; const leak=Math.random()<0.5;
+  if(ch==="A"){ eqAdd(-0.3,"第3個月 駭客：修復與通報費用"); S.res-=0.3; S.conf-=10; S.reg+=10; S.runMult=0.8;
+    t="你立即通報並公開說明，備援系統 4 小時後上線，修復與通報花費 0.3 億元。客戶有些不安，但看到銀行坦白處理，謠言沒有擴散太多。"; S.notes.push("第3個月 駭客：主動通報"); }
+  else if(ch==="B"){ eqAdd(-0.5,"第3個月 駭客：付贖金"); S.res-=0.5; S.reg-=25; const leak=Math.random()<0.5;
     if(leak){ S.runMult=1.4; S.conf-=15; t="你付了 0.5 億元贖金，系統恢復了。但兩小時後媒體踢爆「學府銀行付贖金給駭客」。付贖金可能涉及洗錢與資恐疑慮，金管會要求說明，客戶也開始懷疑銀行還隱瞞了什麼。"; }
     else { S.runMult=1.0; t="你付了 0.5 億元贖金，系統恢復，消息暫時沒有外洩。但付贖金不保證駭客會刪資料，也可能涉及洗錢與資恐疑慮。金管會在檢查中察覺異狀，監理關係變差。"; }
-    S.notes.push("11:30 駭客：付贖金"+(leak?"（外洩）":"")); }
+    S.notes.push("第3個月 駭客：付贖金"+(leak?"（外洩）":"")); }
   else { S.conf-=25; S.reg-=35; S.runMult=1.5;
-    t="你對外說是例行維護。一小時後，員工把內部通知截圖貼上 Dcard，標題是「學府銀行隱瞞被駭」。文章衝上熱門，金管會認為你違反通報義務，存款人覺得被騙了。"; S.notes.push("11:30 駭客：隱瞞"); }
+    t="你對外說是例行維護。一小時後，員工把內部通知截圖貼上 Dcard，標題是「學府銀行隱瞞被駭」。文章衝上熱門，金管會認為你違反通報義務，存款人覺得被騙了。"; S.notes.push("第3個月 駭客：隱瞞"); }
   S.conf=clamp(S.conf,0,100); S.reg=clamp(S.reg,0,100); dash();
-  $("main").innerHTML=`<div class="card">${head(4,"12:00","駭客入侵","10 二")}<p>${t}</p>
+  $("main").innerHTML=`<div class="card">${head(4,"第 3 個月","駭客入侵","10 二")}<p>${t}</p>
     <div class="review"><h3>📋 老師講評：作業風險會變成流動性風險</h3>
     <p>駭客入侵本身是作業風險，但真正危險的是它會透過<b>聲譽</b>傳導成<b>流動性風險</b>：存款人一旦懷疑銀行有問題，就會搶著提款。</p>
     <p>這也是為什麼監理機關要求「資訊揭露」與「事件通報」：存款人沒有能力自己監督銀行，只能靠制度產生可信的公共資訊。</p>
-    <p class="muted">你的選擇會影響下午的擠兌規模（倍數 ×${S.runMult}）。</p></div>
+    ${ch==="A"?"<p>你可能注意到：主動通報讓存款人信心先掉了一些。但看下一行的擠兌倍數，主動通報是三個選項裡最小的，監理關係也最好。短期信心下降，換來後面擠兌規模變小。</p>":""}
+    <p class="muted">為什麼駭客要比特幣？加密資產跨境、難以追查，是勒索軟體常見的收款方式；這也是銀行付贖金會有洗錢與資恐疑慮的原因。</p>
+    <p class="muted">你的選擇會影響接下來的擠兌規模（倍數 ×${S.runMult}）。</p></div>
     ${nextBtn("L5")}</div>`;
 }
 
 /* ===================== 第 5 關：擠兌（流動性管理） ===================== */
 function L5(){
-  $("main").innerHTML=`<div class="card">${head(5,"13:00","擠兌","9.3、10 一")}
-    <div class="event">🏃 分行門口開始排隊，網路上流傳「先領先贏」。客服電話被打爆。</div>
+  $("main").innerHTML=`<div class="card">${head(5,"第 3 個月","擠兌","9.3、10 一")}
+    <div class="event">🏃 駭客事件後第二天，分行門口開始排隊，網路上流傳「先領先贏」。客服電話被打爆。</div>
     <p>你的存款中，約 <b>35%</b> 是超過存款保險保額（每人 300 萬元）的大額存款，主要是企業戶。</p>
     <h3>🎯 第一步：你要怎麼對外溝通？</h3><div class="opts">
     <button class="opt" onclick="L5comm('A')"><b>A. 公開說明財務狀況，並強調「中央存保保障每人最高 300 萬元」</b><small>保額內的存款人就不必搶著領；但保額外的存款人不受影響</small></button>
@@ -487,35 +513,35 @@ function L5(){
 }
 function L5comm(ch){
   let m;
-  if(ch==="A"){ m=P.uninsured+(1-P.uninsured)*0.3; S.conf+=5; S.notes.push("13:00 擠兌溝通：強調存款保險"); }
-  if(ch==="B"){ m=0.85; S.depAdj=0.003; S.notes.push("13:00 擠兌溝通：全面調高存款利率"); }
-  if(ch==="C"){ m=1.0; S.conf-=5; S.notes.push("13:00 擠兌溝通：沉默"); }
+  if(ch==="A"){ m=P.uninsured+(1-P.uninsured)*0.3; S.conf+=5; S.notes.push("第3個月 擠兌溝通：強調存款保險"); }
+  if(ch==="B"){ m=0.85; S.depAdj=0.003; S.notes.push("第3個月 擠兌溝通：全面調高存款利率"); }
+  if(ch==="C"){ m=1.0; S.conf-=5; S.notes.push("第3個月 擠兌溝通：沉默"); }
   S.conf=clamp(S.conf,0,100);
   const confF=1+Math.max(0,60-S.conf)/100;
   S.W=Math.round(S.dep*P.runBase*S.runMult*m*confF*10)/10;
   S.need=Math.max(0, Math.round((S.W - S.res + P.reqRatio*(S.dep-S.W))*10)/10);
   S.res0=S.res; dash();
-  $("main").innerHTML=`<div class="card">${head(5,"14:00","擠兌","9.3")}
-    <div class="event">📉 今天下午，存款人一共提領了 <b>${f1(S.W)} 億元</b>。
+  $("main").innerHTML=`<div class="card">${head(5,"第 3 個月","擠兌","9.3")}
+    <div class="event">📉 兩天之內，存款人一共提領了 <b>${f1(S.W)} 億元</b>。
     <div class="muted">（基本提領 25% × 駭客事件 ×${S.runMult} × 溝通策略 ×${m.toFixed(2)} × 信心因子 ×${confF.toFixed(2)}）</div></div>
-    <p>你的準備金目前有 <b>${f1(S.res)} 億元</b>。提領後，剩下的存款仍要符合 10% 的法定準備。</p>
-    ${calcBox(`為了支付提領並補足法定準備，你還需要另外籌措多少資金？（不需要就填 0）`, S.need, 0.15,
+    <p>你的準備金目前有 <b>${f1(S.res)} 億元</b>。提領後，剩下的存款仍要符合 ${pp(P.reqRatio)} 的法定準備。</p>
+    ${calcBox(`為了支付提領並補足法定準備，你還需要另外籌措多少資金？（不需要就填 0；四捨五入到小數第 1 位）`, S.need, 0.15,
       ["先算提領後剩下多少存款，再算它需要多少法定準備。（第 9 章「存款 100→90」的例子）",
-       "需要的資金 = 提領金額 − 現有準備金 + 剩餘存款 × 10%",
-       `= ${f1(S.W)} − ${f1(S.res)} + (${f1(S.dep)} − ${f1(S.W)}) × 10%`], L5fund, null, "流動性缺口")}
+       `需要的資金 = 提領金額 − 現有準備金 + 剩餘存款 × ${pp(P.reqRatio)}`,
+       `= ${f1(S.W)} − ${f1(S.res)} + (${f1(S.dep)} − ${f1(S.W)}) × ${pp(P.reqRatio)}`], L5fund, null, "流動性缺口")}
     <div id="fundArea"></div></div>`;
 }
 function L5fund(){
   if(S.need<=0){
     S.dep-=S.W; S.res-=S.W; S.fund=[0,0,0,0,0,0]; dash();
-    $("fundArea").innerHTML=`<p>👏 你的超額準備足以應付今天的提領，不需要額外籌錢。超額準備就是這樣發揮保險作用的。</p>
+    $("fundArea").innerHTML=`<p>👏 你的超額準備足以應付這次的提領，不需要額外籌錢。超額準備就是這樣發揮保險作用的。</p>
       <p><button class="btn" onclick="L5review()">繼續 →</button></p>`;
     return;
   }
   const ibOK=S.conf>=40, cbMax=Math.floor(S.mort*0.5*10)/10;
   const maxCash=(ibOK?P.ibMax:0)+S.cd+S.gov*S.govMV+S.bill+S.mort*0.5+S.mort*0.5*(1-P.mortHaircut);
   if(maxCash<S.need){
-    S.flags.receiver=true; S.flags.runFail=true; S.notes.push("14:00 擠兌：流動性耗盡，遭派員接管");
+    S.flags.receiver=true; S.flags.runFail=true; S.notes.push("第3個月 擠兌：流動性耗盡，遭派員接管");
     $("fundArea").innerHTML=`<div class="event">💀 你需要 ${f1(S.need)} 億元，但用盡所有管道也只能籌到 ${f1(maxCash)} 億元。<br><b>流動性耗盡，銀行無法支付存款人，金管會宣布接管。</b><br>
       <span class="muted">流動性不足不等於無力償債，但擠兌可以讓原本健全的銀行也倒閉。</span></div>
       <p><button class="btn" onclick="L1()">從第 1 關重來</button> <button class="btn ghost" onclick="L7()">接受結局，前往結算 →</button></p>`;
@@ -523,14 +549,17 @@ function L5fund(){
   }
   const row=(id,name,cond,max,dis)=>`<tr><td>${name}</td><td>${cond}</td><td class="n">${f1(max)}</td><td><input type="number" id="${id}" min="0" max="${max}" step="0.5" value="0" ${dis?"disabled":""} oninput="updFund()"></td></tr>`;
   $("fundArea").innerHTML=`<h3>🎯 第二步：存款外流的四種因應，你要怎麼組合？</h3>
-    <p class="muted">需要籌措 ${f1(S.need)} 億元。請輸入各管道的金額（帳面金額，億元）。</p>
+    <p class="muted">需要籌措 ${f1(S.need)} 億元。請輸入各管道的金額（帳面金額，億元）。表格由上到下大致是<b>成本由低到高</b>（課本：超額準備 → 出售證券或同業拆款 → 向央行借款 → 出售放款）。</p>
+    <div class="info">💡 還能直接變現的證券：央行定存單 ${f1(S.cd)} ＋ 短期票券 ${f1(S.bill)} ＋ 公債市值 ${f1(S.gov*S.govMV)} ＝ <b>${f1(S.cd+S.bill+S.gov*S.govMV)} 億</b>。<br>
+    <span class="muted">為什麼 LCR 很高還是要籌錢？LCR 把全部準備金都算成高品質流動資產，但其中的<b>法定準備</b>必須留著，不能拿來付提款；央行定存單和公債也要先解約或賣掉，才會變成現金。</span></div>
     <div class="tbl"><table><tr><th>因應方式</th><th>成本</th><th>上限</th><th>金額</th></tr>
-    ${row("x1","① 同業拆款／發行 NCD", ibOK?"拆款利率 2.8%":"<span class='bad'>信心太低，同業不借你</span>", ibOK?P.ibMax:0, !ibOK)}
-    ${S.cd>0?row("xc","② 央行定存單提前解約","沒有價格風險，幾乎無成本",S.cd):""}
-    ${S.gov>0?row("x2","② 出售公債", S.govMV<1?`<span class='bad'>升息後市值只剩 ${Math.round(S.govMV*100)}%，賣出即實現損失</span>`:"交易成本極低", S.gov):""}
-    ${S.bill>0?row("xb","② 出售短期票券","幾乎無損失",S.bill):""}
-    ${row("x3","③ 向央行申請融通","重貼現率 3%，以房貸作擔保；會被監理機關關注",cbMax)}
-    ${row("x4","④ 出售房貸","檸檬問題：買方怕你賣的是爛貸款，要打 85 折",S.mort)}
+    ${(()=>{ let no=0; const N=()=>"①②③④⑤⑥"[no++]+" "; return [
+      S.cd>0?row("xc",N()+"央行定存單提前解約","沒有價格風險，幾乎無成本",S.cd):"",
+      S.bill>0?row("xb",N()+"出售短期票券","幾乎無損失",S.bill):"",
+      S.gov>0?row("x2",N()+"出售公債", S.govMV<1?`<span class='bad'>升息後市值只剩 ${Math.round(S.govMV*100)}%，賣出即實現損失</span>`:"交易成本極低", S.gov):"",
+      row("x1",N()+"同業拆款／發行 NCD", ibOK?"拆款利率 2.8%":"<span class='bad'>信心太低，同業不借你</span>", ibOK?P.ibMax:0, !ibOK),
+      row("x3",N()+"向央行申請融通","重貼現率 3%，以房貸作擔保；會被監理機關關注",cbMax),
+      row("x4",N()+"出售房貸","檸檬問題：買方怕你賣的是爛貸款，要打 85 折",S.mort)].join(""); })()}
     </table></div>
     <div class="status" id="fundStatus"></div>
     <p style="margin-top:12px"><button class="btn" id="fundGo" onclick="L5doFund()">確定籌資 →</button></p>`;
@@ -546,20 +575,28 @@ function updFund(){
   const cash=x1+xc+x2*S.govMV+xb+x3+x4*(1-P.mortHaircut);
   const lossEq=x2*(1-S.govMV)+x4*P.mortHaircut;
   const ok=valid && cash>=S.need-0.05;
+  const cheap=[];
+  if(x4>0||x3>0){
+    if(S.cd-xc>0.05) cheap.push("央行定存單");
+    if(S.bill-xb>0.05) cheap.push("短期票券");
+    if(x4>0&&S.gov-x2>0.05) cheap.push("公債");
+    if(S.conf>=40&&P.ibMax-x1>0.05) cheap.push("同業拆款");
+  }
   $("fundStatus").innerHTML=`<div>實際籌到現金：<span class="${ok?"ok":"bad"}">${f1(cash)} / ${f1(S.need)} 億</span></div>
     <div>實現損失（侵蝕資本）：<b>${f2(lossEq)} 億</b></div>
-    ${valid?"":"<div class='bad'>有金額超過上限（央行融通與出售房貸合計不能超過房貸總額）</div>"}`;
+    ${valid?"":"<div class='bad'>有金額超過上限（央行融通與出售房貸合計不能超過房貸總額）</div>"}
+    ${cheap.length?`<div style="grid-column:1/-1;color:var(--warn);font-weight:700">⚠️ 還有成本較低的管道沒用完：${cheap.join("、")}。可以送出，但向央行借款或出售房貸的代價比較高。</div>`:""}`;
   $("fundGo").disabled=!ok;
 }
 function L5doFund(){
   const [x1,x2,xb,x3,x4,xc]=getX();
   const cash=x1+xc+x2*S.govMV+xb+x3+x4*(1-P.mortHaircut);
   const loss=x2*(1-S.govMV)+x4*P.mortHaircut;
-  S.cd-=xc; S.gov-=x2; S.bill-=xb; S.mort-=x4; S.ib+=x1; S.cb+=x3; S.eq-=loss;
+  S.cd-=xc; S.gov-=x2; S.bill-=xb; S.mort-=x4; S.ib+=x1; S.cb+=x3; eqAdd(-loss,"第3個月 擠兌：賣出資產的實現損失");
   S.res+=cash; S.dep-=S.W; S.res-=S.W; S.fund=[x1,x2,xb,x3,x4,xc]; S.fundLoss=loss;
-  if(x3>0){S.reg-=10;S.flags.cb=true;S.notes.push(`14:00 擠兌：向央行融通 ${f1(x3)} 億`);}
-  if(x2>0&&S.govMV<1){S.notes.push(`14:00 擠兌：賣出公債實現損失 ${f2(x2*(1-S.govMV))} 億`);}
-  if(x4>0){S.notes.push(`14:00 擠兌：出售房貸 ${f1(x4)} 億`);}
+  if(x3>0){S.reg-=10;S.flags.cb=true;S.notes.push(`第3個月 擠兌：向央行融通 ${f1(x3)} 億`);}
+  if(x2>0&&S.govMV<1){S.notes.push(`第3個月 擠兌：賣出公債實現損失 ${f2(x2*(1-S.govMV))} 億`);}
+  if(x4>0){S.notes.push(`第3個月 擠兌：出售房貸 ${f1(x4)} 億`);}
   S.conf=clamp(S.conf,0,100); S.reg=clamp(S.reg,0,100); dash(); L5review();
 }
 function L5review(){
@@ -572,13 +609,13 @@ function L5review(){
   let R=ln("存款",sg(-S.W));
   if(x1) R+=ln("同業拆款／發行 NCD",sg(x1)); if(x3) R+=ln("央行融通",sg(x3));
   if(S.fundLoss>0.001) R+=ln("銀行資本",sg(-S.fundLoss));
-  $("main").innerHTML=`<div class="card">${head(5,"14:30","擠兌結束","9.2–9.3、10 一")}
-    <p>你撐過了今天的擠兌。以下是這次擠兌在 T 帳戶上的變動：</p>
+  $("main").innerHTML=`<div class="card">${head(5,"第 3 個月","擠兌結束","9.2–9.3、10 一")}
+    <p>你撐過了這次擠兌。以下是這次擠兌在 T 帳戶上的變動：</p>
     <div class="tacct"><div><div class="hd">資產</div>${L}</div><div><div class="hd">負債與資本</div>${R}</div></div>
     <div class="review"><h3>📋 老師講評：擠兌、存款保險與最後貸款者</h3>
     <p><b>為什麼健康的銀行也會被擠兌？</b>因為「順序服務限制」：先到先領，存款人有搶先提款的強烈誘因。存款保險讓保額內的存款人不必搶，但<b>保額外的存款人仍然會跑</b>。SVB 約 87% 的存款超過保額，這是它一天就被提領 420 億美元的原因之一。</p>
     <p><b>四種因應的成本由低到高</b>：超額準備 → 同業拆款或出售證券 → 向央行借款 → 出售放款（檸檬問題，成本最高）。${S.govMV<1&&x2>0?"<br>你賣出了升息後跌價的公債，未實現損失變成了實現損失。這正是 SVB 的劇本。":""}</p>
-    <p><b>央行是最後貸款者</b>，與存款保險、審慎監理並列金融安全網的三根支柱。${S.flags.cb?"<br>🔗 <b>你今天向央行借了錢。到了 Part II，你會換到央行那一邊。</b>":""}</p></div>
+    <p><b>央行是最後貸款者</b>，與存款保險、審慎監理並列金融安全網的三根支柱。${S.flags.cb?"<br>🔗 <b>你這次向央行借了錢。到了 Part II，你會換到央行那一邊。</b>":""}</p></div>
     ${nextBtn("L6")}</div>`;
 }
 
@@ -586,20 +623,20 @@ function L5review(){
 function L6(){
   const gen=Math.round(S.corp*P.genLoss*100)/100, dxL=Math.round(S.dx*(1-S.dxRecov)*100)/100;
   S.loss=Math.round((gen+dxL)*100)/100; S.creditBase=S.corp+S.dx;
-  $("main").innerHTML=`<div class="card">${head(6,"15:30","放款違約","9.3–9.4、10 二")}
-    <div class="event">🏗️ 升息後房市急凍。${S.dx>0?`<b>大興建設宣布無法償還你核貸的 ${f1(S.dx)} 億元</b>，處分擔保品預估可回收 ${Math.round(S.dxRecov*100)}%。`:"你早上婉拒的大興建設，今天宣布無法償還其他銀行的貸款。"}
-    此外，景氣下滑讓其他企業放款也出現 <b>${P.genLoss*100}%</b> 的損失。</div>
-    <div class="info">企業放款（不含大興）：${f1(S.corp)} 億 × ${P.genLoss*100}%<br>
+  $("main").innerHTML=`<div class="card">${head(6,"第 9 個月","放款違約","9.3–9.4、10 二")}
+    <div class="event">🏗️ 升息半年後，房市急凍。${S.dx>0?`<b>大興建設宣布無法償還你核貸的 ${f1(S.dx)} 億元</b>，處分擔保品預估可回收 ${Math.round(S.dxRecov*100)}%。`:"你當初婉拒的大興建設，這次宣布無法償還其他銀行的貸款。"}
+    此外，景氣下滑讓其他企業放款也出現 <b>${pp(P.genLoss)}</b> 的損失。</div>
+    <div class="info">企業放款（不含大興）：${f1(S.corp)} 億 × ${pp(P.genLoss)}<br>
     ${S.dx>0?`大興建設貸款：${f1(S.dx)} 億 × (1 − ${Math.round(S.dxRecov*100)}% 回收率)`:"大興建設貸款：0（你沒有核貸）"}</div>
-    ${calcBox("這次信用損失合計多少？損失會直接由銀行資本吸收。", S.loss, 0.06,
-      ["損失 = 其他企業放款 × 3% ＋ 大興貸款 × (1 − 回收率)",
-       `= ${f1(S.corp)} × 3% ＋ ${f1(S.dx)} × ${f2(1-S.dxRecov)}`], L6apply, null, "信用損失")}
+    ${calcBox("這次信用損失合計多少？損失會直接由銀行資本吸收。（四捨五入到小數第 2 位）", S.loss, 0.06,
+      [`損失 = 其他企業放款 × ${pp(P.genLoss)} ＋ 大興貸款 × (1 − 回收率)`,
+       `= ${f1(S.corp)} × ${pp(P.genLoss)} ＋ ${f1(S.dx)} × ${f2(1-S.dxRecov)}`], L6apply, null, "信用損失")}
     <div id="d6"></div></div>`;
 }
 function L6apply(){
   const gen=S.corp*P.genLoss;
-  S.corp-=gen; S.eq-=gen;
-  if(S.dx>0){ S.res+=S.dx*S.dxRecov; S.eq-=S.dx*(1-S.dxRecov); S.dx=0; S.dxRate=0; }
+  S.corp-=gen; eqAdd(-gen,"第9個月 景氣下滑，企業放款損失");
+  if(S.dx>0){ S.res+=S.dx*S.dxRecov; eqAdd(-S.dx*(1-S.dxRecov),"第9個月 大興建設違約（扣除擔保品回收）"); S.dx=0; S.dxRate=0; }
   dash(); L6decide();
 }
 function L6decide(msg){
@@ -607,7 +644,7 @@ function L6decide(msg){
   const banner=(msg||"")+`<p>新的資本適足率：<b>${pct(c)}</b>，淨值占資產 ${pct(S.eq/assets())} → <span class="tier" style="background:${t.c};color:#fff">${t.t}</span></p>
     <p class="muted">資本等級（《銀行資本適足性及資本等級管理辦法》第 8 條）：資本適足 ≥ 10.5%｜資本不足 8.5%–10.5%｜資本顯著不足 2%–8.5%｜資本嚴重不足 &lt; 2%，或淨值占資產 &lt; 2%</p>`;
   if(t.k==="crit"){
-    S.flags.receiver=true; S.notes.push("15:30 資本嚴重不足，遭派員接管");
+    S.flags.receiver=true; S.notes.push("第9個月 資本嚴重不足，遭派員接管");
     $("d6").innerHTML=banner+`<div class="event">依《銀行法》第 44-2 條：資本嚴重不足者，主管機關應自列入之日起 90 日內派員接管（除非經核准限期完成資本重建或合併）。</div>
       ${nextBtn("L7","前往結算 →")}`; return;
   }
@@ -615,14 +652,14 @@ function L6decide(msg){
     const ok1=(S.eq-1)/rwa()>=P.carMin;
     $("d6").innerHTML=banner+`<p>你撐過了這波違約。董事會在問：今年要怎麼回饋股東？</p>
     <h3>🎯 決策：資本適足管理</h3><div class="opts">
-    <button class="opt" ${ok1?"":"disabled"} onclick="L6div('div')"><b>A. 照常發放 1 億元現金股利</b><small>${ok1?"股東開心，但資本會減少":"依《銀行法》第 44-1 條，發放後若會使資本等級降為資本不足，就不得為之"}</small></button>
-    <button class="opt" ${ok1?"":"disabled"} onclick="L6div('buy')"><b>B. 買回 1 億元庫藏股</b><small>${ok1?"資本減少、權益乘數上升，ROE 會變高":"依《銀行法》第 44-1 條，買回後若會使資本等級降為資本不足，就不得為之"}</small></button>
+    <button class="opt" ${ok1?"":"disabled"} onclick="L6div('div')"><b>A. 照常發放 1 億元現金股利</b><small>${ok1?(S.need>0?"股東開心，但這次才剛擠兌、對外籌資，金管會會關切（監理關係 −10）":"股東開心，但資本會減少"):"依《銀行法》第 44-1 條，發放後若會使資本等級降為資本不足，就不得為之"}</small></button>
+    <button class="opt" ${ok1?"":"disabled"} onclick="L6div('buy')"><b>B. 買回 1 億元庫藏股</b><small>${ok1?(S.need>0?"ROE 會變高，但這次才剛擠兌、對外籌資，金管會會關切（監理關係 −10）":"資本減少、權益乘數上升，ROE 會變高"):"依《銀行法》第 44-1 條，買回後若會使資本等級降為資本不足，就不得為之"}</small></button>
     <button class="opt" onclick="L6div('keep')"><b>C. 保留盈餘，增厚資本</b><small>比較安全，但 ROE 較低，股東不滿</small></button></div>`;
   } else {
     const r=rwa(), needCap=Math.ceil((P.carMin*r-S.eq)*10)/10+0.1;
     const sell=(P.carMin*r-S.eq)/(P.carMin-P.loanSaleHaircut), sellAmt=Math.ceil(sell*10)/10+0.1, sellOK=sellAmt<=S.corp;
     $("d6").innerHTML=banner+`<div class="event">⚠️ <b>《銀行法》第 44-1 條</b>：資本不足、顯著不足或嚴重不足的銀行，<b>不得以現金分配盈餘或買回股份</b>。<br>
-      <b>《銀行法》第 44-2 條</b>：資本不足者，主管機關會命令限期提出資本重建計畫，並限制新增風險性資產${t.k==="sig"?"；資本顯著不足者，主管機關還可以解除負責人職務、限制授信與轉投資、限制存款利率、派員監管":""}。<br>金管會要求你今天提出資本重建計畫。</div>
+      <b>《銀行法》第 44-2 條</b>：資本不足者，主管機關會命令限期提出資本重建計畫，並限制新增風險性資產${t.k==="sig"?"；資本顯著不足者，主管機關還可以解除負責人職務、限制授信與轉投資、限制存款利率、派員監管":""}。<br>金管會要求你限期提出資本重建計畫。</div>
     <h3>🎯 決策：你要怎麼處理？</h3><div class="opts">
     <button class="opt" disabled><b>✖ 發放現金股利／買回庫藏股</b><small>資本不足，依法不得為之</small></button>
     <button class="opt" onclick="L6fix('cap',${needCap})"><b>A. 現金增資 ${f1(needCap)} 億元</b><small>直接補足資本，但會稀釋原有股東的持股</small></button>
@@ -632,22 +669,23 @@ function L6decide(msg){
   }
 }
 function L6div(t){
-  if(t==="div"){S.eq-=1;S.res-=1;S.notes.push("15:30 發放現金股利 1 億");}
-  if(t==="buy"){S.eq-=1;S.res-=1;S.notes.push("15:30 買回庫藏股 1 億");}
-  if(t==="keep"){S.notes.push("15:30 保留盈餘");}
+  if(t==="div"){eqAdd(-1,"年底 發放現金股利");S.res-=1;S.notes.push("第9個月 發放現金股利 1 億");}
+  if(t==="buy"){eqAdd(-1,"年底 買回庫藏股");S.res-=1;S.notes.push("第9個月 買回庫藏股 1 億");}
+  if(t==="keep"){S.notes.push("第9個月 保留盈餘");}
+  if(t!=="keep"&&S.need>0){S.reg=clamp(S.reg-10,0,100);S.flags.divAfterRun=true;S.notes.push("年底 擠兌後仍分配資本，金管會關切");}
   dash(); L6review();
 }
 function L6fix(t,amt){
-  if(t==="cap"){S.eq+=amt;S.res+=amt;S.conf+=5;S.flags.dilute=true;S.notes.push(`15:30 現金增資 ${f1(amt)} 億`);}
-  if(t==="sell"){const a=Math.min(amt,S.corp);S.corp-=a;S.res+=a*(1-P.loanSaleHaircut);S.eq-=a*P.loanSaleHaircut;S.notes.push(`15:30 出售企業放款 ${f1(a)} 億`);}
+  if(t==="cap"){eqAdd(amt,"第9個月 現金增資");S.res+=amt;S.conf+=5;S.flags.dilute=true;S.notes.push(`第9個月 現金增資 ${f1(amt)} 億`);}
+  if(t==="sell"){const a=Math.min(amt,S.corp);S.corp-=a;S.res+=a*(1-P.loanSaleHaircut);eqAdd(-a*P.loanSaleHaircut,"第9個月 折價出售企業放款");S.notes.push(`第9個月 出售企業放款 ${f1(a)} 億`);}
   if(t==="gamble"){
     const win=Math.random()<0.3;
-    if(win){S.eq+=3;S.res+=3;S.flags.gambleWin=true;S.reg-=15;S.notes.push("15:30 賭一把：賭贏了");}
-    else{S.eq-=2.5;S.res-=2.5;S.reg-=15;S.notes.push("15:30 賭一把：賭輸了");}
+    if(win){eqAdd(3,"第9個月 賭一把：賭贏");S.res+=3;S.flags.gambleWin=true;S.reg-=15;S.notes.push("第9個月 賭一把：賭贏了");}
+    else{eqAdd(-2.5,"第9個月 賭一把：賭輸");S.res-=2.5;S.reg-=15;S.notes.push("第9個月 賭一把：賭輸了");}
     S.flags.gamble=true;
   }
   if(t==="forbear"){
-    S.reg=clamp(S.reg-20,0,100); S.flags.forbearTried=true; S.notes.push("15:30 申請監理寬容，遭金管會駁回");
+    S.reg=clamp(S.reg-20,0,100); S.flags.forbearTried=true; S.notes.push("第9個月 申請監理寬容，遭金管會駁回");
     dash();
     L6decide(`<div class="event">❌ <b>金管會駁回了你的申請。</b>及時糾正措施的精神，就是用明確的資本分級取代監理機關的裁量，不讓問題銀行「等等看」。你的監理關係因此下降。請重新選擇資本重建方案。</div>`);
     return;
@@ -660,16 +698,17 @@ function L6fix(t,amt){
 }
 function L6review(){
   let extra="";
+  if(S.flags.divAfterRun) extra+=`<p><b>你在擠兌、對外籌資之後，還是把資本發給股東。</b>法律只看發放後資本適足率有沒有低於門檻，但監理機關會問：剛向外借錢撐過擠兌，為什麼不先把資本留著？這就是監理關係下降的原因。</p>`;
   if(S.flags.forbearTried) extra+=`<p><b>你申請了監理寬容。</b>這正是及時糾正措施要避免的：監理寬容短期省下關閉成本，長期卻讓問題銀行有時間孤注一擲、以高利率搶存款，擴大損失。所以法律用明確的資本分級取代裁量。</p>`;
   if(S.flags.gamble) extra+=`<p><b>你選擇了「賭一把」。</b>${S.flags.gambleWin?"這次賭贏了，":"結果賭輸了，"}但這正是監理機關最擔心的行為：當淨值很低時，經營者「沒有東西可輸」，正常經營很難翻本，不如孤注一擲。賭贏歸股東，賭輸由存保和納稅人承擔。</p>`;
   else if(S.flags.dilute) extra+=`<p><b>你選擇增資。</b>原股東承擔了損失，這正是資本要求想達到的效果：讓股東有「賭本」（skin in the game），經營誘因才會正確。</p>`;
-  $("main").innerHTML=`<div class="card">${head(6,"16:30","放款違約","9.3、10 二")}
+  $("main").innerHTML=`<div class="card">${head(6,"第 9 個月","放款違約","9.3、10 二")}
     <p>目前資本適足率：<b>${pct(car())}</b>（${tier(car()).t}）${S.flags.receiver?"<br><b class='bad'>金管會派員接管你的銀行。</b>":S.flags.conservator?"<br><b class='bad'>依第 44-2 條，金管會派員監管你的銀行。</b>":S.flags.order?"<br><b style='color:var(--warn)'>依第 44-2 條，金管會命令你限期提出資本重建計畫，並限制新增風險性資產。</b>":""}</p>
     <div class="review"><h3>📋 老師講評：資本是吸收損失的緩衝</h3>
     <p>放款損失最先由銀行資本吸收。資本越厚，越撐得住損失；但資本越厚，ROE 也越低。這就是資本適足管理的取捨。</p>
     ${extra}
-    <p>回頭看看你早上的授信決策：${S.creditBase>0?`你的信用損失合計 ${f2(S.loss)} 億元。`:""}擔保品和信用分配，正是為了今天這種時候準備的。</p></div>
-    ${nextBtn("L7","下午 5 點，結算 →")}</div>`;
+    <p>回頭看看你上任第一週的授信決策：${S.creditBase>0?`你的信用損失合計 ${f2(S.loss)} 億元。`:""}擔保品和信用分配，正是為了這種時候準備的。</p></div>
+    ${nextBtn("L7","年底，結算 →")}</div>`;
 }
 
 /* ===================== 結算：CAMELS ===================== */
@@ -677,27 +716,37 @@ function rate(v,th,desc){ for(let i=0;i<4;i++){ if(desc? v>=th[i] : v<=th[i]) re
 function camels(){
   const c=car(), l=lcr(), roa=profit()/Math.max(assets(),1);
   const lossR=S.creditBase>0?S.loss/S.creditBase:0;
-  const nii=Math.abs(gap())*P.hike, sens=S.eq>0?nii/S.eq:9;
+  const nii=Math.abs(gap())*SHOCK, sens=S.eq>0?nii/S.eq:9;
   const badGov=S.gov>0&&S.govMV<1;
   let sR=rate(sens,[0.05,0.07,0.09,0.11],false); if(badGov) sR=Math.min(5,sR+1);
   return [
     {k:"C",n:"資本適足 Capital",def:"資本適足率 ＝ 資本 ÷ 風險性資產",v:pct(c),th:"≥11%｜≥10.5%｜≥9.5%｜≥8.5%｜其他",r:rate(c,[0.11,0.105,0.095,0.085],true)},
-    {k:"A",n:"資產品質 Asset quality",def:"信用損失率 ＝ 今天的放款損失 ÷ 企業放款",v:pct(lossR),th:"≤4.5%｜≤6%｜≤9%｜≤12%｜其他",r:rate(lossR,[0.045,0.06,0.09,0.12],false)},
+    {k:"A",n:"資產品質 Asset quality",def:"信用損失率 ＝ 這次的放款損失 ÷ 企業放款",v:pct(lossR),th:"≤4.5%｜≤6%｜≤9%｜≤12%｜其他",r:rate(lossR,[0.045,0.06,0.09,0.12],false)},
     {k:"M",n:"管理 Management",def:"監理關係分數（反映通報、守法與處理問題的方式）",v:Math.round(S.reg),th:"≥80｜≥65｜≥50｜≥35｜其他",r:rate(S.reg,[80,65,50,35],true)},
     {k:"E",n:"獲利 Earnings",def:"ROA ＝ 預估年獲利 ÷ 總資產（閒置資金會拉低 ROA）",v:pct(roa),th:"≥1.0%｜≥0.8%｜≥0.6%｜≥0.3%｜其他",r:rate(roa,[0.010,0.008,0.006,0.003],true)},
-    {k:"L",n:"流動性 Liquidity",def:"LCR ＝ 高品質流動資產 ÷ 未來 30 天淨現金流出；超過 250% 代表資金閒置，最多只給 2",v:Math.round(l*100)+"%",th:"150–250%｜≥125% 或 >250%｜≥100%｜≥80%｜其他",r:l>2.5?2:rate(l,[1.5,1.25,1,0.8],true)},
+    {k:"L",n:"流動性 Liquidity",def:"LCR ＝ 高品質流動資產 ÷ 未來 30 天淨現金流出；超過 250% 代表資金閒置，最多只給 2（這是遊戲設定，反映閒置資金的機會成本，不是金管會規定）",v:Math.round(l*100)+"%",th:"150–250%｜≥125% 或 >250%｜≥100%｜≥80%｜其他",r:l>2.5?2:rate(l,[1.5,1.25,1,0.8],true)},
     {k:"S",n:"市場風險敏感度 Sensitivity",def:"利率變動 1 個百分點，淨利息收入變動占資本的比例 ＝ |缺口| × 1% ÷ 資本"+(badGov?"；持有跌價公債再降 1 級":""),v:pct(sens)+(badGov?"＋持有跌價公債":""),th:"≤5%｜≤7%｜≤9%｜≤11%｜其他",r:sR}
   ];
 }
+function eqStory(){
+  let bal=P.eq0;
+  const rows=S.eqLog.map(x=>{ bal+=x.a; return `<tr><td>${x.t}</td><td class="n" style="color:${x.a<0?"var(--bad)":"var(--good)"}">${x.a<0?"−":"+"}${f2(Math.abs(x.a))}</td><td class="n">${f2(bal)}</td></tr>`; }).join("");
+  const unreal=S.gov>0&&S.govMV<1?`<p class="muted">另外還有公債未實現損失 ${f2(S.gov*(1-S.govMV))} 億，因為列為持有至到期，沒有反映在帳面資本上。</p>`:"";
+  let why="";
+  if(S.flags.runFail) why="你的銀行倒在<b>流動性</b>：資本還在，但現金籌不出來，付不出存款。";
+  else if(S.flags.receiver||S.flags.conservator||S.flags.order) why="你的銀行出事的原因是<b>資本不足（清償能力）</b>，不是流動性。LCR 再高，也擋不住損失把資本吃掉。";
+  return `<h3>你的資本是怎麼變化的</h3><div class="tbl"><table><tr><th>事件</th><th class="n">資本變動（億）</th><th class="n">資本餘額（億）</th></tr>
+    <tr><td>第1天 開門</td><td class="n"></td><td class="n">${f2(P.eq0)}</td></tr>${rows}</table></div>${unreal}${why?`<p>${why}</p>`:""}`;
+}
 const ENDINGS={
-  T:{t:"🚑 被派員接管",d:"金管會派員接管了你的銀行，由接管人取代經營團隊。你的任期在第一天就結束了。"},
+  T:{t:"🚑 被派員接管",d:"金管會派員接管了你的銀行，由接管人取代經營團隊。你的任期第一年就結束了。"},
   U:{t:"🔒 被派員監管",d:"資本顯著不足，金管會派員進駐監督。你還是行長，但重大決策都要經過監管人同意。"},
   R:{t:"📝 被限期改善",d:"資本不足，金管會命令你限期提出資本重建計畫，並限制新增風險性資產。"},
   A:{t:"🏆 穩健經營獎",d:"CAMELS 綜合評等優良。資本充足、監理機關放心、存款人信任。"},
   G:{t:"🎲 賭贏了，但金管會盯上你了",d:"你靠孤注一擲撐了過來，但這種經營方式遲早會出事。"},
   P:{t:"💸 獲利王，但被盯上了",d:"銀行很會賺錢，但金管會已經把你列入重點關注名單。"},
-  C:{t:"🆘 靠央行救了一命",d:"你撐過了這一天，但靠的是央行融通。到了 Part II，你會從另一邊看這件事。"},
-  S:{t:"😮‍💨 驚險過關",d:"銀行還活著，但一路跌跌撞撞。明天會更好嗎？"}
+  C:{t:"🆘 靠央行救了一命",d:"你撐過了第一年，但靠的是央行融通。到了 Part II，你會從另一邊看這件事。"},
+  S:{t:"😮‍💨 驚險過關",d:"銀行還活著，但一路跌跌撞撞。明年會更好嗎？"}
 };
 function L7(){
   S.step=7; dash(); window.scrollTo(0,0);
@@ -717,12 +766,13 @@ function L7(){
   const prem=[5,6,8,11,15][comp-1];
   const T=assets();
   $("main").innerHTML=`<div class="card">${progress(7)}
-    <span class="clock">17:00</span><b>結算</b>
+    <span class="clock">年底</span><b>結算</b>
     <div class="ending">${ENDINGS[k].t}</div><p>${ENDINGS[k].d}</p>
-    <h3>金管會 CAMELS 評等（1 最好，5 最差）</h3>
-    <div class="tbl"><table><tr><th>構面</th><th>指標定義</th><th class="n">你的數值</th><th>評等 1｜2｜3｜4｜5 的門檻</th><th class="n">評等</th></tr>
-    ${cm.map(x=>`<tr><td><b>${x.k}</b> ${x.n}</td><td class="muted">${x.def}</td><td class="n">${x.v}</td><td class="muted">${x.th}</td><td class="n"><b>${x.r}</b></td></tr>`).join("")}
-    <tr><td colspan="4"><b>綜合評等</b>（六項平均，四捨五入）</td><td class="n"><b>${comp}</b></td></tr></table></div>
+    ${eqStory()}
+    <h3>金管會 CAMELS 評等（1 最好，5 最差；評等 1 不扣分，每多 1 級扣 4 分）</h3>
+    <div class="tbl"><table><tr><th>構面</th><th>指標定義</th><th class="n">你的數值</th><th>評等 1｜2｜3｜4｜5 的門檻</th><th class="n">評等</th><th class="n">扣分</th></tr>
+    ${cm.map(x=>`<tr><td><b>${x.k}</b> ${x.n}</td><td class="muted">${x.def}</td><td class="n">${x.v}</td><td class="muted">${x.th}</td><td class="n"><b>${x.r}</b></td><td class="n" style="color:${x.r>1?"var(--bad)":"var(--muted)"};font-weight:700">${x.r>1?"−"+(x.r-1)*4:"0"}</td></tr>`).join("")}
+    <tr><td colspan="4"><b>綜合評等</b>（六項平均，四捨五入）</td><td class="n"><b>${comp}</b></td><td class="n bad">−${(sum-6)*4}</td></tr></table></div>
     <p class="muted">依綜合評等，你的存款保險風險費率為保額內存款的<b>萬分之 ${prem}</b>（台灣差別費率：萬分之 5、6、8、11、15）。風險越高、保費越貴，股東才有誘因監督經營者。</p>
     <h3>獲利拆解</h3>
     <p>ROA ${pct(profit()/T)} × 權益乘數 ${S.eq>0?f1(T/S.eq):"—"} ＝ ROE <b>${pct(roe())}</b></p>
@@ -735,10 +785,10 @@ function L7(){
       <tr><td><b>總分</b></td><td class="n"><b>${S.score}</b></td></tr>
     </table>
     <p class="muted">監理處分：派員接管 −30｜派員監管 −20｜限期改善 −10</p>
-    <h3>你今天的決策紀錄</h3><ul class="muted">${S.notes.map(n=>`<li>${n}</li>`).join("")}</ul>
+    <h3>你這一年的決策紀錄</h3><ul class="muted">${S.notes.map(n=>`<li>${n}</li>`).join("")}</ul>
     <h3>✍️ 最後一關：寫下一個問題</h3>
-    <p>在今天的遊戲中，有什麼讓你覺得<b>奇怪、不合理，或想不通</b>的地方？也可以是遊戲讓你聯想到的真實世界問題。寫完才能送出成績。</p>
-    <textarea id="qText" placeholder="例如：為什麼……？"></textarea>
+    <p>請挑<b>一個你做過的決定</b>（可以看上面的決策紀錄）：課本怎麼說？你實際怎麼選？為什麼？<br>或者：遊戲裡哪個地方讓你覺得<b>奇怪、不合理，或跟課本、現實不一樣</b>？請說明你的理由。寫完才能送出成績。</p>
+    <textarea id="qText" placeholder="例如：第 3 個月擠兌時我選了……，因為……；但課本說……"></textarea>
     <div id="qFb" class="fb no"></div>
     <p><button class="btn" id="subBtn" onclick="finish()">送出成績</button>
        <button class="btn ghost" onclick="L1()">不送出，從第 1 關重玩</button></p>
@@ -746,7 +796,8 @@ function L7(){
 }
 async function finish(){
   const q=$("qText").value.trim();
-  if(q.length<15){$("qFb").textContent="請至少寫 15 個字，說明你的問題和為什麼覺得奇怪。";return;}
+  const uniq=new Set(q.replace(/\s/g,"")).size;
+  if(q.length<30||uniq<12||/(.)\1{5,}/.test(q)){$("qFb").textContent="請至少寫 30 個字，具體說明一個決定或一個讓你覺得奇怪的地方，以及你的理由（不要重複同一個字湊字數）。";return;}
   $("qFb").textContent=""; $("subBtn").disabled=true;
   const camelsMap={}; S.cm.forEach(x=>camelsMap[x.k]=x.r);
   const body={dept:ME.dept, sid:ME.sid, name:ME.name, score:S.score, end_key:S.endKey,
