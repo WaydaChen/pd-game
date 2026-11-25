@@ -81,9 +81,52 @@ def _load() -> dict:
     if db.get("current") not in db["records"]:
         db["current"] = db["rounds"][-1]["id"]
         changed = True
+    for recs in db["records"].values():
+        for rec in recs.values():
+            if rec.get("kv") != KEY_VERSION:
+                _fix_keys(rec)
+                changed = True
     if changed:  # 轉換或建立的輪次要馬上寫回，否則每次讀取都會產生新的輪次編號
         _save(db)
     return db
+
+
+# ── 關卡編號修正 ──
+# 8624d06 版的遊戲頁，沒寫 key 的關卡用「顯示順序」當成績編號，插入新關卡後編號整批錯位，
+# 雙時間價差（第 28 關）還和畫畫關共用 27。這裡把那一版存下的成績換回固定編號。
+# 那一版的配分表特徵：37 格、第 7 格是 0（鐵兀鷹被擠到第 8 格）、第 12 格不是 0。
+KEY_VERSION = 2
+_BAD_TO_KEY = {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 8: 7, 9: 8, 12: 9, 13: 10, 14: 11,
+               15: 13, 16: 14, 17: 15, 18: 17, 19: 18, 20: 19, 21: 20, 22: 21, 23: 22,
+               24: 23, 25: 24, 26: 25, 27: (26, 27),  # 27 在錯版裡是雙時間價差和畫畫關共用，分不出來，兩關都給
+               28: 28, 29: 29, 30: 30, 31: 31, 32: 32, 33: 33, 34: 34, 35: 35, 36: 36}
+KEY_PTS = [2, 2, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3, 0, 3, 3, 2, 0, 3, 4, 4, 4, 4, 4, 4,
+           2, 3, 3, 2, 0, 3, 3, 3, 3, 4, 2, 2, 2]  # 依固定編號的各關配分（12、16 已刪除）
+
+
+def _is_bad_layout(pts: list) -> bool:
+    return isinstance(pts, list) and len(pts) == 37 and pts[7] == 0 and pts[12] > 0
+
+
+def _fix_keys(rec: dict) -> None:
+    if _is_bad_layout(rec.get("pts")):
+        def remap(b):
+            out = {}
+            for k, v in (b or {}).items():
+                nk = _BAD_TO_KEY.get(int(k))
+                for n in (nk if isinstance(nk, tuple) else (nk,) if nk is not None else ()):
+                    out[str(n)] = max(out.get(str(n), 0), v)
+            return out
+        rec["best"] = remap(rec.get("best"))
+        if rec.get("high_best"):
+            rec["high_best"] = remap(rec["high_best"])
+        rec["pts"] = list(KEY_PTS)
+        rec["score"] = _score(rec["best"], KEY_PTS)
+        rec["solved"] = len(rec["best"])
+        if rec.get("high_best"):
+            rec["high_score"] = max(_score(rec["high_best"], KEY_PTS), rec["score"])
+        rec["keyfix_at"] = _now_iso()
+    rec["kv"] = KEY_VERSION
 
 
 def _save(db: dict) -> None:
@@ -170,7 +213,7 @@ def _public(rec: Optional[dict]) -> Optional[dict]:
         return None
     out = {k: rec.get(k) for k in
            ("dept", "sid", "name", "lang", "best", "score", "max_score",
-            "solved", "plays", "created_at", "updated_at")}
+            "solved", "plays", "created_at", "updated_at", "kv")}
     out["high_score"] = rec.get("high_score", rec.get("score"))
     out["high_at"] = rec.get("high_at", rec.get("updated_at"))
     return out
@@ -247,10 +290,13 @@ class SaveReq(BaseModel):
     # 'replay': 重新挑戰結束，本輪成績改成這一次的成績
     #           （舊版頁面送來的 'overwrite' / 'keep' 也當作 'replay'）
     mode: str = "auto"
+    kv: int = 0                  # 關卡編號版本；舊版頁面沒有這個欄位，存的編號是錯位的
 
 
 @router.post("/api/optpuzzle/save")
 def save(req: SaveReq):
+    if req.kv != KEY_VERSION:
+        raise HTTPException(409, {"code": "reload"})
     dept, sid, name = _check_identity(req.dept, req.sid, req.name)
     mode = {"auto": "auto", "replay": "replay", "overwrite": "replay", "keep": "replay"}.get(req.mode)
     if not mode:
@@ -290,6 +336,7 @@ def save(req: SaveReq):
             "best": best, "score": score, "pts": pts, "max_score": max_score,
             "solved": len(best), "updated_at": now,
             "high_best": high_best, "high_score": high_score, "high_at": high_at,
+            "kv": KEY_VERSION,
         })
         records[sid] = new
         _save(db)

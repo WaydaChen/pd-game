@@ -7,6 +7,9 @@
   let sess = null;
   try { sess = JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch (e) {}
   if (!sess || !sess.sid) { location.replace('/options-puzzle'); return; }
+  // 關卡編號版本：舊版存下的紀錄編號錯位，回入口重新讀取伺服器修正後的成績
+  const KV = 2;
+  if (sess.record && sess.record.kv !== KV) { location.replace('/options-puzzle'); return; }
 
   const EN = (document.documentElement.lang || '').startsWith('en');
   const T = EN ? {
@@ -44,7 +47,7 @@
   function post(body) {
     return fetch('/api/optpuzzle/save', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(Object.assign({ dept: sess.dept, sid: sess.sid, name: sess.name, lang: EN ? 'en' : 'zh', round: (sess.round && sess.round.id) || '' }, body)),
+      body: JSON.stringify(Object.assign({ dept: sess.dept, sid: sess.sid, name: sess.name, lang: EN ? 'en' : 'zh', kv: KV, round: (sess.round && sess.round.id) || '' }, body)),
     }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
   }
 
