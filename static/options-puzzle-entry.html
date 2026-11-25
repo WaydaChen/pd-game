@@ -32,6 +32,7 @@
   .who{font-size:15px;margin:0 0 14px}
   .note{color:var(--muted);font-size:12.5px;margin:6px 0 0}
   .link{background:none;border:0;color:var(--muted);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;margin-top:14px;padding:0}
+  .round{display:inline-block;font-size:13px;font-weight:700;background:#eef4ff;border:1px solid #c9dafa;border-radius:999px;padding:3px 12px;margin:-12px 0 18px}
   .hidden{display:none}
 </style>
 </head>
@@ -39,6 +40,7 @@
 <div class="card">
   <h1 id="tTitle">選擇權<span>拼圖</span></h1>
   <p class="sub" id="tSub">把選擇權零件拼成目標損益形狀</p>
+  <p class="round hidden" id="roundTag"></p>
 
   <!-- 步驟 1：語言 + 登記 -->
   <div id="step1">
@@ -70,7 +72,7 @@
     <button class="go" id="contBtn">繼續上次進度</button>
     <p class="note" id="tContNote">從已過的關卡接著玩，新過關的分數會自動存入。</p>
     <button class="alt" id="replayBtn">重新挑戰（從零開始）</button>
-    <p class="note" id="tReplayNote">所有關卡重來；結束時可選擇是否覆蓋原有成績。</p>
+    <p class="note" id="tReplayNote">所有關卡重來；按「結束並儲存」後，本輪成績改成這一次的成績，本輪最高會保留比較高的。</p>
     <button class="link" id="backBtn">不是我 / 換人</button>
   </div>
 </div>
@@ -81,10 +83,11 @@ const T = {
     title:'選擇權<span>拼圖</span>', sub:'把選擇權零件拼成目標損益形狀', lang:'選擇語言 Language',
     dept:'系級', sid:'學號', name:'姓名', deptPh:'例：財金三', sidPh:'例：B11012345', go:'開始',
     need:'請填寫系級、學號、姓名', net:'連線失敗，請再試一次',
-    have:'你已有成績', meta:(r)=>`過關 ${r.solved} 關 · 已玩 ${r.plays} 次 · 最後更新 ${fmt(r.updated_at)}`,
+    have:'你的本輪成績', high:'🏆 本輪最高', meta:(r)=>`過關 ${r.solved} 關 · 已玩 ${r.plays} 次 · 最後更新 ${fmt(r.updated_at)}`,
     cont:'繼續上次進度', contNote:'從已過的關卡接著玩，新過關的分數會自動存入。',
-    replay:'重新挑戰（從零開始）', replayNote:'所有關卡重來；結束時可選擇是否覆蓋原有成績。',
-    back:'不是我 / 換人', pts:'分',
+    replay:'重新挑戰（從零開始）', replayNote:'所有關卡重來；按「結束並儲存」後，本輪成績改成這一次的成績，本輪最高會保留比較高的。',
+    back:'不是我 / 換人', pts:'分', round:'本輪：',
+    roundGone:'你上次玩的那一輪已經關閉，請重新登入進入目前這一輪。',
     mismatch:(r)=>`⚠ 這個學號上次登記的系級是「${r.dept}」`,
     nameErr:(m)=>`這個學號已經由「${m}」登記，姓名不符。請確認學號和姓名（要跟第一次登記時一樣）；如果真的是你，請找老師處理。`,
   },
@@ -92,17 +95,18 @@ const T = {
     title:'Options <span>Puzzle</span>', sub:'Build target payoff shapes from option pieces', lang:'Language 選擇語言',
     dept:'Department / Year', sid:'Student ID', name:'Name', deptPh:'e.g. Finance, Year 3', sidPh:'e.g. B11012345', go:'Start',
     need:'Please fill in department, student ID and name', net:'Connection failed, please try again',
-    have:'Your saved score', meta:(r)=>`${r.solved} levels solved · played ${r.plays}× · updated ${fmt(r.updated_at)}`,
+    have:'Your score this session', high:'🏆 Session best', meta:(r)=>`${r.solved} levels solved · played ${r.plays}× · updated ${fmt(r.updated_at)}`,
     cont:'Continue my progress', contNote:'Pick up where you left off; new solves are saved automatically.',
-    replay:'Replay from scratch', replayNote:'All levels reset. When you finish, you choose whether to overwrite your saved score.',
-    back:'Not me / switch user', pts:'pts',
+    replay:'Replay from scratch', replayNote:'All levels reset. When you finish and save, this attempt becomes your score for this session; your session best keeps the higher one.',
+    back:'Not me / switch user', pts:'pts', round:'Session: ',
+    roundGone:'The session you were playing in has been closed. Please log in again to join the current one.',
     mismatch:(r)=>`⚠ This ID was last registered under department "${r.dept}"`,
     nameErr:(m)=>`This student ID is already registered to "${m}" and the name does not match. Check your ID and name (they must match your first registration); if this really is you, ask your teacher.`,
   },
 };
 const $ = id => document.getElementById(id);
 const KEY = 'optpuzzle-session';
-let lang = 'zh', who = null, record = null;
+let lang = 'zh', who = null, record = null, round = null;
 
 function fmt(iso){ try{ const d=new Date(iso); return d.toLocaleString(lang==='en'?'en-US':'zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});}catch(e){return iso||'';} }
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -116,12 +120,17 @@ function applyLang(){
   $('dept').placeholder = t.deptPh; $('sid').placeholder = t.sidPh; $('goBtn').textContent = t.go;
   $('tHave').textContent = t.have; $('contBtn').textContent = t.cont; $('tContNote').textContent = t.contNote;
   $('replayBtn').textContent = t.replay; $('tReplayNote').textContent = t.replayNote; $('backBtn').textContent = t.back;
+  showRound();
   if (record) showRecord();
+}
+function showRound(){
+  $('roundTag').classList.toggle('hidden', !round);
+  if (round) $('roundTag').textContent = '📋 ' + T[lang].round + round.name;
 }
 document.querySelectorAll('.langs button').forEach(b=>b.addEventListener('click',()=>{ lang=b.dataset.lang; applyLang(); try{localStorage.setItem('optpuzzle-lang',lang);}catch(e){} }));
 
 function start(mode){
-  const s = Object.assign({}, who, {lang, mode, record});
+  const s = Object.assign({}, who, {lang, mode, record, round});
   try { sessionStorage.setItem(KEY, JSON.stringify(s)); } catch(e){}
   location.href = '/options-puzzle/' + lang;
 }
@@ -132,15 +141,16 @@ function showRecord(){
   if (r.dept !== who.dept) w += `<br><span style="color:var(--put);font-size:13px">${esc(t.mismatch(r))}</span>`;
   $('who').innerHTML = w;
   $('recScore').innerHTML = `${r.score} <small>/ ${r.max_score} ${t.pts}</small>`;
-  $('recMeta').textContent = t.meta(r);
+  const h = r.high_score != null ? r.high_score : r.score;
+  $('recMeta').innerHTML = `<b style="color:var(--ink)">${t.high} ${h} / ${r.max_score}</b><br>` + esc(t.meta(r));
   $('step1').classList.add('hidden'); $('step2').classList.remove('hidden');
 }
 
-async function login(dept, sid, name){
-  const res = await fetch('/api/optpuzzle/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({dept, sid, name})});
+async function login(dept, sid, name, rid){
+  const res = await fetch('/api/optpuzzle/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({dept, sid, name, round: rid||''})});
   if (!res.ok){
     let m = T[lang].net;
-    try{ const d = (await res.json()).detail; m = (d && d.code==='name_mismatch') ? T[lang].nameErr(d.masked) : (typeof d==='string' ? d : m); }catch(e){}
+    try{ const d = (await res.json()).detail; m = (d && d.code==='name_mismatch') ? T[lang].nameErr(d.masked) : (d && d.code==='round_gone') ? T[lang].roundGone : (typeof d==='string' ? d : m); }catch(e){}
     throw new Error(m);
   }
   return res.json();
@@ -154,7 +164,7 @@ $('form').addEventListener('submit', async e=>{
   $('goBtn').disabled = true;
   try {
     const d = await login(dept, sid, name);
-    who = {dept, sid:d.sid, name}; record = d.record;
+    who = {dept, sid:d.sid, name}; record = d.record; round = d.round; showRound();
     try{ localStorage.setItem('optpuzzle-who', JSON.stringify({dept, sid:d.sid, name})); }catch(e){}
     if (!record) start('continue'); else showRecord();
   } catch(err){ $('err').textContent = err.message || T[lang].net; }
@@ -164,9 +174,14 @@ $('contBtn').addEventListener('click', ()=>start('continue'));
 $('replayBtn').addEventListener('click', ()=>start('replay'));
 $('backBtn').addEventListener('click', ()=>{
   try{ sessionStorage.removeItem(KEY); localStorage.removeItem('optpuzzle-who'); }catch(e){}
-  who = null; record = null; $('dept').value=''; $('sid').value=''; $('name').value='';
+  who = null; record = null; refreshRound(); $('dept').value=''; $('sid').value=''; $('name').value='';
   $('step2').classList.add('hidden'); $('step1').classList.remove('hidden');
 });
+
+async function refreshRound(){
+  try { const d = await (await fetch('/api/optpuzzle/round')).json(); round = d.round; } catch(e){ round = null; }
+  showRound();
+}
 
 // 初始化：語言偏好、上次填過的資料；從遊戲頁回來時直接顯示最新成績
 (async function init(){
@@ -179,8 +194,11 @@ $('backBtn').addEventListener('click', ()=>{
   applyLang();
   if (pre){ $('dept').value = pre.dept||''; $('sid').value = pre.sid||''; $('name').value = pre.name||''; }
   if (s && s.sid){
-    try { const d = await login(s.dept, s.sid, s.name); who = {dept:s.dept, sid:d.sid, name:s.name}; record = d.record; if (record) showRecord(); } catch(e){}
+    // 從遊戲頁回來：留在原本那一輪，顯示最新成績
+    try { const d = await login(s.dept, s.sid, s.name, s.round && s.round.id); who = {dept:s.dept, sid:d.sid, name:s.name}; record = d.record; round = d.round; showRound(); if (record) showRecord(); return; }
+    catch(e){ try{ sessionStorage.removeItem(KEY); }catch(_){} $('err').textContent = e.message; }
   }
+  refreshRound();
 })();
 </script>
 </body>

@@ -29,12 +29,15 @@
   td.n{text-align:right;font-variant-numeric:tabular-nums}
   .err{color:var(--put);font-size:13px}
   .muted{color:var(--muted);font-size:13px}
+  select{font:inherit;padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:#fff;max-width:100%}
+  .open{display:inline-block;font-size:12px;font-weight:700;color:#1f6b44;background:#e3f3ea;border:1px solid #b9dfc8;border-radius:999px;padding:2px 10px}
+  .cur{font-size:15px;margin:0 0 10px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>選擇權<span>拼圖</span> · 教師成績</h1>
-  <p class="sub">學生從入口頁選中文 / 英文版，登記系級、學號、姓名後開始；成績以學號為準。</p>
+  <p class="sub">學生從入口頁選中文 / 英文版，登記系級、學號、姓名後開始。成績分輪次存放（例如每個班一輪），同一輪內以學號為準。</p>
 
   <div class="card">
     <div class="muted" style="margin-bottom:6px">學生入口（貼給學生或投影）</div>
@@ -51,7 +54,21 @@
     <p class="err" id="err"></p>
   </div>
 
+  <div class="card" id="roundCard" style="display:none">
+    <p class="cur">目前開放：<b id="curName"></b> <span class="open">學生登入會進這一輪</span></p>
+    <form class="row" id="newForm">
+      <input id="newName" maxlength="40" placeholder="新一輪的名稱，例：財金三A 11/25" style="flex:1;max-width:320px">
+      <button type="submit">開新的一輪</button>
+    </form>
+    <p class="muted" style="margin:6px 0 0">開新的一輪後，新登入的學生都從零開始；舊的輪次成績保留，可以在下面切換查看。已經在玩的學生會繼續存在他登入時的那一輪。</p>
+  </div>
+
   <div class="card" id="out" style="display:none">
+    <div class="row" style="margin-bottom:12px">
+      <span class="muted">查看輪次</span>
+      <select id="roundSel"></select>
+      <button class="ghost" id="reopenBtn" type="button">設為目前開放</button>
+    </div>
     <div class="stats" id="stats"></div>
     <input id="q" placeholder="搜尋系級 / 學號 / 姓名" style="width:100%;max-width:320px;margin-bottom:10px">
     <div class="tbl"><table><thead><tr id="head"></tr></thead><tbody id="body"></tbody></table></div>
@@ -66,9 +83,9 @@ $('copyBtn').onclick = () => navigator.clipboard && navigator.clipboard.writeTex
 
 const COLS = [
   ['dept','系級'],['sid','學號'],['name','姓名'],['lang','語言'],
-  ['score','總分',1],['solved','過關數',1],['plays','遊玩次數',1],['updated_at','最後更新'],
+  ['score','本輪成績',1],['high_score','本輪最高',1],['solved','過關數',1],['plays','遊玩次數',1],['updated_at','最後更新'],
 ];
-let rows = [], sortKey = 'sid', sortDir = 1, timer = null;
+let rows = [], sortKey = 'sid', sortDir = 1, timer = null, rounds = [], current = null, viewing = null;
 try { $('tok').value = sessionStorage.getItem('optpuzzle-admin') || ''; } catch(e){}
 
 function fmt(iso){ try{ return new Date(iso).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});}catch(e){return iso;} }
@@ -82,6 +99,7 @@ function render(){
   $('body').innerHTML = list.map(r=>`<tr>${COLS.map(([k,,n])=>{
     let v = r[k];
     if (k==='score') v = `${r.score} / ${r.max_score}`;
+    if (k==='high_score') v = r.high_score ?? r.score;
     if (k==='lang') v = r.lang==='en' ? 'English' : '中文';
     if (k==='updated_at') v = fmt(v);
     return `<td class="${n?'n':''}">${esc(v)}</td>`; }).join('')}</tr>`).join('')
@@ -92,13 +110,34 @@ function render(){
     <div class="stat"><div class="k">滿分人數</div><div class="v">${rows.filter(r=>mx && r.score>=mx).length}</div></div>`;
 }
 
+function renderRounds(){
+  const cur = rounds.find(r=>r.id===current);
+  $('curName').textContent = cur ? cur.name : '—';
+  $('roundSel').innerHTML = rounds.slice().reverse().map(r=>
+    `<option value="${esc(r.id)}" ${r.id===viewing?'selected':''}>${esc(r.name)}（${r.count} 人・${fmt(r.created_at)}）${r.id===current?' ✅ 開放中':''}</option>`).join('');
+  $('reopenBtn').style.display = viewing===current ? 'none' : '';
+  $('roundCard').style.display = '';
+}
+function setRounds(d){
+  const follow = !viewing || viewing===current;  // 原本在看開放中的那一輪，就跟著換到新的一輪
+  rounds = d.rounds; current = d.current;
+  if (follow || !rounds.some(r=>r.id===viewing)) viewing = current;
+  renderRounds();
+}
+async function api(path, body){
+  const res = await fetch(path, body ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)} : undefined);
+  const d = await res.json();
+  if (!res.ok) throw new Error(d.detail || res.status);
+  return d;
+}
+
 async function load(){
-  const tok = $('tok').value.trim();
-  $('csvBtn').href = '/api/optpuzzle/export.csv?token=' + encodeURIComponent(tok);
+  const tok = $('tok').value.trim(), t = encodeURIComponent(tok);
   try {
-    const res = await fetch('/api/optpuzzle/records?token=' + encodeURIComponent(tok));
-    const d = await res.json();
-    if (!res.ok) throw new Error(d.detail || res.status);
+    setRounds(await api('/api/optpuzzle/rounds?token=' + t));
+    const v = encodeURIComponent(viewing);
+    $('csvBtn').href = `/api/optpuzzle/export.csv?token=${t}&round=${v}`;
+    const d = await api(`/api/optpuzzle/records?token=${t}&round=${v}`);
     rows = d.records; $('err').textContent = ''; $('out').style.display = '';
     try { sessionStorage.setItem('optpuzzle-admin', tok); } catch(e){}
     render();
@@ -108,6 +147,22 @@ function schedule(){ clearInterval(timer); if ($('auto').checked) timer = setInt
 $('tokForm').onsubmit = e => { e.preventDefault(); load(); schedule(); };
 $('auto').onchange = schedule;
 $('q').oninput = render;
+$('roundSel').onchange = () => { viewing = $('roundSel').value; rows = []; load(); };
+$('newForm').onsubmit = async e => {
+  e.preventDefault();
+  const name = $('newName').value.trim();
+  if (!confirm(`開新的一輪「${name || '（未命名）'}」？
+之後登入的學生都會從零開始，舊輪次的成績會保留。`)) return;
+  try { viewing = null; setRounds(await api('/api/optpuzzle/rounds', {token: $('tok').value.trim(), name})); $('newName').value = ''; load(); }
+  catch(err){ $('err').textContent = '開新輪次失敗：' + err.message; }
+};
+$('reopenBtn').onclick = async () => {
+  const r = rounds.find(x=>x.id===viewing);
+  if (!r || !confirm(`把「${r.name}」設為目前開放？
+之後登入的學生會進入這一輪，接著原本的成績。`)) return;
+  try { setRounds(await api('/api/optpuzzle/rounds/current', {token: $('tok').value.trim(), id: viewing})); load(); }
+  catch(err){ $('err').textContent = '切換失敗：' + err.message; }
+};
 if ($('tok').value) { load(); schedule(); }
 </script>
 </body>
