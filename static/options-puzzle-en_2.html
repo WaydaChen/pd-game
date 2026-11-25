@@ -122,6 +122,7 @@
           <button class="b pri" id="nextBtn" disabled>Next level →</button>
         </div>
       </div>
+      <div class="hint" id="prevAns"></div>
       <div class="hint" id="hint"></div>
       <div class="chartwrap" style="margin-top:12px">
         <svg id="chart" viewBox="0 0 720 360"></svg>
@@ -350,7 +351,7 @@ const LEVELS = [
   {key:36, pts:2, adv:true, title:'Strip: a bearish straddle', story:'Again a bet on a big move, but this time you think a big fall is more likely.',
    target:[{t:'LC',K:100},{t:'LP',K:100,q:2}], h1:'The mirror image of the previous level.', hint:'All at strike 100: buy 1 call and 2 puts.',
    lesson:'Strip: slope 2 on the left, 1 on the right. It breaks even at about 92.52 on the way down, but needs the stock above about 114.95 on the way up. Straddle, strap and strip all bet on movement; they differ only in which direction you favour.'},
-  {pts:2, adv:true, title:'Twin peaks: the M shape', story:'You think the stock will finish at either 90 or 110, you just do not know which.',
+  {pts:3, adv:true, title:'Twin peaks: the M shape', story:'You think the stock will finish at either 90 or 110, you just do not know which.',
    target:[{t:'LC',K:80},{t:'SC',K:90,q:2},{t:'LC',K:100,q:2},{t:'SC',K:110,q:2},{t:'LC',K:120}], h1:'This shape is two familiar shapes added together.', hint:'Place two butterflies side by side, one centered on 90 and one on 110. The 100 strike is shared, so buy 2 there.',
    lesson:'Shapes simply add. Two butterflies stacked make twin peaks; this is what "every butterfly is a pixel" means.'},
   {pts:3, adv:true, title:'Broken-wing butterfly', story:'A butterfly, but you fear a drop more: you want almost no loss on the downside and accept extra risk if the stock rallies too far.',
@@ -359,9 +360,6 @@ const LEVELS = [
   {pts:3, adv:true, title:'Ratio spread: the dangerous roof', story:'Mildly bullish and you want it nearly free. The trick is selling one extra contract. Watch the max loss box.',
    target:[{t:'LC',K:100},{t:'SC',K:110,q:2}], h1:'Start from a bull call spread, then do a bit more at the higher strike.', hint:'2 kinds of piece: buy 1 × 100 call, sell 2 × 110 calls.',
    lesson:'Ratio spread: cheap, but the extra short contract is naked. A big rally means unlimited loss ⚠'},
-  {pts:3, adv:true, title:'Christmas tree (call ladder)', story:'Bullish up to around 100–110, but you do not believe in more. Buy one, sell two, strikes stepping up.',
-   target:[{t:'LC',K:90},{t:'SC',K:100},{t:'SC',K:110}], h1:'Count how many times the line bends, and whether each bend goes up or down.', hint:'3 calls: buy the 90, then sell one each at 100 and 110.',
-   lesson:'Ladder / Christmas tree: collects one more premium than a bull spread, but losses become unlimited above the top strike.'},
   {pts:3, adv:true, title:'Seagull', story:'You want a bull call spread but do not want to pay any premium, and you will take on downside risk to fund it.',
    target:[{t:'SP',K:90},{t:'LC',K:100},{t:'SC',K:120}], h1:'Flat on the right, rising in the middle, falling on the left. What kind of piece makes the left slope?', hint:'Build a bull call spread first (buy 100, sell 120 calls), then sell the 90 put to pay for it.',
    lesson:'Seagull: three pieces make "slope, slope, flat". Common in corporate hedging.'},
@@ -371,13 +369,10 @@ const LEVELS = [
   {pts:2, adv:true, title:'Steeper and steeper: the accelerator', story:'You are very bullish and want gains to speed up the higher it goes. Make the line steeper at every strike.',
    target:[{t:'LC',K:90},{t:'LC',K:100},{t:'LC',K:110}], h1:'The slope goes up by 1 at every strike. Which kind of piece adds slope upward?', hint:'3 calls: buy one each at 90, 100 and 110. The slope goes up by 1 at every strike.',
    lesson:'Each extra call adds 1 to the slope: how much the line bends at a strike is how many contracts sit there. The last segment has slope 3.'},
-  {pts:2, adv:true, title:'It hurts more the further it falls', story:'The flip side of collecting premium: sell one put at each of three strikes. Watch how fast losses grow on the way down.',
-   target:[{t:'SP',K:90},{t:'SP',K:100},{t:'SP',K:110}], h1:'The mirror image of the previous level: the further left, the steeper.', hint:'Sell 3 puts: one each at 90, 100 and 110.',
-   lesson:'Stacked short puts lose faster the further the stock falls, with the slope reaching 3. This is "picking up pennies in front of a steamroller".'},
   {pts:3, adv:true, title:'Backspread 1×3', story:'You believe in a huge rally. Sell one 100 call for cash, then use it to buy several 110 calls.',
    target:[{t:'SC',K:100},{t:'LC',K:110,q:3}], h1:'The low point is at 110 and the slope is +2 after it. First think about what happens at 100.', hint:'2 kinds of piece: sell 1 × 100 call, buy 3 × 110 calls.',
    lesson:'Backspread: a small rally is the worst case (the low point is at 110); after that the slope is +2, so gains accelerate.'},
-  {pts:3, adv:true, title:'The arch: a semicircle in straight lines', story:'Build an arch from line segments with slopes 0, +2, +1, −1, −2, 0 in turn.',
+  {pts:4, adv:true, title:'The arch: a semicircle in straight lines', story:'Build an arch from line segments with slopes 0, +2, +1, −1, −2, 0 in turn.',
    target:[{t:'LC',K:80,q:2},{t:'SC',K:90},{t:'SC',K:100,q:2},{t:'SC',K:110},{t:'LC',K:120,q:2}], h1:'The difference between neighbouring slopes is the contract count at that strike.', hint:'The bend at each strike is the contract count, all calls: buy 2 at 80, sell 1 at 90, sell 2 at 100, sell 1 at 110, buy 2 at 120.',
    lesson:'The bends get sharper toward the edges, so the counts grow there. Shrink the strike spacing and it looks more and more like a semicircle (try it in Draw mode).'},
   {pts:4, adv:true, title:'Half covered: slope ½', story:'You own 1 share and want to sell the 100 call on only half of it. Above 100 you keep half of the upside. (The + / − buttons move in steps of 0.5)',
@@ -405,25 +400,25 @@ const LEVELS = [
    target:[{t:'SP',K:90},{t:'LP',K:90,m:'far'},{t:'SC',K:110},{t:'LC',K:110,m:'far'}], h1:'Split it into two familiar shapes, left and right. Where does each one peak?', hint:'4 pieces: puts at 90 and calls at 110; in each case sell the near month and buy the far month.',
    lesson:'Double calendar: two calendar spreads side by side, with a wider profit zone than a single one. Using puts below and calls above is market convention (out-of-the-money options trade more easily); as two levels ago showed, the P&L is the same either way.'},
   // ── Structured products: stock/bond + options (rate 10%). key = fixed storage index, so inserting here does not disturb saved scores ──
-  {key:29, pts:2, adv:true, r:0.10, title:'📦 Covered call: stock + short call', story:'From this chapter on the rate is 10% and the tray has zero-coupon bonds. You own one share and doubt it will rise past 110 soon, so you sell a call to collect rent.',
+  {key:29, pts:3, adv:true, r:0.10, title:'📦 Covered call: stock + short call', story:'From this chapter on the rate is 10% and the tray has zero-coupon bonds. You own one share and doubt it will rise past 110 soon, so you sell a call to collect rent.',
    target:[{t:'LS'},{t:'SC',K:110}], h1:'Put the stock in first. To collect a premium, do you buy or sell?', hint:'2 pieces: long stock, then sell one 110 call.',
    lesson:'Covered call: you collect about 2.32, so breakeven drops to about 97.68. The price is giving away everything above 110, so the most you can make is about 12.32. Almost all of the downside is still yours.'},
-  {key:30, pts:2, adv:true, r:0.10, title:'📦 Protective put: stock + insurance', story:'You own the stock and fear a crash. You are willing to pay a small insurance premium so that losses below 90 are someone else\'s problem.',
+  {key:30, pts:3, adv:true, r:0.10, title:'📦 Protective put: stock + insurance', story:'You own the stock and fear a crash. You are willing to pay a small insurance premium so that losses below 90 are someone else\'s problem.',
    target:[{t:'LS'},{t:'LP',K:90}], h1:'Which piece makes money on a fall and offsets the stock\'s loss?', hint:'2 pieces: long stock, then buy one 90 put.',
    lesson:'Protective put: about 0.90 of premium caps the loss at about 10.90. You keep all the upside; breakeven moves to about 100.90.'},
-  {key:31, pts:2, adv:true, r:0.10, title:'📦 Rate above zero: synthetic stock needs a bond', story:'In level 5 you built stock from "call − put". Now the rate is 10%. Does the same trick still work? Stock pieces are locked.',
+  {key:31, pts:3, adv:true, r:0.10, title:'📦 Rate above zero: synthetic stock needs a bond', story:'In level 5 you built stock from "call − put". Now the rate is 10%. Does the same trick still work? Stock pieces are locked.',
    target:[{t:'LS'}], answer:[{t:'LC',K:100},{t:'SP',K:100},{t:'LB',K:100}], banned:['LS','SS'], h1:'Build level 5\'s answer first and compare it with the target: the gap is a horizontal line.', hint:'After buying the 100 call and selling the 100 put, buy a zero-coupon bond with face 100 to lift the line.',
    lesson:'Call − put = stock − K·e^(−rT). "Call − put" is buying the stock with borrowed money (you owe 100 at expiry), so you need a bond with face 100 to match paying cash for the stock. The gap is the interest: 100 − 97.53 = 2.47. With a zero rate the two coincide, which is why earlier levels needed no bond.'},
-  {key:32, pts:2, adv:true, r:0.10, title:'📦 Protective put = call + bond', story:'The target is "stock + 100 put". Stock and puts are both locked.',
+  {key:32, pts:3, adv:true, r:0.10, title:'📦 Protective put = call + bond', story:'The target is "stock + 100 put". Stock and puts are both locked.',
    target:[{t:'LS'},{t:'LP',K:100}], answer:[{t:'LC',K:100},{t:'LB',K:100}], banned:['LS','SS','LP','SP'], h1:'The target is flat on the left and sloped on the right. Which piece can raise that flat floor?', hint:'2 pieces: buy the 100 call and buy a zero-coupon bond with face 100.',
    lesson:'Put-call parity, rearranged: stock + put = call + K·e^(−rT). The right-hand side is a fiduciary call: the bond secures 100 and the call supplies the upside. Both sides cost about 103.79 today and pay the same at expiry.'},
-  {key:33, pts:3, adv:true, r:0.10, title:'📦 Principal-protected note (PPN)', story:'A bank sells a 3-month principal-protected note: invest 100, get at least 100 back, and keep everything the stock gains above 110. Build it from bonds and options and see how the bank does it.',
+  {key:33, pts:4, adv:true, r:0.10, title:'📦 Principal-protected note (PPN)', story:'A bank sells a 3-month principal-protected note: invest 100, get at least 100 back, and keep everything the stock gains above 110. Build it from bonds and options and see how the bank does it.',
    target:[{t:'LB',K:100},{t:'LC',K:110}], h1:'Which piece guarantees 100 back? After buying it, how much of the 100 is left to spend?', hint:'Buy a zero-coupon bond with face 100 (97.53 today); the remaining 2.47 just covers one 110 call (2.32).',
    lesson:'PPN = zero-coupon bond + call. The bond\'s interest is the option budget: lower rates or shorter terms buy fewer options, so participation drops. The leftover 0.15 or so is the issuer\'s margin. "Protected" assumes the issuer survives: when Lehman Brothers failed in 2008, many holders of its structured notes lost their principal.'},
   {key:27, pts:2, title:'Draw it: any shape', draw:true,
    story:'Press and drag on the chart to draw the payoff at expiry you want. The page works out which options you need. Try the semicircle: watch what happens to the contract counts at the edges.',
    target:null, hint:'There is just one rule: however much the line bends at a strike is how many contracts you buy (bends up) or sell (bends down) there. A semicircle gets steeper toward its edges, so the counts explode.'},
-  {key:28, pts:2, title:'Free play', cal:true, r:0.10, story:'No target. Combine anything and see what shapes you can make. Options can be near or far month, you can add zero-coupon bonds, and famous combinations are named below the chart.', target:null, hint:'Try this: can you build a bull spread using only puts?', lesson:''},
+  {key:28, pts:0, title:'Free play', cal:true, r:0.10, story:'No target. Combine anything and see what shapes you can make. Options can be near or far month, you can add zero-coupon bonds, and famous combinations are named below the chart.', target:null, hint:'Try this: can you build a bull spread using only puts?', lesson:''},
 ];
 LEVELS.forEach((L,i)=>{ if (L.key==null) L.key = i; });
 const IDX = {}; LEVELS.forEach((L,i)=>IDX[L.key] = i);
@@ -438,6 +433,7 @@ Object.entries(window.OPT_INIT_BEST || {}).forEach(([k,v])=>{ if (IDX[k]!=null) 
 Object.keys(best).forEach(k=>solved.add(+k));
 
 const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const BASE_TIP = $('trayTip').innerHTML, CAL_TIP = "Spot S₀ = 100 · Volatility 25% · Rate 0<br><b>Near</b> month expires in 3 months, <b>far</b> month in 6. The chart shows P&amp;L on the <b>near-month expiry date</b>; far-month pieces are still alive then and are valued with Black-Scholes (volatility unchanged).";
 
 function tipFor(L){
@@ -577,7 +573,7 @@ function renderHints(){
   $('hint').innerHTML = tiers.slice(0,hintsUsed).map((h,i)=> `<div>${i===2 ? '🔑 Answer: ' : `💡 Hint ${i+1}: `}${h}</div>`).join('');
   $('hint').classList.toggle('show', hintsUsed>0);
   btn.disabled = hintsUsed>=3;
-  btn.textContent = hintsUsed>=3 ? 'No more hints' : (hintsUsed===2 ? 'Answer' : 'Hint ' + (hintsUsed+1)) + (scored ? '' : ' (−1 star)');
+  btn.textContent = hintsUsed>=3 ? 'No more hints' : (hintsUsed===2 ? (scored ? 'Answer' : 'Show answer & skip (0 pts)') : 'Hint ' + (hintsUsed+1)) + (scored || hintsUsed===2 ? '' : ' (−1 star)');
 }
 // 本關得分 = 配分 × 星數 / 3（四捨五入）；畫畫、自由模式嘗試即得滿分
 const lvPts = (i, st) => LEVELS[i] ? Math.round((LEVELS[i].pts||0) * Math.min(st, MAXPTS) / MAXPTS) : 0;
@@ -595,7 +591,7 @@ function renderLevelHead(){
   $('lvTitle').textContent = L.title;
   $('lvStory').textContent = L.story;
   renderHints();
-  $('levels').innerHTML = LEVELS.map((x,i)=>`<button class="lvbtn ${i===lv?'cur':''} ${solved.has(i)?'done':''}" data-lv="${i}">${x.draw?'✏️ Draw'+(solved.has(i)?' ✓':''):x.target? (i+1)+(solved.has(i)?' '+stars(best[i]||0):'') : 'Free'+(solved.has(i)?' ✓':'')}</button>`).join('');
+  $('levels').innerHTML = LEVELS.map((x,i)=>`<button class="lvbtn ${i===lv?'cur':''} ${solved.has(i)?'done':''}" data-lv="${i}">${x.draw?'✏️ Draw'+(solved.has(i)?' ✓':''):x.target? (i+1)+(solved.has(i)?' '+stars(best[i]||0):'') : 'Free'}</button>`).join('');
   $('levels').insertAdjacentHTML('beforeend', `<span class="lvbtn" style="cursor:default;border-color:transparent;font-weight:700;color:var(--ink)">Score ${totalScore()} / ${MAX_TOTAL}</span>`);
   $('levels').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>goLevel(+b.dataset.lv)));
 }
@@ -603,7 +599,7 @@ function renderLevelHead(){
 function update(){
   if (LEVELS[lv].draw){ renderDraw(); $('named').classList.remove('show');
     $('win').innerHTML = solved.has(lv) ? `<b>✏️ You tried drawing mode</b> &nbsp;+${LEVELS[lv].pts} pts. Try different shapes and watch the option counts change.` : `Drawing mode: press and drag on the chart to draw your own line and earn ${LEVELS[lv].pts} pts.`; $('win').classList.add('show');
-    $('nextBtn').disabled = lv>=LEVELS.length-1; return; }
+    setNext(true); return; }
   renderBoard(); renderChart(); renderStats(); renderName();
   const ok = isSolved(), L = LEVELS[lv];
   if (ok){
@@ -617,10 +613,10 @@ function update(){
     $('win').innerHTML = `<b>Solved!</b> &nbsp;<b>${stars(Math.max(0,MAXPTS-hintsUsed))}</b> (+${lvPts(lv, Math.max(0,MAXPTS-hintsUsed))} / ${L.pts} pts)<p>${L.lesson}</p>`;
     $('win').classList.add('show');
   } else if (!L.target){
-    if (board.length>=2 && stratName(board)) awardTry();
-    $('win').innerHTML = solved.has(lv) ? `<b>🧩 You built a famous combination</b> &nbsp;Free play +${LEVELS[lv].pts} pts. Keep experimenting!` : `Free play: build any named combination (2+ pieces) to earn ${LEVELS[lv].pts} pts.`; $('win').classList.add('show');
+    // Free play is a sandbox: no task, no points
+    $('win').innerHTML = `<b>🧪 Free play</b> &nbsp;No task and no points. Combine anything; famous combinations are named above.`; $('win').classList.add('show');
   } else $('win').classList.remove('show');
-  $('nextBtn').disabled = !(ok || solved.has(lv)) || lv>=LEVELS.length-1;
+  setNext(ok || solved.has(lv));
 }
 
 function goLevel(i){
@@ -638,7 +634,7 @@ function goLevel(i){
     : '<span><i style="border-color:var(--target);border-top-style:dashed"></i>Target shape</span><span><i style="border-color:var(--sum)"></i>Your combined position</span><span><i style="border-color:#c9ccd3;border-top-width:2px"></i>Individual pieces</span>';
   R = LEVELS[lv].r || 0;
   $('trayTip').innerHTML = tipFor(LEVELS[lv]);
-  renderLevelHead(); renderTray(); update();
+  renderLevelHead(); renderTray(); update(); renderPrevAnswer();
 }
 
 const drop = $('drop');
@@ -647,10 +643,37 @@ drop.addEventListener('dragleave', ()=>drop.classList.remove('over'));
 drop.addEventListener('drop', e=>{ e.preventDefault(); drop.classList.remove('over'); const t=e.dataTransfer.getData('text/plain'); if (TYPES[t]) addPiece(t); });
 $('hintBtn').addEventListener('click', ()=>{
   if (!LEVELS[lv].target){ $('hint').classList.toggle('show'); return; }
+  if (hintsUsed===2 && !scored && LEVELS[lv+1]){
+    if (confirm('Showing the answer skips straight to the next level and scores this one 0.\nYou can still come back later and earn stars by solving it without hints. Show the answer?')) giveUp();
+    return;
+  }
   if (hintsUsed<3){ hintsUsed++; renderHints(); }
 });
+// 看完所有提示 = 放棄本關：記 0 分、跳到下一關，並在下一關上方顯示這一關的答案
+let prevAnswer = null;
+function giveUp(){
+  const L = LEVELS[lv];
+  if (!solved.has(lv)) best[lv] = 0;
+  solved.add(lv); saveScore();
+  prevAnswer = {n: lv+1, title: L.title, ans: answerText(L), lesson: L.lesson};
+  goLevel(lv+1);
+}
+function renderPrevAnswer(){
+  const el = $('prevAns'), p = prevAnswer; prevAnswer = null;
+  el.innerHTML = p ? `🔑 Answer to level ${p.n}, "${esc(p.title)}": <b>${p.ans}</b> (0 pts for that level)${p.lesson ? '<div style="margin-top:4px">' + p.lesson + '</div>' : ''}` : '';
+  el.classList.toggle('show', !!p);
+}
 $('clearBtn').addEventListener('click', ()=>{ board=[]; update(); });
-$('nextBtn').addEventListener('click', ()=>goLevel(Math.min(lv+1, LEVELS.length-1)));
+// 最後一關（自由模式）的「下一關」換成「完成」，效果跟上方成績列的完成按鈕一樣
+function setNext(canGo){
+  const last = lv >= LEVELS.length-1;
+  $('nextBtn').textContent = last ? 'Done ✓' : 'Next level →';
+  $('nextBtn').disabled = last ? !window.optFinish : !canGo;
+}
+$('nextBtn').addEventListener('click', ()=>{
+  if (lv >= LEVELS.length-1){ if (window.optFinish) window.optFinish(); return; }
+  goLevel(lv+1);
+});
 
 /* ---------- Draw mode ---------- */
 const DY = [-20, 40];               // fixed y range in draw mode

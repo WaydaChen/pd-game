@@ -122,6 +122,7 @@
           <button class="b pri" id="nextBtn" disabled>下一關 →</button>
         </div>
       </div>
+      <div class="hint" id="prevAns"></div>
       <div class="hint" id="hint"></div>
       <div class="chartwrap" style="margin-top:12px">
         <svg id="chart" viewBox="0 0 720 360"></svg>
@@ -350,7 +351,7 @@ const LEVELS = [
   {key:36, pts:2, adv:true, title:'偏空跨式：Strip', story:'同樣押大行情，但這次你覺得「大跌」的機會比較大。',
    target:[{t:'LC',K:100},{t:'LP',K:100,q:2}], h1:'跟上一關左右相反。', hint:'同一個履約價 100：買進 1 口買權、2 口賣權。',
    lesson:'Strip（偏空跨式）：左邊斜率 2、右邊斜率 1。下跌到約 92.52 就回本，上漲要超過約 114.95 才回本。跨式、Strap、Strip 都是押「會動」，差別只在你比較押哪一邊。'},
-  {pts:2, adv:true, title:'雙峰：M 字', story:'你覺得股價會停在 90 或 110 其中之一，只是不知道是哪一個。',
+  {pts:3, adv:true, title:'雙峰：M 字', story:'你覺得股價會停在 90 或 110 其中之一，只是不知道是哪一個。',
    target:[{t:'LC',K:80},{t:'SC',K:90,q:2},{t:'LC',K:100,q:2},{t:'SC',K:110,q:2},{t:'LC',K:120}], h1:'這個形狀是兩個熟悉的形狀加起來的。', hint:'把兩個蝶式並排：一個以 90 為中心、一個以 110 為中心。中間 100 那片會被兩個蝶式共用，所以要買 2 口。',
    lesson:'形狀可以直接相加。兩個蝶式疊起來就是雙峰，這就是「每個蝶式是一個像素」的意思。'},
   {pts:3, adv:true, title:'斷翅蝶式', story:'蝶式，但你更怕下跌：想讓下跌那一側幾乎不賠錢，願意承擔上漲過頭的風險。',
@@ -359,9 +360,6 @@ const LEVELS = [
   {pts:3, adv:true, title:'比率價差：危險的屋頂', story:'溫和看漲，而且想要幾乎零成本。辦法是多賣一口。看看最大虧損欄會出現什麼。',
    target:[{t:'LC',K:100},{t:'SC',K:110,q:2}], h1:'從多頭價差出發，然後在高履約價那裡多做一點。', hint:'2 種零件：買 1 口 100 買權、賣 2 口 110 買權。',
    lesson:'比率價差：成本低，但多賣的那一口沒有保護。股價大漲時虧損無上限 ⚠'},
-  {pts:3, adv:true, title:'聖誕樹（買權階梯）', story:'看漲到 100～110 一帶，但不相信會漲更多。用一買兩賣、履約價依序排開。',
-   target:[{t:'LC',K:90},{t:'SC',K:100},{t:'SC',K:110}], h1:'數數看損益線轉了幾個彎，每個彎是往上還是往下？', hint:'3 片買權：買 90，然後在 100 和 110 各賣一口。',
-   lesson:'階梯（Ladder / 聖誕樹）：比多頭價差多收一份權利金，但超過最高履約價後虧損又無上限。'},
   {pts:3, adv:true, title:'海鷗', story:'你想買多頭價差，但連權利金都不想付，願意承擔下跌的風險來換。',
    target:[{t:'SP',K:90},{t:'LC',K:100},{t:'SC',K:120}], h1:'右邊平、中間往上、左邊往下。左邊那段斜線是哪一種零件造成的？', hint:'先拼一個多頭價差（買 100、賣 120 買權），再賣一片 90 賣權來付錢。',
    lesson:'海鷗（Seagull）：三片拼出「左邊斜、中間斜、右邊平」，常見於企業避險。'},
@@ -371,13 +369,10 @@ const LEVELS = [
   {pts:2, adv:true, title:'越漲越陡：加速器', story:'你非常看好，希望漲得越多、賺得越快。讓損益線每過一個履約價就更陡一點。',
    target:[{t:'LC',K:90},{t:'LC',K:100},{t:'LC',K:110}], h1:'每過一個履約價，斜率就多 1。哪一種零件會讓斜率往上加？', hint:'3 片買權，90、100、110 各買一口。每經過一個履約價，斜率就 +1。',
    lesson:'每多一口買權，斜率就多 1：在某個履約價轉彎多少，就等於那裡有幾口。最後一段斜率是 3。'},
-  {pts:2, adv:true, title:'越跌越痛', story:'賺權利金的另一面：在三個履約價各賣一口賣權。看看下跌時虧損的速度。',
-   target:[{t:'SP',K:90},{t:'SP',K:100},{t:'SP',K:110}], h1:'跟上一關左右相反：越往左，斜率越陡。', hint:'3 片賣權全部賣出：90、100、110 各一口。',
-   lesson:'連續賣出賣權，跌得越深虧得越快，斜率一路變成 3。這就是「在推土機前撿硬幣」。'},
   {pts:3, adv:true, title:'逆比率價差 1×3', story:'你相信會暴漲。先賣一口 100 買權收錢，再拿去買很多口 110 買權。',
    target:[{t:'SC',K:100},{t:'LC',K:110,q:3}], h1:'谷底在 110，之後斜率是 +2。先想想 100 那裡發生了什麼。', hint:'2 種零件：賣 1 口 100 買權、買 3 口 110 買權。',
    lesson:'逆比率價差（Backspread）：小漲最慘，谷底在 110；大漲後斜率是 +2，越漲賺得越快。'},
-  {pts:3, adv:true, title:'拱橋：折線版半圓', story:'用折線拼一個拱形，斜率依序是 0、+2、+1、−1、−2、0。',
+  {pts:4, adv:true, title:'拱橋：折線版半圓', story:'用折線拼一個拱形，斜率依序是 0、+2、+1、−1、−2、0。',
    target:[{t:'LC',K:80,q:2},{t:'SC',K:90},{t:'SC',K:100,q:2},{t:'SC',K:110},{t:'LC',K:120,q:2}], h1:'相鄰兩段的斜率差，就是那個履約價的口數。', hint:'每個履約價的轉彎量就是口數，全用買權：80 買 2、90 賣 1、100 賣 2、110 賣 1、120 買 2。',
    lesson:'越靠近兩端轉彎越急，口數也越多。把履約價間距縮小，就會越來越像半圓（到「畫畫看」驗證）。'},
   {pts:4, adv:true, title:'只掩護一半：斜率 ½', story:'你持有 1 股，只想對一半的部位賣出 100 買權。漲過 100 之後，還保留一半的上漲參與。（＋／− 按鈕每次調整 0.5 口）',
@@ -405,25 +400,25 @@ const LEVELS = [
    target:[{t:'SP',K:90},{t:'LP',K:90,m:'far'},{t:'SC',K:110},{t:'LC',K:110,m:'far'}], h1:'把它拆成左右兩個熟悉的形狀。各自的高點在哪個履約價？', hint:'4 片：90 用賣權、110 用買權，各自賣出近月、買進遠月。',
    lesson:'雙時間價差（Double Calendar）：兩個時間價差並排，獲利區比單一時間價差寬。下方用賣權、上方用買權是實務習慣（價外選擇權流動性較好）；由上上關可知，換成另一種損益也一樣。'},
   // ── 結構型商品：股票／債券＋選擇權（利率 10%）。key 是成績儲存用的固定編號，插在中間也不會影響舊紀錄 ──
-  {key:29, pts:2, adv:true, r:0.10, title:'📦 掩護性買權：股票＋賣出買權', story:'從這章開始，利率是 10%，零件盒多了「零息債券」。你手上有一股股票，覺得短期漲不過 110，想賣一片買權收租金。',
+  {key:29, pts:3, adv:true, r:0.10, title:'📦 掩護性買權：股票＋賣出買權', story:'從這章開始，利率是 10%，零件盒多了「零息債券」。你手上有一股股票，覺得短期漲不過 110，想賣一片買權收租金。',
    target:[{t:'LS'},{t:'SC',K:110}], h1:'先放股票，再想想：要「收」權利金，是買還是賣？', hint:'2 片：買進現貨，再賣出一片 110 買權。',
    lesson:'掩護性買權（Covered Call）：收到約 2.32 的權利金，損益兩平點降到約 97.68；代價是漲過 110 的部分讓給別人，最大獲利約 12.32。下跌的風險幾乎全部還在。'},
-  {key:30, pts:2, adv:true, r:0.10, title:'📦 保護性賣權：股票＋買保險', story:'你持有股票，擔心大跌，願意付一點保險費：股價跌破 90 的損失由別人吸收。',
+  {key:30, pts:3, adv:true, r:0.10, title:'📦 保護性賣權：股票＋買保險', story:'你持有股票，擔心大跌，願意付一點保險費：股價跌破 90 的損失由別人吸收。',
    target:[{t:'LS'},{t:'LP',K:90}], h1:'哪一片零件在下跌時賺錢、可以抵銷股票的虧損？', hint:'2 片：買進現貨，再買進一片 90 賣權。',
    lesson:'保護性賣權（Protective Put）：付約 0.90 的保險費，最大虧損被鎖在約 10.90；上漲照樣全賺，只是損益兩平點變成約 100.90。'},
-  {key:31, pts:2, adv:true, r:0.10, title:'📦 利率不是 0：合成現貨要補債券', story:'第 5 關用「買權 − 賣權」拼出現貨。現在利率 10%，同一招還行得通嗎？不准用現貨。',
+  {key:31, pts:3, adv:true, r:0.10, title:'📦 利率不是 0：合成現貨要補債券', story:'第 5 關用「買權 − 賣權」拼出現貨。現在利率 10%，同一招還行得通嗎？不准用現貨。',
    target:[{t:'LS'}], answer:[{t:'LC',K:100},{t:'SP',K:100},{t:'LB',K:100}], banned:['LS','SS'], h1:'先照第 5 關拼一次，看看合計線和目標差多少：差距是一條水平線。', hint:'買進 100 買權、賣出 100 賣權之後，再買一張面額 100 的零息債券，把線往上平移。',
    lesson:'買權 − 賣權 = 現貨 − K·e^(−rT)。「買權 − 賣權」等於借錢買股票（到期要還 100），所以要補一張面額 100 的債券才等於真正付現買股。差距就是利息：100 − 97.53 = 2.47。利率 0 時兩者剛好一樣，所以前面的關卡不需要債券。'},
-  {key:32, pts:2, adv:true, r:0.10, title:'📦 保護性賣權 = 買權＋債券', story:'目標是「股票＋100 賣權」的形狀。不准用現貨，也不准用賣權。',
+  {key:32, pts:3, adv:true, r:0.10, title:'📦 保護性賣權 = 買權＋債券', story:'目標是「股票＋100 賣權」的形狀。不准用現貨，也不准用賣權。',
    target:[{t:'LS'},{t:'LP',K:100}], answer:[{t:'LC',K:100},{t:'LB',K:100}], banned:['LS','SS','LP','SP'], h1:'目標的形狀：左邊平、右邊斜。左邊那條平線，可以用哪一種零件墊出來？', hint:'2 片：買進 100 買權，再買一張面額 100 的零息債券。',
    lesson:'買賣權等價的另一種寫法：股票 + 賣權 = 買權 + K·e^(−rT)。右邊叫信託買權（Fiduciary Call）：債券保住 100，買權負責上漲。兩邊今天的成本都是約 103.79，到期報酬也一樣。'},
-  {key:33, pts:3, adv:true, r:0.10, title:'📦 保本型商品（PPN）', story:'銀行推出 3 個月期的保本商品：投入 100，到期保證拿回本金，而且股價漲過 110 的部分全部給你。用債券和選擇權把它做出來，看看銀行怎麼辦到。',
+  {key:33, pts:4, adv:true, r:0.10, title:'📦 保本型商品（PPN）', story:'銀行推出 3 個月期的保本商品：投入 100，到期保證拿回本金，而且股價漲過 110 的部分全部給你。用債券和選擇權把它做出來，看看銀行怎麼辦到。',
    target:[{t:'LB',K:100},{t:'LC',K:110}], h1:'「保證拿回 100」要用哪一種零件？買完它之後，100 元還剩多少可以花？', hint:'買一張面額 100 的零息債券（今天 97.53），剩下約 2.47 剛好夠買一片 110 買權（2.32）。',
    lesson:'保本型商品 = 零息債券 + 買權。債券的利息就是買選擇權的預算：利率越低、期限越短，買得起的選擇權越少，參與率就越低。剩下的約 0.15 是發行機構的利潤。「保本」的前提是發行機構不倒：2008 年雷曼兄弟破產，台灣許多連動債投資人的本金就拿不回來。'},
   {key:27, pts:2, title:'畫畫看：任意形狀', draw:true,
    story:'在圖上按住拖曳，畫出你想要的「到期報酬」形狀，程式會反推需要哪些選擇權。試試半圓：看看兩端的口數會發生什麼事。',
    target:null, hint:'規則只有一條：線在某個履約價轉彎多少，就要在那裡買（往上彎）或賣（往下彎）多少口。半圓越靠近邊緣越陡，所以口數會暴增。'},
-  {key:28, pts:2, title:'自由模式', cal:true, r:0.10, story:'沒有目標，隨意組合，看看你能拼出什麼形狀。選擇權可以切換近月／遠月，也可以加零息債券；拼出著名組合時，下方會顯示它的名字。', target:null, hint:'試試看：只用賣權能不能拼出多頭價差？', lesson:''},
+  {key:28, pts:0, title:'自由模式', cal:true, r:0.10, story:'沒有目標，隨意組合，看看你能拼出什麼形狀。選擇權可以切換近月／遠月，也可以加零息債券；拼出著名組合時，下方會顯示它的名字。', target:null, hint:'試試看：只用賣權能不能拼出多頭價差？', lesson:''},
 ];
 LEVELS.forEach((L,i)=>{ if (L.key==null) L.key = i; });
 const IDX = {}; LEVELS.forEach((L,i)=>IDX[L.key] = i);
@@ -438,6 +433,7 @@ Object.entries(window.OPT_INIT_BEST || {}).forEach(([k,v])=>{ if (IDX[k]!=null) 
 Object.keys(best).forEach(k=>solved.add(+k));
 
 const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const BASE_TIP = $('trayTip').innerHTML, CAL_TIP = "現價 S₀ = 100　波動率 25%　利率 0<br><b>近月</b> 3 個月、<b>遠月</b> 6 個月到期。圖上是<b>近月到期那天</b>的損益；遠月那片還沒到期，用 Black-Scholes 估當天價值（假設波動率不變）。";
 
 function tipFor(L){
@@ -577,7 +573,7 @@ function renderHints(){
   $('hint').innerHTML = tiers.slice(0,hintsUsed).map((h,i)=> `<div>${i===2 ? '🔑 答案：' : `💡 提示 ${i+1}：`}${h}</div>`).join('');
   $('hint').classList.toggle('show', hintsUsed>0);
   btn.disabled = hintsUsed>=3;
-  btn.textContent = hintsUsed>=3 ? '已看完提示' : (hintsUsed===2 ? '答案' : '提示 ' + (hintsUsed+1)) + (scored ? '' : '（−1 星）');
+  btn.textContent = hintsUsed>=3 ? '已看完提示' : (hintsUsed===2 ? (scored ? '答案' : '看答案並跳過（本關 0 分）') : '提示 ' + (hintsUsed+1)) + (scored || hintsUsed===2 ? '' : '（−1 星）');
 }
 // 本關得分 = 配分 × 星數 / 3（四捨五入）；畫畫、自由模式嘗試即得滿分
 const lvPts = (i, st) => LEVELS[i] ? Math.round((LEVELS[i].pts||0) * Math.min(st, MAXPTS) / MAXPTS) : 0;
@@ -595,7 +591,7 @@ function renderLevelHead(){
   $('lvTitle').textContent = L.title;
   $('lvStory').textContent = L.story;
   renderHints();
-  $('levels').innerHTML = LEVELS.map((x,i)=>`<button class="lvbtn ${i===lv?'cur':''} ${solved.has(i)?'done':''}" data-lv="${i}">${x.draw?'✏️ 畫畫'+(solved.has(i)?' ✓':''):x.target? (i+1)+(solved.has(i)?' '+stars(best[i]||0):'') : '自由'+(solved.has(i)?' ✓':'')}</button>`).join('');
+  $('levels').innerHTML = LEVELS.map((x,i)=>`<button class="lvbtn ${i===lv?'cur':''} ${solved.has(i)?'done':''}" data-lv="${i}">${x.draw?'✏️ 畫畫'+(solved.has(i)?' ✓':''):x.target? (i+1)+(solved.has(i)?' '+stars(best[i]||0):'') : '自由'}</button>`).join('');
   $('levels').insertAdjacentHTML('beforeend', `<span class="lvbtn" style="cursor:default;border-color:transparent;font-weight:700;color:var(--ink)">總分 ${totalScore()} / ${MAX_TOTAL}</span>`);
   $('levels').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>goLevel(+b.dataset.lv)));
 }
@@ -603,7 +599,7 @@ function renderLevelHead(){
 function update(){
   if (LEVELS[lv].draw){ renderDraw(); $('named').classList.remove('show');
     $('win').innerHTML = solved.has(lv) ? `<b>✏️ 已嘗試畫畫模式</b>　+${LEVELS[lv].pts} 分。試試不同形狀，看看口數怎麼變。` : `畫畫模式：在圖上按住拖曳，自己畫一條線，就能拿到 ${LEVELS[lv].pts} 分。`; $('win').classList.add('show');
-    $('nextBtn').disabled = lv>=LEVELS.length-1; return; }
+    setNext(true); return; }
   renderBoard(); renderChart(); renderStats(); renderName();
   const ok = isSolved(), L = LEVELS[lv];
   if (ok){
@@ -617,10 +613,10 @@ function update(){
     $('win').innerHTML = `<b>拼對了！</b>　本關：<b>${stars(Math.max(0,MAXPTS-hintsUsed))}</b>（+${lvPts(lv, Math.max(0,MAXPTS-hintsUsed))} / ${L.pts} 分）<p>${L.lesson}</p>`;
     $('win').classList.add('show');
   } else if (!L.target){
-    if (board.length>=2 && stratName(board)) awardTry();
-    $('win').innerHTML = solved.has(lv) ? `<b>🧩 拼出了著名組合</b>　自由模式 +${LEVELS[lv].pts} 分。繼續試試其他組合！` : `自由模式：拼出任何一個有名字的組合（2 片以上），就能拿到 ${LEVELS[lv].pts} 分。`; $('win').classList.add('show');
+    // 自由模式是沙盒：沒有題目、不計分
+    $('win').innerHTML = `<b>🧪 自由模式</b>　沒有題目，也不計分。隨意組合，拼出著名組合時上方會顯示它的名字。`; $('win').classList.add('show');
   } else $('win').classList.remove('show');
-  $('nextBtn').disabled = !(ok || solved.has(lv)) || lv>=LEVELS.length-1;
+  setNext(ok || solved.has(lv));
 }
 
 function goLevel(i){
@@ -638,7 +634,7 @@ function goLevel(i){
     : '<span><i style="border-color:var(--target);border-top-style:dashed"></i>目標形狀</span><span><i style="border-color:var(--sum)"></i>你拼出來的合計</span><span><i style="border-color:#c9ccd3;border-top-width:2px"></i>各零件（疊加前）</span>';
   R = LEVELS[lv].r || 0;
   $('trayTip').innerHTML = tipFor(LEVELS[lv]);
-  renderLevelHead(); renderTray(); update();
+  renderLevelHead(); renderTray(); update(); renderPrevAnswer();
 }
 
 const drop = $('drop');
@@ -647,10 +643,37 @@ drop.addEventListener('dragleave', ()=>drop.classList.remove('over'));
 drop.addEventListener('drop', e=>{ e.preventDefault(); drop.classList.remove('over'); const t=e.dataTransfer.getData('text/plain'); if (TYPES[t]) addPiece(t); });
 $('hintBtn').addEventListener('click', ()=>{
   if (!LEVELS[lv].target){ $('hint').classList.toggle('show'); return; }
+  if (hintsUsed===2 && !scored && LEVELS[lv+1]){
+    if (confirm('看答案會直接跳到下一關，本關記 0 分。\n之後回來不看提示重新拼出來，還是可以拿到星星。確定要看答案嗎？')) giveUp();
+    return;
+  }
   if (hintsUsed<3){ hintsUsed++; renderHints(); }
 });
+// 看完所有提示 = 放棄本關：記 0 分、跳到下一關，並在下一關上方顯示這一關的答案
+let prevAnswer = null;
+function giveUp(){
+  const L = LEVELS[lv];
+  if (!solved.has(lv)) best[lv] = 0;
+  solved.add(lv); saveScore();
+  prevAnswer = {n: lv+1, title: L.title, ans: answerText(L), lesson: L.lesson};
+  goLevel(lv+1);
+}
+function renderPrevAnswer(){
+  const el = $('prevAns'), p = prevAnswer; prevAnswer = null;
+  el.innerHTML = p ? `🔑 第 ${p.n} 關「${esc(p.title)}」的答案：<b>${p.ans}</b>（本關 0 分）${p.lesson ? '<div style="margin-top:4px">' + p.lesson + '</div>' : ''}` : '';
+  el.classList.toggle('show', !!p);
+}
 $('clearBtn').addEventListener('click', ()=>{ board=[]; update(); });
-$('nextBtn').addEventListener('click', ()=>goLevel(Math.min(lv+1, LEVELS.length-1)));
+// 最後一關（自由模式）的「下一關」換成「完成」，效果跟上方成績列的完成按鈕一樣
+function setNext(canGo){
+  const last = lv >= LEVELS.length-1;
+  $('nextBtn').textContent = last ? '完成 ✓' : '下一關 →';
+  $('nextBtn').disabled = last ? !window.optFinish : !canGo;
+}
+$('nextBtn').addEventListener('click', ()=>{
+  if (lv >= LEVELS.length-1){ if (window.optFinish) window.optFinish(); return; }
+  goLevel(lv+1);
+});
 
 /* ---------- 畫畫看 ---------- */
 const DY = [-20, 40];               // fixed y range in draw mode

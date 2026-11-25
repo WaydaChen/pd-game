@@ -128,6 +128,8 @@
   }
 
   function goEntry() { finished = true; location.href = '/options-puzzle'; }
+  // 遊戲頁最後一關的「完成」按鈕也呼叫這個
+  window.optFinish = () => replay ? openModal() : goEntry();
 
   function openModal() {
     const mx = maxScore(), h = highOf(sess.record);
@@ -175,7 +177,7 @@
     document.body.insertBefore(bar, document.body.firstChild);
     document.body.appendChild(el(`<div id="opsToast"></div>`));
     document.body.appendChild(el(`<div id="opsModal"><div class="box"></div></div>`));
-    document.getElementById('opsFinish').addEventListener('click', () => replay ? openModal() : goEntry());
+    document.getElementById('opsFinish').addEventListener('click', window.optFinish);
     document.getElementById('opsOut').addEventListener('click', () => {
       if (replay && dirty && !confirm(T.leave)) return;
       finished = true;
