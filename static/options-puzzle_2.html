@@ -36,7 +36,7 @@
   .piece .nm{font-weight:700;font-size:14px;color:var(--ink)}
   .piece .en{font-size:11px;color:var(--muted)}
   .piece svg{display:block;width:100%;height:38px;margin-top:4px}
-  .c-digital{color:#8a4fd6} .c-call{color:var(--call)} .c-put{color:var(--put)} .c-stock{color:var(--stock)}
+  .c-digital{color:#8a4fd6} .c-bond{color:#b8860b} .c-call{color:var(--call)} .c-put{color:var(--put)} .c-stock{color:var(--stock)}
   .tip{font-size:12px;color:var(--muted);margin-top:12px}
   .right{display:flex;flex-direction:column;gap:18px;min-width:0}
   .mission{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
@@ -174,6 +174,7 @@
 <script src="/static/optpuzzle-session.js"></script>
 <script>
 const S0 = 100, SIG = 0.25, T = 0.25;
+let R = 0; // 無風險利率（連續複利），依關卡設定
 const STRIKES = [80, 85, 90, 95, 100, 105, 110, 115, 120];
 const XMIN = 60, XMAX = 140;
 
@@ -185,23 +186,24 @@ function erf(x){ // Abramowitz-Stegun
 }
 const N = x => 0.5*(1+erf(x/Math.SQRT2));
 function callPx(K, t=T){
-  const d1 = (Math.log(S0/K)+0.5*SIG*SIG*t)/(SIG*Math.sqrt(t));
+  const d1 = (Math.log(S0/K)+(R+0.5*SIG*SIG)*t)/(SIG*Math.sqrt(t));
   const d2 = d1 - SIG*Math.sqrt(t);
-  return S0*N(d1) - K*N(d2);
+  return S0*N(d1) - K*Math.exp(-R*t)*N(d2);
 }
-const putPx = (K, t=T) => callPx(K, t) - S0 + K; // put-call parity, r = 0
+const putPx = (K, t=T) => callPx(K, t) - S0 + K*Math.exp(-R*t); // put-call parity
+const bondPx = (F, t=T) => F*Math.exp(-R*t); // 零息債券：到期付面額 F
 const DPAY = 10; // digital (cash-or-nothing) call pays 10 if S > K at expiry
-function digitalPx(K, t=T){ const d2 = (Math.log(S0/K)-0.5*SIG*SIG*t)/(SIG*Math.sqrt(t)); return DPAY*N(d2); }
+function digitalPx(K, t=T){ const d2 = (Math.log(S0/K)+(R-0.5*SIG*SIG)*t)/(SIG*Math.sqrt(t)); return DPAY*Math.exp(-R*t)*N(d2); }
 // ── 不同到期日：近月 T、遠月 T2。圖上一律是「近月到期那天」的損益 ──
 const T2 = 0.5;
 function bsCall(S, K, t){
   if (t <= 1e-9) return Math.max(S-K, 0);
-  const d1 = (Math.log(S/K)+0.5*SIG*SIG*t)/(SIG*Math.sqrt(t));
-  return S*N(d1) - K*N(d1-SIG*Math.sqrt(t));
+  const d1 = (Math.log(S/K)+(R+0.5*SIG*SIG)*t)/(SIG*Math.sqrt(t));
+  return S*N(d1) - K*Math.exp(-R*t)*N(d1-SIG*Math.sqrt(t));
 }
-const bsPut = (S, K, t) => bsCall(S, K, t) - S + K;
+const bsPut = (S, K, t) => bsCall(S, K, t) - S + K*Math.exp(-R*t);
 const matOf = p => p.m==='far' ? T2 : T;
-const priceOf = p => TYPES[p.t].kind==='call' ? callPx(p.K, matOf(p)) : TYPES[p.t].kind==='put' ? putPx(p.K, matOf(p)) : digitalPx(p.K);
+const priceOf = p => TYPES[p.t].kind==='bond' ? bondPx(p.K) : TYPES[p.t].kind==='call' ? callPx(p.K, matOf(p)) : TYPES[p.t].kind==='put' ? putPx(p.K, matOf(p)) : digitalPx(p.K);
 
 const TYPES = {
   LC:{nm:'買進買權', en:'Long Call',  kind:'call', sign:+1, cls:'c-call'},
@@ -212,26 +214,31 @@ const TYPES = {
   LD:{nm:'買進數位買權', en:'Digital Call：漲過履約價就拿 10', kind:'digital', sign:+1, cls:'c-digital'},
   SD:{nm:'賣出數位買權', en:'Short Digital：漲過就付 10', kind:'digital', sign:-1, cls:'c-digital'},
   SS:{nm:'放空現貨', en:'Short Stock',kind:'stock',sign:-1, cls:'c-stock'},
+  LB:{nm:'買進零息債券', en:'Bond：到期拿回面額（存錢）', kind:'bond', sign:+1, cls:'c-bond'},
+  SB:{nm:'賣出零息債券', en:'Borrow：到期還面額（借錢）', kind:'bond', sign:-1, cls:'c-bond'},
 };
-const ORDER = ['LC','SC','LP','SP','LS','SS','LD','SD'];
+const ORDER = ['LC','SC','LP','SP','LS','SS','LB','SB','LD','SD'];
 
 function pnl(p, S){
   const t = TYPES[p.t], q = p.q || 1;
   if (t.kind==='stock') return t.sign*(S-S0)*q;
+  if (t.kind==='bond') return t.sign*(p.K-bondPx(p.K))*q; // 到期拿回面額，賺的是利息
   if (t.kind==='digital') return t.sign*((S>p.K?DPAY:0)-digitalPx(p.K))*q;
   const tau = matOf(p) - T; // 近月到期那天，這片還剩多久
   if (t.kind==='call')  return t.sign*(bsCall(S,p.K,tau)-callPx(p.K,matOf(p)))*q;
   return t.sign*(bsPut(S,p.K,tau)-putPx(p.K,matOf(p)))*q;
 }
 const total = (ps, S) => ps.reduce((a,p)=>a+pnl(p,S),0);
-const NM = {"synLong": "合成現貨 Synthetic Long Stock", "synShort": "合成空頭 Synthetic Short Stock", "longCall": "買進買權 Long Call", "protPut": "保護性賣權 Protective Put（形狀等同買進買權）", "longPut": "買進賣權 Long Put", "shortCall": "賣出買權 Short Call", "shortPut": "賣出賣權 Short Put（形狀等同掩護性買權）", "covCall": "掩護性買權 Covered Call（形狀等同賣出賣權）", "straddle": "跨式 Long Straddle", "shortStraddle": "賣出跨式 Short Straddle", "strap": "Strap 偏多跨式（2 買權 + 1 賣權）", "strip": "Strip 偏空跨式（1 買權 + 2 賣權）", "bull": "多頭價差 Bull Spread", "collar": "領口 Collar（形狀等同多頭價差）", "bear": "空頭價差 Bear Spread", "strangle": "寬跨式 Long Strangle", "shortStrangle": "賣出寬跨式 Short Strangle", "ratio": "比率價差 Ratio Spread", "backspread": "逆比率價差 Backspread", "putRatio": "賣權比率價差 Put Ratio Spread", "putBack": "賣權逆比率價差 Put Backspread", "trf": "TRF 目標可贖回遠期（單一結算期）", "fly": "蝶式 Butterfly", "ironFly": "鐵蝶式 Iron Butterfly（形狀等同蝶式）", "brokenFly": "斷翅蝶式 Broken-wing Butterfly", "shortFly": "賣出蝶式 Short Butterfly", "revIronFly": "反向鐵蝶式 Reverse Iron Butterfly", "ladder": "聖誕樹／階梯 Christmas Tree (Ladder)", "seagull": "海鷗 Seagull", "jade": "翡翠蜥蜴 Jade Lizard", "condor": "兀鷹（禿鷹）Condor", "ironCondor": "鐵兀鷹（鐵禿鷹）Iron Condor（形狀等同兀鷹）", "shortCondor": "賣出兀鷹 Short Condor", "revIronCondor": "反向鐵兀鷹 Reverse Iron Condor", "doubleFly": "雙蝶式 Double Butterfly", "cal": "時間價差 Calendar Spread", "revCal": "反向時間價差 Reverse Calendar Spread", "diag": "對角價差 Diagonal Spread", "dblCal": "雙時間價差 Double Calendar", "dblDiag": "雙對角價差 Double Diagonal"};
+const NM = {"ppn": "保本型商品 PPN／信託買權 Fiduciary Call（形狀等同保護性賣權）", "synPut": "合成賣權 Synthetic Put", "synLong": "合成現貨 Synthetic Long Stock", "synShort": "合成空頭 Synthetic Short Stock", "longCall": "買進買權 Long Call", "protPut": "保護性賣權 Protective Put（形狀等同買進買權）", "longPut": "買進賣權 Long Put", "shortCall": "賣出買權 Short Call", "shortPut": "賣出賣權 Short Put（形狀等同掩護性買權）", "covCall": "掩護性買權 Covered Call（形狀等同賣出賣權）", "straddle": "跨式 Long Straddle", "shortStraddle": "賣出跨式 Short Straddle", "strap": "Strap 偏多跨式（2 買權 + 1 賣權）", "strip": "Strip 偏空跨式（1 買權 + 2 賣權）", "bull": "多頭價差 Bull Spread", "collar": "領口 Collar（形狀等同多頭價差）", "bear": "空頭價差 Bear Spread", "strangle": "寬跨式 Long Strangle", "shortStrangle": "賣出寬跨式 Short Strangle", "ratio": "比率價差 Ratio Spread", "backspread": "逆比率價差 Backspread", "putRatio": "賣權比率價差 Put Ratio Spread", "putBack": "賣權逆比率價差 Put Backspread", "trf": "TRF 目標可贖回遠期（單一結算期）", "fly": "蝶式 Butterfly", "ironFly": "鐵蝶式 Iron Butterfly（形狀等同蝶式）", "brokenFly": "斷翅蝶式 Broken-wing Butterfly", "shortFly": "賣出蝶式 Short Butterfly", "revIronFly": "反向鐵蝶式 Reverse Iron Butterfly", "ladder": "聖誕樹／階梯 Christmas Tree (Ladder)", "seagull": "海鷗 Seagull", "jade": "翡翠蜥蜴 Jade Lizard", "condor": "兀鷹（禿鷹）Condor", "ironCondor": "鐵兀鷹（鐵禿鷹）Iron Condor（形狀等同兀鷹）", "shortCondor": "賣出兀鷹 Short Condor", "revIronCondor": "反向鐵兀鷹 Reverse Iron Condor", "doubleFly": "雙蝶式 Double Butterfly", "cal": "時間價差 Calendar Spread", "revCal": "反向時間價差 Reverse Calendar Spread", "diag": "對角價差 Diagonal Spread", "dblCal": "雙時間價差 Double Calendar", "dblDiag": "雙對角價差 Double Diagonal"};
 const NAMED_PFX = "這個組合叫：";
 
 // ── 著名組合辨識：用到期損益的「轉彎」（各履約價的斜率變化）判斷形狀 ──
 function kinkSig(ps){
   if (ps.some(p=>TYPES[p.t].kind==='digital')) return null;
+  if (ps.every(p=>TYPES[p.t].kind==='bond')) return null;
   let L = 0; const k = {};
   ps.forEach(p=>{ const ty = TYPES[p.t], q = (p.q||1)*ty.sign;
+    if (ty.kind==='bond') return; // 債券只是把整條線平移
     if (ty.kind==='stock'){ L += q; return; }
     if (ty.kind==='put') L -= q;
     k[p.K] = (k[p.K]||0) + q; });
@@ -241,8 +248,8 @@ function kinkSig(ps){
 const RULES = [
   {L:1,  a:[],        f:(K,o)=>o.stock?null:NM.synLong},
   {L:-1, a:[],        f:(K,o)=>o.stock?null:NM.synShort},
-  {L:0,  a:[1],       f:(K,o)=>o.stock?NM.protPut:NM.longCall},
-  {L:-1, a:[1],       f:()=>NM.longPut},
+  {L:0,  a:[1],       f:(K,o)=>o.stock?NM.protPut:o.bond?NM.ppn:NM.longCall},
+  {L:-1, a:[1],       f:(K,o)=>o.stock?NM.synPut:NM.longPut},
   {L:0,  a:[-1],      f:()=>NM.shortCall},
   {L:1,  a:[-1],      f:(K,o)=>o.stock?NM.covCall:NM.shortPut},
   {L:-1, a:[2],       f:()=>NM.straddle},
@@ -290,7 +297,7 @@ function stratName(ps){
   }
   const s = kinkSig(ps); if (!s) return null;
   const has = k => ps.some(p=>TYPES[p.t].kind===k);
-  const o = {iron: has('call') && has('put'), stock: has('stock')};
+  const o = {iron: has('call') && has('put'), stock: has('stock'), bond: has('bond')};
   for (const r of RULES){
     if (r.a.length !== s.a.length) continue;
     const c = r.a.length ? s.a[0]/r.a[0] : s.L/r.L;
@@ -325,31 +332,40 @@ const LEVELS = [
   {pts:3, title:'掩護性買權，但手上沒有股票', story:'目標是「持有現貨 + 賣出 110 買權」的形狀。不准用現貨，而且只能用 1 片。',
    target:[{t:'LS'},{t:'SC',K:110}], answer:[{t:'SP',K:110}], banned:['LS','SS'], h1:'目標是左邊斜、右邊平。零件盒裡有沒有哪一片本來就長這樣？', hint:'1 片就夠。觀察形狀：左邊斜線、右邊平的。哪一片長這樣？注意履約價。',
    lesson:'掩護性買權 ≡ 賣出同履約價的賣權。很多人以為前者「比較保守」，其實風險形狀完全相同。'},
-  {pts:3, title:'押注價格不動：蝶式', story:'你認為到期時股價會停在 100 附近，想用很小的成本押注這件事。',
-   target:[{t:'LC',K:90},{t:'SC',K:100,q:2},{t:'LC',K:110}], h1:'中間高、兩邊低。最高點在哪個履約價？在那裡應該買還是賣？', hint:'3 種零件、4 份數量：買 90、賣 100 ×2、買 110，全部是買權。',
+  {pts:2, title:'押注價格不動：蝶式（買權）', story:'你認為到期時股價會停在 100 附近，想用很小的成本押注這件事。這關只能用買權。',
+   target:[{t:'LC',K:90},{t:'SC',K:100,q:2},{t:'LC',K:110}], banned:['LP','SP'], h1:'中間高、兩邊低。最高點在哪個履約價？在那裡應該買還是賣？', hint:'3 種零件、4 份數量：買 90、賣 100 ×2、買 110，全部是買權。',
    lesson:'蝶式：成本低、最大獲利在中間履約價，兩側損失都有限。'},
+  {key:34, pts:2, title:'蝶式（禁用買權）', story:'同一個蝶式的形狀，這次不准用買權，只能用賣權拼出來。',
+   target:[{t:'LC',K:90},{t:'SC',K:100,q:2},{t:'LC',K:110}], answer:[{t:'LP',K:90},{t:'SP',K:100,q:2},{t:'LP',K:110}], banned:['LC','SC'], h1:'回想第 5 關：同履約價的買權和賣權，只差「現貨 − 履約價」。如果每片都換成賣權，這部分加起來會剩多少？', hint:'3 種賣權、4 份數量：買 90、賣 100 ×2、買 110，跟上一關一樣，只是全部換成賣權。',
+   lesson:'賣權蝶式：每片買權換成同履約價的賣權，多出來的「現貨 − 履約價」是 +1、−2、+1 份，加起來剛好是 0，所以形狀和成本都跟買權蝶式一樣。同理，下面用賣權、上面用買權的鐵蝶式，也是同一個形狀。'},
   {pts:3, title:'區間盤整收租：鐵兀鷹', story:'你認為股價會待在 90～110 之間。收權利金，但兩邊都要有保護。',
    target:[{t:'LP',K:80},{t:'SP',K:90},{t:'SC',K:110},{t:'LC',K:120}], h1:'把它拆成左右兩半，各自是什麼價差？', hint:'4 片：賣出 90 賣權、賣出 110 買權收權利金，再各自往外買一片保護（80、120）。',
    lesson:'鐵兀鷹：等於一個多頭賣權價差加上一個空頭買權價差，收租但風險被兩翼封住。'},
   {pts:3, adv:true, title:'寬跨式：U 形', story:'跟跨式一樣押大行情，但想便宜一點：願意讓中間那段「不賺不賠區」變寬。',
    target:[{t:'LP',K:90},{t:'LC',K:110}], h1:'跟第 4 關很像，只是 V 的底部被拉寬了。', hint:'2 片，都買進：一片低履約價的賣權、一片高履約價的買權。',
    lesson:'寬跨式（Strangle）：比跨式便宜，但股價要跑得更遠才開始賺。'},
-  {pts:4, adv:true, title:'雙峰：M 字', story:'你覺得股價會停在 90 或 110 其中之一，只是不知道是哪一個。',
+  {key:35, pts:2, adv:true, title:'偏多跨式：Strap', story:'財報要公布，你確定會有大行情，而且覺得「大漲」的機會比較大。漲的時候想賺得更快。',
+   target:[{t:'LC',K:100,q:2},{t:'LP',K:100}], h1:'從第 4 關的跨式出發。想讓右邊比左邊陡，要在哪一邊多加一點？', hint:'同一個履約價 100：買進 2 口買權、1 口賣權。',
+   lesson:'Strap（偏多跨式）：右邊斜率 2、左邊斜率 1。成本是 3 份權利金（約 14.95），所以上漲到約 107.48 就回本，下跌要跌破約 85.05 才回本。'},
+  {key:36, pts:2, adv:true, title:'偏空跨式：Strip', story:'同樣押大行情，但這次你覺得「大跌」的機會比較大。',
+   target:[{t:'LC',K:100},{t:'LP',K:100,q:2}], h1:'跟上一關左右相反。', hint:'同一個履約價 100：買進 1 口買權、2 口賣權。',
+   lesson:'Strip（偏空跨式）：左邊斜率 2、右邊斜率 1。下跌到約 92.52 就回本，上漲要超過約 114.95 才回本。跨式、Strap、Strip 都是押「會動」，差別只在你比較押哪一邊。'},
+  {pts:2, adv:true, title:'雙峰：M 字', story:'你覺得股價會停在 90 或 110 其中之一，只是不知道是哪一個。',
    target:[{t:'LC',K:80},{t:'SC',K:90,q:2},{t:'LC',K:100,q:2},{t:'SC',K:110,q:2},{t:'LC',K:120}], h1:'這個形狀是兩個熟悉的形狀加起來的。', hint:'把兩個蝶式並排：一個以 90 為中心、一個以 110 為中心。中間 100 那片會被兩個蝶式共用，所以要買 2 口。',
    lesson:'形狀可以直接相加。兩個蝶式疊起來就是雙峰，這就是「每個蝶式是一個像素」的意思。'},
-  {pts:4, adv:true, title:'斷翅蝶式', story:'蝶式，但你更怕下跌：想讓下跌那一側幾乎不賠錢，願意承擔上漲過頭的風險。',
+  {pts:3, adv:true, title:'斷翅蝶式', story:'蝶式，但你更怕下跌：想讓下跌那一側幾乎不賠錢，願意承擔上漲過頭的風險。',
    target:[{t:'LC',K:90},{t:'SC',K:100,q:2},{t:'LC',K:120}], h1:'從第 7 關的蝶式出發，只改一個地方。', hint:'跟普通蝶式一樣是買 90、賣 100 ×2，但上方那隻翅膀「折斷」往外移到 120。',
    lesson:'斷翅蝶式（Broken-wing）：兩翼不對稱，一邊幾乎沒有風險，另一邊多了一段虧損。'},
-  {pts:4, adv:true, title:'比率價差：危險的屋頂', story:'溫和看漲，而且想要幾乎零成本。辦法是多賣一口。看看最大虧損欄會出現什麼。',
+  {pts:3, adv:true, title:'比率價差：危險的屋頂', story:'溫和看漲，而且想要幾乎零成本。辦法是多賣一口。看看最大虧損欄會出現什麼。',
    target:[{t:'LC',K:100},{t:'SC',K:110,q:2}], h1:'從多頭價差出發，然後在高履約價那裡多做一點。', hint:'2 種零件：買 1 口 100 買權、賣 2 口 110 買權。',
    lesson:'比率價差：成本低，但多賣的那一口沒有保護。股價大漲時虧損無上限 ⚠'},
-  {pts:4, adv:true, title:'聖誕樹（買權階梯）', story:'看漲到 100～110 一帶，但不相信會漲更多。用一買兩賣、履約價依序排開。',
+  {pts:3, adv:true, title:'聖誕樹（買權階梯）', story:'看漲到 100～110 一帶，但不相信會漲更多。用一買兩賣、履約價依序排開。',
    target:[{t:'LC',K:90},{t:'SC',K:100},{t:'SC',K:110}], h1:'數數看損益線轉了幾個彎，每個彎是往上還是往下？', hint:'3 片買權：買 90，然後在 100 和 110 各賣一口。',
    lesson:'階梯（Ladder / 聖誕樹）：比多頭價差多收一份權利金，但超過最高履約價後虧損又無上限。'},
-  {pts:4, adv:true, title:'海鷗', story:'你想買多頭價差，但連權利金都不想付，願意承擔下跌的風險來換。',
+  {pts:3, adv:true, title:'海鷗', story:'你想買多頭價差，但連權利金都不想付，願意承擔下跌的風險來換。',
    target:[{t:'SP',K:90},{t:'LC',K:100},{t:'SC',K:120}], h1:'右邊平、中間往上、左邊往下。左邊那段斜線是哪一種零件造成的？', hint:'先拼一個多頭價差（買 100、賣 120 買權），再賣一片 90 賣權來付錢。',
    lesson:'海鷗（Seagull）：三片拼出「左邊斜、中間斜、右邊平」，常見於企業避險。'},
-  {pts:4, adv:true, title:'翡翠蜥蜴', story:'中性偏多：賣一片賣權，再加一個賣出的空頭買權價差，希望上漲時也不太會賠。',
+  {pts:3, adv:true, title:'翡翠蜥蜴', story:'中性偏多：賣一片賣權，再加一個賣出的空頭買權價差，希望上漲時也不太會賠。',
    target:[{t:'SP',K:90},{t:'SC',K:110},{t:'LC',K:120}], h1:'左邊看起來像賣出賣權，右邊像一個被封頂的什麼？', hint:'3 片：賣 90 賣權、賣 110 買權、買 120 買權。',
    lesson:'翡翠蜥蜴（Jade Lizard）：理想上收到的權利金要大於上方價差的寬度（10），才完全沒有上漲風險。這組參數只收到約 2.56，所以右邊還是會賠。看看最大虧損欄。'},
   {pts:2, adv:true, title:'越漲越陡：加速器', story:'你非常看好，希望漲得越多、賺得越快。讓損益線每過一個履約價就更陡一點。',
@@ -358,61 +374,89 @@ const LEVELS = [
   {pts:2, adv:true, title:'越跌越痛', story:'賺權利金的另一面：在三個履約價各賣一口賣權。看看下跌時虧損的速度。',
    target:[{t:'SP',K:90},{t:'SP',K:100},{t:'SP',K:110}], h1:'跟上一關左右相反：越往左，斜率越陡。', hint:'3 片賣權全部賣出：90、100、110 各一口。',
    lesson:'連續賣出賣權，跌得越深虧得越快，斜率一路變成 3。這就是「在推土機前撿硬幣」。'},
-  {pts:4, adv:true, title:'逆比率價差 1×3', story:'你相信會暴漲。先賣一口 100 買權收錢，再拿去買很多口 110 買權。',
+  {pts:3, adv:true, title:'逆比率價差 1×3', story:'你相信會暴漲。先賣一口 100 買權收錢，再拿去買很多口 110 買權。',
    target:[{t:'SC',K:100},{t:'LC',K:110,q:3}], h1:'谷底在 110，之後斜率是 +2。先想想 100 那裡發生了什麼。', hint:'2 種零件：賣 1 口 100 買權、買 3 口 110 買權。',
    lesson:'逆比率價差（Backspread）：小漲最慘，谷底在 110；大漲後斜率是 +2，越漲賺得越快。'},
-  {pts:5, adv:true, title:'拱橋：折線版半圓', story:'用折線拼一個拱形，斜率依序是 0、+2、+1、−1、−2、0。',
+  {pts:3, adv:true, title:'拱橋：折線版半圓', story:'用折線拼一個拱形，斜率依序是 0、+2、+1、−1、−2、0。',
    target:[{t:'LC',K:80,q:2},{t:'SC',K:90},{t:'SC',K:100,q:2},{t:'SC',K:110},{t:'LC',K:120,q:2}], h1:'相鄰兩段的斜率差，就是那個履約價的口數。', hint:'每個履約價的轉彎量就是口數，全用買權：80 買 2、90 賣 1、100 賣 2、110 賣 1、120 買 2。',
    lesson:'越靠近兩端轉彎越急，口數也越多。把履約價間距縮小，就會越來越像半圓（到「畫畫看」驗證）。'},
   {pts:4, adv:true, title:'只掩護一半：斜率 ½', story:'你持有 1 股，只想對一半的部位賣出 100 買權。漲過 100 之後，還保留一半的上漲參與。（＋／− 按鈕每次調整 0.5 口）',
    target:[{t:'LS'},{t:'SC',K:100,q:0.5}], h1:'從斜率 1 降到 ½，在 100 那裡需要做什麼？', hint:'2 片：買進現貨 ×1，賣出 100 買權 ×0.5。',
    lesson:'口數不必是整數。賣出半口買權，斜率就從 1 降成 ½，這就是「部分掩護」：用一半的上漲換權利金。'},
-  {pts:5, adv:true, title:'🎂 兩層蛋糕', story:'拼一個兩層的蛋糕側面：下層寬、上層窄，每層的頂都是平的，側邊盡量陡。（這關多了 85、95、105、115 這幾個履約價）',
+  {pts:4, adv:true, title:'🎂 兩層蛋糕', story:'拼一個兩層的蛋糕側面：下層寬、上層窄，每層的頂都是平的，側邊盡量陡。（這關多了 85、95、105、115 這幾個履約價）',
    target:[{t:'LC',K:80,q:2},{t:'SC',K:85,q:2},{t:'LC',K:90,q:2},{t:'SC',K:95,q:2},{t:'SC',K:105,q:2},{t:'LC',K:110,q:2},{t:'SC',K:115,q:2},{t:'LC',K:120,q:2}], h1:'蛋糕是兩層台階疊起來的。每個台階的邊角，都是損益線轉彎的地方。', hint:'全部用買權，每片 2 口。轉角在 80、85、90、95、105、110、115、120：往上彎就買，往下彎就賣。',
    lesson:'真正垂直的牆拼不出來，只能用更陡的斜率逼近：牆越直，需要的口數越多。這跟「階梯」需要大量數位選擇權是同一個道理。'},
-  {pts:5, adv:true, title:'🎂 真正的蛋糕：數位選擇權', story:'上一關的牆是斜的。這次用新零件「數位買權」：到期時只要股價高於履約價，就一次拿到 10，否則是 0。拼出側邊完全垂直的兩層蛋糕。',
+  {pts:4, adv:true, title:'🎂 真正的蛋糕：數位選擇權', story:'上一關的牆是斜的。這次用新零件「數位買權」：到期時只要股價高於履約價，就一次拿到 10，否則是 0。拼出側邊完全垂直的兩層蛋糕。',
    target:[{t:'LD',K:80},{t:'LD',K:90},{t:'SD',K:110},{t:'SD',K:120}], h1:'數位買權的形狀本身就是一個台階。蛋糕有幾面牆，就需要幾個台階。', hint:'4 片數位買權：左邊兩面牆往上跳（買進），右邊兩面牆往下跳（賣出）。牆在 80、90、110、120。',
    lesson:'數位選擇權就是「台階零件」，用它可以做出折線做不到的垂直牆。反過來看，一個台階用普通買權去逼近時，就是把價差夾得極窄、口數放得極大：所以數位選擇權在到期前、股價貼近履約價時非常難避險。'},
-  {pts:5, adv:true, title:'⚠️ TRF：看起來不用錢的陷阱', story:'銀行的推銷話術：「看對就賺 1 倍，賺到目標自動出場，而且不用付權利金。」沒說的是：看錯時要賠 2 倍。拼出 TRF 單一結算期的形狀。',
+  {pts:4, adv:true, title:'⚠️ TRF：看起來不用錢的陷阱', story:'銀行的推銷話術：「看對就賺 1 倍，賺到目標自動出場，而且不用付權利金。」沒說的是：看錯時要賠 2 倍。拼出 TRF 單一結算期的形狀。',
    target:[{t:'LC',K:100},{t:'SP',K:100,q:2},{t:'SC',K:110}], h1:'左右兩邊的斜率不一樣：看對時斜率 1，看錯時斜率 2，而且賺到一定程度後線就平了。', hint:'3 種零件，履約價只有 100 和 110：用買權拿上漲、用「加倍」的賣權換掉權利金，再賣一片 110 買權把獲利封頂。',
    lesson:'TRF（目標可贖回遠期）：獲利被封頂、虧損加倍而且沒有下限，看最大獲利和最大虧損欄就知道多不對稱。真實的 TRF 有很多個結算期，賺到目標就提早出場，賠錢時卻要一路賠到到期，所以實際風險比這張圖還大。2015～2016 年人民幣走貶時，台灣有許多企業和個人因此鉅額虧損。'},
   {pts:4, adv:true, cal:true, title:'📅 時間價差：賺時間流逝的速度差', story:'從這關開始，每片選擇權都可以選「近月」（3 個月）或「遠月」（6 個月）到期。你認為接下來 3 個月股價會停在 100 附近：近月選擇權的時間價值流失得比遠月快，賣近月、買遠月，賺這個速度差。圖上是近月到期那天的損益。',
    target:[{t:'SC',K:100},{t:'LC',K:100,m:'far'}], h1:'兩片都是 100 的買權，差別只在到期日。快到期、時間價值流失得快的那片，你想當買方還是賣方？', hint:'2 片，都是 100 買權：賣出近月、買進遠月（在拼盤裡用下拉選單切換到期日）。',
    lesson:'時間價差（Calendar Spread）：淨付約 2.06。近月到期時股價剛好在 100，近月那片歸零，遠月那片還值約 4.98，賺約 2.92；股價跑得越遠，兩片價值越接近，最多賠掉 2.06。線是彎的，因為遠月那片還有時間價值。'},
-  {pts:3, adv:true, cal:true, title:'📅 時間價差（禁用買權）', story:'同一個時間價差的形狀，這次不准用買權。',
+  {pts:2, adv:true, cal:true, title:'📅 時間價差（禁用買權）', story:'同一個時間價差的形狀，這次不准用買權。',
    target:[{t:'SC',K:100},{t:'LC',K:100,m:'far'}], answer:[{t:'SP',K:100},{t:'LP',K:100,m:'far'}], banned:['LC','SC'], h1:'回想第 5 關的買賣權等價：同履約價、同到期日的買權和賣權，只差「現貨 − 履約價」。', hint:'2 片，都是 100 賣權：賣出近月、買進遠月。',
    lesson:'利率 0 時，買權 − 賣權 = 現貨 − 履約價，跟到期日無關。把兩片買權換成同履約價的賣權，「現貨 − 履約價」那部分一買一賣剛好抵銷，所以損益完全一樣。'},
-  {pts:4, adv:true, cal:true, title:'📅 對角價差', story:'溫和看漲：想持有一片長天期的買權，同時賣出較高履約價的近月買權來收租。',
+  {pts:3, adv:true, cal:true, title:'📅 對角價差', story:'溫和看漲：想持有一片長天期的買權，同時賣出較高履約價的近月買權來收租。',
    target:[{t:'SC',K:110},{t:'LC',K:100,m:'far'}], h1:'跟時間價差一樣是賣近月、買遠月，但兩片的履約價不一樣。', hint:'2 片買權：賣出近月 110、買進遠月 100。',
    lesson:'對角價差（Diagonal Spread）：淨付約 5.36。近月到期時股價在 110 附近最好（約賺 6.3），大跌最多賠掉 5.36。它像會自己收租的多頭價差，也叫「窮人的掩護性買權」（Poor Man\'s Covered Call）：用遠月買權代替股票，成本低很多。'},
-  {pts:4, adv:true, cal:true, title:'📅 雙時間價差', story:'你認為股價會在 90～110 之間盤整，但不確定停在哪裡。在兩個履約價各做一個時間價差。',
+  {pts:3, adv:true, cal:true, title:'📅 雙時間價差', story:'你認為股價會在 90～110 之間盤整，但不確定停在哪裡。在兩個履約價各做一個時間價差。',
    target:[{t:'SP',K:90},{t:'LP',K:90,m:'far'},{t:'SC',K:110},{t:'LC',K:110,m:'far'}], h1:'把它拆成左右兩個熟悉的形狀。各自的高點在哪個履約價？', hint:'4 片：90 用賣權、110 用買權，各自賣出近月、買進遠月。',
    lesson:'雙時間價差（Double Calendar）：兩個時間價差並排，獲利區比單一時間價差寬。下方用賣權、上方用買權是實務習慣（價外選擇權流動性較好）；由上上關可知，換成另一種損益也一樣。'},
-  {pts:2, title:'畫畫看：任意形狀', draw:true,
+  // ── 結構型商品：股票／債券＋選擇權（利率 10%）。key 是成績儲存用的固定編號，插在中間也不會影響舊紀錄 ──
+  {key:29, pts:2, adv:true, r:0.10, title:'📦 掩護性買權：股票＋賣出買權', story:'從這章開始，利率是 10%，零件盒多了「零息債券」。你手上有一股股票，覺得短期漲不過 110，想賣一片買權收租金。',
+   target:[{t:'LS'},{t:'SC',K:110}], h1:'先放股票，再想想：要「收」權利金，是買還是賣？', hint:'2 片：買進現貨，再賣出一片 110 買權。',
+   lesson:'掩護性買權（Covered Call）：收到約 2.32 的權利金，損益兩平點降到約 97.68；代價是漲過 110 的部分讓給別人，最大獲利約 12.32。下跌的風險幾乎全部還在。'},
+  {key:30, pts:2, adv:true, r:0.10, title:'📦 保護性賣權：股票＋買保險', story:'你持有股票，擔心大跌，願意付一點保險費：股價跌破 90 的損失由別人吸收。',
+   target:[{t:'LS'},{t:'LP',K:90}], h1:'哪一片零件在下跌時賺錢、可以抵銷股票的虧損？', hint:'2 片：買進現貨，再買進一片 90 賣權。',
+   lesson:'保護性賣權（Protective Put）：付約 0.90 的保險費，最大虧損被鎖在約 10.90；上漲照樣全賺，只是損益兩平點變成約 100.90。'},
+  {key:31, pts:2, adv:true, r:0.10, title:'📦 利率不是 0：合成現貨要補債券', story:'第 5 關用「買權 − 賣權」拼出現貨。現在利率 10%，同一招還行得通嗎？不准用現貨。',
+   target:[{t:'LS'}], answer:[{t:'LC',K:100},{t:'SP',K:100},{t:'LB',K:100}], banned:['LS','SS'], h1:'先照第 5 關拼一次，看看合計線和目標差多少：差距是一條水平線。', hint:'買進 100 買權、賣出 100 賣權之後，再買一張面額 100 的零息債券，把線往上平移。',
+   lesson:'買權 − 賣權 = 現貨 − K·e^(−rT)。「買權 − 賣權」等於借錢買股票（到期要還 100），所以要補一張面額 100 的債券才等於真正付現買股。差距就是利息：100 − 97.53 = 2.47。利率 0 時兩者剛好一樣，所以前面的關卡不需要債券。'},
+  {key:32, pts:2, adv:true, r:0.10, title:'📦 保護性賣權 = 買權＋債券', story:'目標是「股票＋100 賣權」的形狀。不准用現貨，也不准用賣權。',
+   target:[{t:'LS'},{t:'LP',K:100}], answer:[{t:'LC',K:100},{t:'LB',K:100}], banned:['LS','SS','LP','SP'], h1:'目標的形狀：左邊平、右邊斜。左邊那條平線，可以用哪一種零件墊出來？', hint:'2 片：買進 100 買權，再買一張面額 100 的零息債券。',
+   lesson:'買賣權等價的另一種寫法：股票 + 賣權 = 買權 + K·e^(−rT)。右邊叫信託買權（Fiduciary Call）：債券保住 100，買權負責上漲。兩邊今天的成本都是約 103.79，到期報酬也一樣。'},
+  {key:33, pts:3, adv:true, r:0.10, title:'📦 保本型商品（PPN）', story:'銀行推出 3 個月期的保本商品：投入 100，到期保證拿回本金，而且股價漲過 110 的部分全部給你。用債券和選擇權把它做出來，看看銀行怎麼辦到。',
+   target:[{t:'LB',K:100},{t:'LC',K:110}], h1:'「保證拿回 100」要用哪一種零件？買完它之後，100 元還剩多少可以花？', hint:'買一張面額 100 的零息債券（今天 97.53），剩下約 2.47 剛好夠買一片 110 買權（2.32）。',
+   lesson:'保本型商品 = 零息債券 + 買權。債券的利息就是買選擇權的預算：利率越低、期限越短，買得起的選擇權越少，參與率就越低。剩下的約 0.15 是發行機構的利潤。「保本」的前提是發行機構不倒：2008 年雷曼兄弟破產，台灣許多連動債投資人的本金就拿不回來。'},
+  {key:27, pts:2, title:'畫畫看：任意形狀', draw:true,
    story:'在圖上按住拖曳，畫出你想要的「到期報酬」形狀，程式會反推需要哪些選擇權。試試半圓：看看兩端的口數會發生什麼事。',
    target:null, hint:'規則只有一條：線在某個履約價轉彎多少，就要在那裡買（往上彎）或賣（往下彎）多少口。半圓越靠近邊緣越陡，所以口數會暴增。'},
-  {pts:2, title:'自由模式', cal:true, story:'沒有目標，隨意組合，看看你能拼出什麼形狀。選擇權可以切換近月／遠月；拼出著名組合時，下方會顯示它的名字。', target:null, hint:'試試看：只用賣權能不能拼出多頭價差？', lesson:''},
+  {key:28, pts:2, title:'自由模式', cal:true, r:0.10, story:'沒有目標，隨意組合，看看你能拼出什麼形狀。選擇權可以切換近月／遠月，也可以加零息債券；拼出著名組合時，下方會顯示它的名字。', target:null, hint:'試試看：只用賣權能不能拼出多頭價差？', lesson:''},
 ];
+LEVELS.forEach((L,i)=>{ if (L.key==null) L.key = i; });
+const IDX = {}; LEVELS.forEach((L,i)=>IDX[L.key] = i);
+// 伺服器上的成績以 key 為索引；程式內部用畫面上的關卡順序
+const toKeyed = b => Object.fromEntries(Object.entries(b).map(([i,v])=>[LEVELS[i].key, v]));
+const keyedPts = () => { const a = []; LEVELS.forEach(L=>a[L.key] = L.pts||0); return Array.from(a, v=>v||0); };
 
 let lv = 0, board = [], solved = new Set(), uid = 0, hintsUsed = 0, scored = false;
 let best = {};
 // 成績由伺服器提供（見 /static/optpuzzle-session.js）
-best = Object.assign({}, window.OPT_INIT_BEST || {}); Object.keys(best).forEach(k=>solved.add(+k));
+Object.entries(window.OPT_INIT_BEST || {}).forEach(([k,v])=>{ if (IDX[k]!=null) best[IDX[k]] = v; });
+Object.keys(best).forEach(k=>solved.add(+k));
 
 const $ = id => document.getElementById(id);
 const BASE_TIP = $('trayTip').innerHTML, CAL_TIP = "現價 S₀ = 100　波動率 25%　利率 0<br><b>近月</b> 3 個月、<b>遠月</b> 6 個月到期。圖上是<b>近月到期那天</b>的損益；遠月那片還沒到期，用 Black-Scholes 估當天價值（假設波動率不變）。";
 
+function tipFor(L){
+  const pct = Math.round((L.r||0)*100) + '%';
+  let tip = (L.cal ? CAL_TIP : BASE_TIP).replace('利率 0', L.r ? `<b>無風險利率 ${pct}</b>` : '利率 0');
+  if (L.r) tip += `<br><b>零息債券</b>：今天付 面額 × e<sup>−rT</sup>（面額 100 → ${bondPx(100).toFixed(2)}），${L.cal?'近月':''}到期拿回面額，賺的就是利息。利率刻意調高，讓差距看得見。`;
+  return tip;
+}
 function miniSVG(t){
   const p = {t, K:100}, pts=[];
   const vals=[]; for(let S=70;S<=130;S+=2) vals.push(pnl(p,S));
-  const m = Math.max(...vals.map(Math.abs));
+  const m = Math.max(...vals.map(Math.abs)) || 1;
   vals.forEach((v,i)=>pts.push(`${(i/(vals.length-1))*100},${19 - v/m*15}`));
   return `<svg viewBox="0 0 100 38" preserveAspectRatio="none"><line x1="0" y1="19" x2="100" y2="19" stroke="#ddd" stroke-width="1"/><polyline points="${pts.join(' ')}" fill="none" stroke="currentColor" stroke-width="3" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>`;
 }
 
 function renderTray(){
   const banned = LEVELS[lv].banned || [];
-  $('tray').innerHTML = ORDER.map(t=>{
+  $('tray').innerHTML = ORDER.filter(t=>TYPES[t].kind!=='bond' || R>0).map(t=>{
     const d = TYPES[t], b = banned.includes(t);
     return `<div class="piece ${d.cls} ${b?'banned':''}" draggable="${!b}" data-t="${t}"><div class="nm">${d.nm}</div><div class="en">${d.en}</div>${miniSVG(t)}</div>`;
   }).join('');
@@ -436,7 +480,7 @@ function renderBoard(){
   d.innerHTML = board.map(p=>{
     const ty = TYPES[p.t];
     const strike = ty.kind==='stock' ? '' :
-      `<select data-id="${p.id}">${STRIKES.map(k=>`<option ${k===p.K?'selected':''}>${k}</option>`).join('')}</select>`;
+      `${ty.kind==='bond'?'面額 ':''}<select data-id="${p.id}">${STRIKES.map(k=>`<option ${k===p.K?'selected':''}>${k}</option>`).join('')}</select>`;
     const mat = (LEVELS[lv].cal && (ty.kind==='call'||ty.kind==='put')) ?
       `<select data-mid="${p.id}"><option value="near" ${p.m!=='far'?'selected':''}>近月</option><option value="far" ${p.m==='far'?'selected':''}>遠月</option></select>` : '';
     const prem = ty.kind==='stock' ? `成本 ${S0}` :
@@ -487,7 +531,7 @@ function renderChart(){
   });
   g += `<text x="${W-R}" y="${H-4}" text-anchor="end" font-size="11" fill="#8a8f99">${LEVELS[lv].cal ? '近月到期時的股價 →' : '到期股價 →'}</text>`;
   g += `<text x="${L}" y="${H-4}" font-size="11" fill="#8a8f99">${XMIN}</text>`;
-  const colors = {call:'#9db8e8', put:'#e8a993', stock:'#94cfae', digital:'#c3a6ec'};
+  const colors = {call:'#9db8e8', put:'#e8a993', stock:'#94cfae', digital:'#c3a6ec', bond:'#e0c27a'};
   pieceV.forEach((arr,i)=>{ g += `<path d="${path(arr)}" fill="none" stroke="${colors[TYPES[board[i].t].kind]}" stroke-width="2" opacity=".75"/>`; });
   if (tgtV) g += `<path d="${path(tgtV)}" fill="none" stroke="var(--target)" stroke-width="7" stroke-dasharray="10 8" stroke-linecap="round" opacity=".55"/>`;
   if (board.length) g += `<path d="${path(sumV)}" fill="none" stroke="${isSolved()?'var(--ok)':'var(--sum)'}" stroke-width="3.2" stroke-linejoin="round"/>`;
@@ -524,7 +568,7 @@ function renderStats(){
 const MAXPTS = 3;
 const stars = n => '★'.repeat(n) + '☆'.repeat(MAXPTS-n);
 function answerText(L){
-  return (L.answer||L.target).map(p=>{ const t=TYPES[p.t]; return `${t.nm}${t.kind==='stock'?'':' '+p.K}${L.cal&&(t.kind==='call'||t.kind==='put') ? (p.m==='far'?' 遠月':' 近月') : ''} ×${p.q||1}`; }).join('、');
+  return (L.answer||L.target).map(p=>{ const t=TYPES[p.t]; return `${t.nm}${t.kind==='stock'?'':t.kind==='bond'?' 面額 '+p.K:' '+p.K}${L.cal&&(t.kind==='call'||t.kind==='put') ? (p.m==='far'?' 遠月':' 近月') : ''} ×${p.q||1}`; }).join('、');
 }
 function renderHints(){
   const L = LEVELS[lv], btn = $('hintBtn');
@@ -539,7 +583,7 @@ function renderHints(){
 const lvPts = (i, st) => LEVELS[i] ? Math.round((LEVELS[i].pts||0) * Math.min(st, MAXPTS) / MAXPTS) : 0;
 const MAX_TOTAL = LEVELS.reduce((a,x)=>a+(x.pts||0), 0);
 function totalScore(){ return Object.entries(best).reduce((a,[i,v])=>a+lvPts(+i, v), 0); }
-function saveScore(){ if (window.optOnScore) window.optOnScore(best, totalScore(), MAX_TOTAL, LEVELS.map(x=>x.pts||0)); }
+function saveScore(){ if (window.optOnScore) window.optOnScore(toKeyed(best), totalScore(), MAX_TOTAL, keyedPts()); }
 function awardTry(){
   if (solved.has(lv)) return;
   best[lv] = MAXPTS; solved.add(lv); saveScore(); renderLevelHead();
@@ -592,7 +636,8 @@ function goLevel(i){
   $('legend').innerHTML = dm
     ? '<span><i style="border-color:var(--target);border-top-style:dashed"></i>你畫的線</span><span><i style="border-color:var(--sum)"></i>選擇權組合的到期報酬</span><span><i style="border-color:#c9ccd3;border-top-width:2px"></i>履約價</span>'
     : '<span><i style="border-color:var(--target);border-top-style:dashed"></i>目標形狀</span><span><i style="border-color:var(--sum)"></i>你拼出來的合計</span><span><i style="border-color:#c9ccd3;border-top-width:2px"></i>各零件（疊加前）</span>';
-  $('trayTip').innerHTML = LEVELS[lv].cal ? CAL_TIP : BASE_TIP;
+  R = LEVELS[lv].r || 0;
+  $('trayTip').innerHTML = tipFor(LEVELS[lv]);
   renderLevelHead(); renderTray(); update();
 }
 
